@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}简历工作台{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">简历工作台 <span>LOCAL</span></a>
+    <nav>
+      <a href="/">概览</a><a href="/profile">个人资料</a><a href="/experiences">经历</a><a href="/education">教育</a><a href="/skills">技能</a><a href="/targets">岗位</a>
+    </nav>
+  </header>
+  <main class="shell">{% block content %}{% endblock %}</main>
+</body>
+</html>
+
