@@ -4,9 +4,11 @@ __pycache__/
 .venv/
 data/*.db
 data/*.db-*
+data/attachments/
 web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo
 attachments/
 exports/
+data/logs/
 .DS_Store

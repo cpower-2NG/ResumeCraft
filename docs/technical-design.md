@@ -483,8 +483,11 @@ API 使用资源化 JSON 接口。具体字段以功能设计书和领域模型�
 | 资源 | 主要接口 | 用途 |
 | --- | --- | --- |
 | facts | `GET/POST/PATCH /api/facts` | 事实资料查询和维护 |
+| deletion | `DELETE /api/facts/{id}`、`DELETE /api/requirement-profiles/{id}`、`DELETE /api/resumes/{id}` | 无历史引用时永久删除，否则移入回收站 |
+| recovery | `POST /api/{resource}/{id}/restore` | 恢复进入回收站的资料、画像或正式简历 |
 | fact audits | `GET /api/facts/{id}/audits` | 查看事实修改记录 |
 | evidence | `GET/POST/PATCH /api/evidence` | 证据上传、链接、说明和归档；不提供物理删除 |
+| fact evidence | `GET /api/facts/{id}/evidence`、`POST /api/evidence`、`POST /api/evidence/upload` | 查询、添加链接和上传事实证据 |
 | profiles | `GET/POST/PATCH /api/requirement-profiles` | 需求画像管理 |
 | opportunities | `GET/POST/PATCH /api/opportunities` | 招聘机会来源管理 |
 | linked resumes | `GET/POST/PATCH /api/linked-resumes` | 临时联动简历和选择状态 |

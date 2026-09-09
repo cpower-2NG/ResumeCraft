@@ -43,5 +43,19 @@ def test_conversion_save_restore_and_source_alert():
     restored = client.get(f"/api/resumes/{resume_id}").json()
     assert restored["working_copy"]["dirty"] is True
     client.patch(f"/api/facts/{fact['id']}", json={"category":"experience","title":"项目 A","content":{"summary":"更新后的事实"}})
-    assert client.get("/api/pending-items").json()[0]["resume_id"] == resume_id
+    pending = client.get("/api/pending-items").json()[0]
+    assert pending["resume_id"] == resume_id
+    assert pending["affected"] == [{"section_id": "experience", "block_id": f"fact-{fact['id']}"}]
+    assert client.delete(f"/api/facts/{fact['id']}").json()["mode"] == "recycled"
+    app.dependency_overrides.clear()
+
+
+def test_evidence_and_unreferenced_fact_deletion():
+    client = make_client()
+    fact = client.post("/api/facts", json={"category":"skills", "title":"Python", "content":{"summary":"数据处理"}}).json()
+    evidence = client.post("/api/evidence", json={"fact_id":fact["id"], "title":"作品链接", "url":"https://example.com/project", "note":"验证材料"})
+    assert evidence.status_code == 201
+    assert client.get(f"/api/facts/{fact['id']}/evidence").json()[0]["title"] == "作品链接"
+    assert client.delete(f"/api/facts/{fact['id']}").json()["mode"] == "permanent"
+    assert client.get(f"/api/facts/{fact['id']}").status_code == 404
     app.dependency_overrides.clear()

@@ -1,21 +1,27 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .services import build_resume_content, content_hash, dump, identity_key, json_value, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .services import build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
 from .workbench_database import get_db
-from .workbench_models import FactAudit, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
+from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
 
 app = FastAPI(title="简历工作台 API", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["*"], allow_headers=["*"])
 WORKSPACE_ID = 1
+ATTACHMENTS_DIR = Path(__file__).resolve().parents[1] / "data" / "attachments"
+MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
+ALLOWED_EVIDENCE_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
 
 
 class FactInput(BaseModel):
@@ -58,6 +64,13 @@ class SaveInput(BaseModel):
     change_summary: str = "用户保存"
 
 
+class EvidenceInput(BaseModel):
+    fact_id: int
+    title: str
+    url: str
+    note: str = ""
+
+
 def require_workspace(db: Session):
     if not db.get(Workspace, WORKSPACE_ID):
         raise HTTPException(503, "数据库尚未初始化，请先运行数据库迁移和原型资料导入。")
@@ -68,6 +81,18 @@ def get_or_404(db: Session, model, item_id: int):
     if not item:
         raise HTTPException(404, "对象不存在")
     return item
+
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def fact_response(db: Session, item: FactRecord) -> dict:
+    return {**serialize_fact(item), "evidence_count": evidence_count(db, item.id)}
+
+
+def evidence_response(item: Evidence) -> dict:
+    return {"id": item.id, "kind": item.kind, "title": item.title, "url": item.url, "filename": item.filename, "mime_type": item.mime_type, "size_bytes": item.size_bytes, "note": item.note, "status": item.status, "created_at": item.created_at}
 
 
 @app.get("/api/health")
@@ -88,16 +113,22 @@ def overview(db: Session = Depends(get_db)):
 def pending_items(db: Session = Depends(get_db)):
     require_workspace(db)
     items = db.scalars(select(PendingItem).where(PendingItem.workspace_id == WORKSPACE_ID, PendingItem.status == "open").order_by(PendingItem.created_at.desc())).all()
-    return [{"id": item.id, "resume_id": item.resume_identity_id, "fact_id": item.fact_id, "message": item.message, "kind": item.kind, "created_at": item.created_at} for item in items]
+    result = []
+    for item in items:
+        fact = db.get(FactRecord, item.fact_id)
+        affected = db.scalars(select(ResumeFactReference).where(ResumeFactReference.resume_identity_id == item.resume_identity_id, ResumeFactReference.fact_id == item.fact_id)).all()
+        result.append({"id": item.id, "resume_id": item.resume_identity_id, "fact_id": item.fact_id, "message": item.message, "kind": item.kind, "created_at": item.created_at, "fact_snapshot": fact_response(db, fact) if fact else None, "affected": [{"section_id": ref.section_id, "block_id": ref.block_id} for ref in affected]})
+    return result
 
 
 @app.get("/api/facts")
-def list_facts(category: str | None = None, q: str | None = None, db: Session = Depends(get_db)):
+def list_facts(category: str | None = None, q: str | None = None, include_recycled: bool = False, db: Session = Depends(get_db)):
     require_workspace(db)
     query = select(FactRecord).where(FactRecord.workspace_id == WORKSPACE_ID)
+    if not include_recycled: query = query.where(FactRecord.status == "active")
     if category: query = query.where(FactRecord.category == category)
     if q: query = query.where(FactRecord.title.contains(q))
-    return [serialize_fact(item) for item in db.scalars(query.order_by(FactRecord.updated_at.desc())).all()]
+    return [fact_response(db, item) for item in db.scalars(query.order_by(FactRecord.updated_at.desc())).all()]
 
 
 @app.post("/api/facts", status_code=201)
@@ -108,13 +139,13 @@ def create_fact(payload: FactInput, db: Session = Depends(get_db)):
     db.add(item); db.flush()
     db.add(FactAudit(workspace_id=WORKSPACE_ID, fact_id=item.id, action="created", summary="创建事实资料", after_content=item.content))
     db.commit(); db.refresh(item)
-    return serialize_fact(item)
+    return fact_response(db, item)
 
 
 @app.get("/api/facts/{fact_id}")
 def get_fact(fact_id: int, db: Session = Depends(get_db)):
     require_workspace(db)
-    return serialize_fact(get_or_404(db, FactRecord, fact_id))
+    return fact_response(db, get_or_404(db, FactRecord, fact_id))
 
 
 @app.patch("/api/facts/{fact_id}")
@@ -128,13 +159,70 @@ def update_fact(fact_id: int, payload: FactInput, db: Session = Depends(get_db))
         exists = db.scalar(select(PendingItem.id).where(PendingItem.resume_identity_id == ref.resume_identity_id, PendingItem.fact_id == item.id, PendingItem.status == "open"))
         if not exists: db.add(PendingItem(workspace_id=WORKSPACE_ID, resume_identity_id=ref.resume_identity_id, fact_id=item.id, message=f"来源资料“{item.title}”已更新", kind="source_changed"))
     db.commit(); db.refresh(item)
-    return serialize_fact(item)
+    return fact_response(db, item)
 
 
 @app.get("/api/facts/{fact_id}/audits")
 def fact_audits(fact_id: int, db: Session = Depends(get_db)):
     require_workspace(db)
     return [{"id": item.id, "action": item.action, "summary": item.summary, "created_at": item.created_at} for item in db.scalars(select(FactAudit).where(FactAudit.fact_id == fact_id).order_by(FactAudit.created_at.desc())).all()]
+
+
+@app.delete("/api/facts/{fact_id}")
+def delete_fact(fact_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, FactRecord, fact_id)
+    referenced = db.scalar(select(func.count()).select_from(ResumeFactReference).where(ResumeFactReference.fact_id == item.id)) or 0
+    if referenced:
+        item.status, item.deleted_at = "recycled", now_utc()
+        db.add(FactAudit(workspace_id=WORKSPACE_ID, fact_id=item.id, action="recycled", summary="已移入回收站；正式简历历史仍可追溯", after_content=item.content))
+        for ref in db.scalars(select(ResumeFactReference).where(ResumeFactReference.fact_id == item.id)).all():
+            exists = db.scalar(select(PendingItem.id).where(PendingItem.resume_identity_id == ref.resume_identity_id, PendingItem.fact_id == item.id, PendingItem.status == "open"))
+            if not exists: db.add(PendingItem(workspace_id=WORKSPACE_ID, resume_identity_id=ref.resume_identity_id, fact_id=item.id, message=f"来源资料“{item.title}”已移入回收站", kind="source_recycled"))
+        db.commit(); return {"mode": "recycled"}
+    db.query(FactEvidence).filter(FactEvidence.fact_id == item.id).delete()
+    db.query(FactAudit).filter(FactAudit.fact_id == item.id).delete()
+    db.delete(item); db.commit(); return {"mode": "permanent"}
+
+
+@app.post("/api/facts/{fact_id}/restore")
+def restore_fact(fact_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, FactRecord, fact_id)
+    item.status, item.deleted_at = "active", None
+    db.add(FactAudit(workspace_id=WORKSPACE_ID, fact_id=item.id, action="restored", summary="从回收站恢复", after_content=item.content))
+    db.commit(); return fact_response(db, item)
+
+
+@app.get("/api/facts/{fact_id}/evidence")
+def list_fact_evidence(fact_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); get_or_404(db, FactRecord, fact_id)
+    return [evidence_response(item) for item in db.scalars(select(Evidence).join(FactEvidence).where(FactEvidence.fact_id == fact_id).order_by(Evidence.created_at.desc())).all()]
+
+
+@app.post("/api/evidence", status_code=201)
+def create_link_evidence(payload: EvidenceInput, db: Session = Depends(get_db)):
+    require_workspace(db); get_or_404(db, FactRecord, payload.fact_id)
+    if not payload.url.startswith(("https://", "http://")): raise HTTPException(422, "证据链接必须以 http:// 或 https:// 开头")
+    item = Evidence(workspace_id=WORKSPACE_ID, kind="link", title=payload.title.strip() or payload.url, url=payload.url.strip(), note=payload.note.strip())
+    db.add(item); db.flush(); db.add(FactEvidence(fact_id=payload.fact_id, evidence_id=item.id)); db.commit(); return evidence_response(item)
+
+
+@app.post("/api/evidence/upload", status_code=201)
+async def upload_evidence(fact_id: int = Form(...), title: str = Form(""), note: str = Form(""), file: UploadFile = File(...), db: Session = Depends(get_db)):
+    require_workspace(db); get_or_404(db, FactRecord, fact_id)
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_EVIDENCE_SUFFIXES: raise HTTPException(422, "仅支持 PDF、PNG、JPEG 和 WEBP 证据文件")
+    body = await file.read()
+    if not body or len(body) > MAX_EVIDENCE_SIZE: raise HTTPException(422, "证据文件不能为空且不能超过 10 MB")
+    checksum = hashlib.sha256(body).hexdigest(); ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    storage_key = f"{checksum}{suffix}"; path = ATTACHMENTS_DIR / storage_key
+    if not path.exists(): path.write_bytes(body)
+    item = Evidence(workspace_id=WORKSPACE_ID, kind="file", title=title.strip() or file.filename or "证据文件", storage_key=storage_key, filename=file.filename or storage_key, mime_type=file.content_type or "", size_bytes=len(body), checksum=checksum, note=note.strip())
+    db.add(item); db.flush(); db.add(FactEvidence(fact_id=fact_id, evidence_id=item.id)); db.commit(); return evidence_response(item)
+
+
+@app.delete("/api/evidence/{evidence_id}")
+def archive_evidence(evidence_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, Evidence, evidence_id); item.status = "recycled"; db.commit(); return {"mode": "recycled"}
 
 
 def set_profile(payload: ProfileInput, db: Session, item: RequirementProfile | None = None):
@@ -147,9 +235,11 @@ def set_profile(payload: ProfileInput, db: Session, item: RequirementProfile | N
 
 
 @app.get("/api/requirement-profiles")
-def list_profiles(db: Session = Depends(get_db)):
+def list_profiles(include_recycled: bool = False, db: Session = Depends(get_db)):
     require_workspace(db)
-    return [serialize_profile(item) for item in db.scalars(select(RequirementProfile).where(RequirementProfile.workspace_id == WORKSPACE_ID).order_by(RequirementProfile.updated_at.desc())).all()]
+    query = select(RequirementProfile).where(RequirementProfile.workspace_id == WORKSPACE_ID)
+    if not include_recycled: query = query.where(RequirementProfile.status == "active")
+    return [serialize_profile(item) for item in db.scalars(query.order_by(RequirementProfile.updated_at.desc())).all()]
 
 
 @app.post("/api/requirement-profiles", status_code=201)
@@ -165,6 +255,22 @@ def get_profile(profile_id: int, db: Session = Depends(get_db)):
 @app.patch("/api/requirement-profiles/{profile_id}")
 def update_profile(profile_id: int, payload: ProfileInput, db: Session = Depends(get_db)):
     require_workspace(db); item = set_profile(payload, db, get_or_404(db, RequirementProfile, profile_id)); db.commit(); db.refresh(item); return serialize_profile(item)
+
+
+@app.delete("/api/requirement-profiles/{profile_id}")
+def delete_profile(profile_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, RequirementProfile, profile_id)
+    has_resume = db.scalar(select(func.count()).select_from(ResumeIdentity).where(ResumeIdentity.requirement_profile_id == item.id)) or 0
+    if has_resume:
+        item.status, item.deleted_at = "recycled", now_utc(); db.commit(); return {"mode": "recycled"}
+    db.query(LinkedResume).filter(LinkedResume.requirement_profile_id == item.id).delete()
+    db.query(JobOpportunity).filter(JobOpportunity.requirement_profile_id == item.id).delete()
+    db.delete(item); db.commit(); return {"mode": "permanent"}
+
+
+@app.post("/api/requirement-profiles/{profile_id}/restore")
+def restore_profile(profile_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, RequirementProfile, profile_id); item.status, item.deleted_at = "active", None; db.commit(); return serialize_profile(item)
 
 
 @app.get("/api/requirement-profiles/{profile_id}/opportunities")
@@ -235,6 +341,18 @@ def resume_row(db: Session, item: ResumeIdentity) -> dict:
 def list_resumes(db: Session = Depends(get_db)):
     require_workspace(db)
     return [resume_row(db, item) for item in db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active").order_by(ResumeIdentity.updated_at.desc())).all()]
+
+
+@app.delete("/api/resumes/{resume_id}")
+def delete_resume(resume_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, ResumeIdentity, resume_id)
+    # A formal resume always owns immutable versions, so it is recovered through the recycle bin.
+    item.status, item.deleted_at = "recycled", now_utc(); db.commit(); return {"mode": "recycled"}
+
+
+@app.post("/api/resumes/{resume_id}/restore")
+def restore_resume(resume_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, ResumeIdentity, resume_id); item.status, item.deleted_at = "active", None; db.commit(); return resume_row(db, item)
 
 
 @app.get("/api/resumes/{resume_id}")

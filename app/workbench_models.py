@@ -37,6 +37,7 @@ class FactRecord(WorkbenchBase):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     status: Mapped[str] = mapped_column(String(30), default="active")
     source_note: Mapped[str] = mapped_column(Text, default="")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -66,6 +67,8 @@ class RequirementProfile(WorkbenchBase):
     raw_jd: Mapped[str] = mapped_column(Text, default="")
     source_note: Mapped[str] = mapped_column(Text, default="")
     identity_key: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(30), default="active")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
     __table_args__ = (UniqueConstraint("workspace_id", "identity_key", name="uq_profile_identity_key"),)
@@ -126,6 +129,7 @@ class ResumeIdentity(WorkbenchBase):
     display_name: Mapped[str] = mapped_column(String(240))
     current_version_id: Mapped[int | None] = mapped_column(ForeignKey("resume_versions.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="active")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
     __table_args__ = (UniqueConstraint("workspace_id", "identity_key", name="uq_resume_identity_key"), UniqueConstraint("workspace_id", "requirement_profile_id", name="uq_resume_per_profile"))
@@ -165,6 +169,32 @@ class ResumeFactReference(WorkbenchBase):
     section_id: Mapped[str] = mapped_column(String(100))
     block_id: Mapped[str] = mapped_column(String(100))
     __table_args__ = (UniqueConstraint("resume_identity_id", "fact_id", "section_id", "block_id", name="uq_resume_fact_ref"),)
+
+
+class Evidence(WorkbenchBase):
+    __tablename__ = "evidence"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(250))
+    url: Mapped[str] = mapped_column(Text, default="")
+    storage_key: Mapped[str] = mapped_column(Text, default="")
+    filename: Mapped[str] = mapped_column(String(250), default="")
+    mime_type: Mapped[str] = mapped_column(String(120), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    checksum: Mapped[str] = mapped_column(String(64), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class FactEvidence(WorkbenchBase):
+    __tablename__ = "fact_evidence"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), index=True)
+    evidence_id: Mapped[int] = mapped_column(ForeignKey("evidence.id"), index=True)
+    __table_args__ = (UniqueConstraint("fact_id", "evidence_id", name="uq_fact_evidence"),)
 
 
 class PendingItem(WorkbenchBase):
