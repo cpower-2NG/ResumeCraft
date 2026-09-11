@@ -1,4 +1,4 @@
-"""Create the initial resume workbench schema."""
+"""Create the initial ResumeCraft schema."""
 
 from alembic import op
 

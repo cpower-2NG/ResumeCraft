@@ -64,7 +64,7 @@ Set-Location $root
 # A complete running workbench needs both the SPA and its API. Do this before
 # any setup work so a second launch only opens the existing application.
 if ((Test-Url $webUrl) -and (Test-Url $backendUrl)) {
-    Write-Host "Resume Workbench is already running at $webUrl"
+    Write-Host "ResumeCraft is already running at $webUrl"
     if (-not $NoBrowser) {
         Start-Process $webUrl
     }
@@ -127,7 +127,7 @@ if (-not (Test-Url $webUrl)) {
     Wait-ForUrl $webUrl "Web application"
 }
 
-Write-Host "Resume Workbench is running at $webUrl"
+Write-Host "ResumeCraft is running at $webUrl"
 if (-not $NoBrowser) {
     Start-Process $webUrl
 }

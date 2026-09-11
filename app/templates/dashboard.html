@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}概览 · 简历工作台{% endblock %}
+{% extends "base.html" %}{% block title %}概览 · ResumeCraft{% endblock %}
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">PERSONAL RESUME SYSTEM</p><h1>把经历整理成<br><em>更有针对性的简历</em></h1><p class="lede">资料是事实库，岗位是筛选器，模板负责呈现。</p></div><a class="button primary" href="/resumes/new">新建简历 <span>↗</span></a></div>
 <section class="stats"><div><b>{{ experiences|length }}</b><span>经历条目</span></div><div><b>{{ skills|length }}</b><span>技能条目</span></div><div><b>{{ targets|length }}</b><span>岗位档案</span></div><div><b>{{ resumes|length }}</b><span>已保存简历</span></div></section>
