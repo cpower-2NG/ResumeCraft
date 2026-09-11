@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+data/
 data/*.db
 data/*.db-*
 data/attachments/
@@ -13,4 +14,5 @@ web/tsconfig.tsbuildinfo
 attachments/
 exports/
 data/logs/
+output/
 .DS_Store
