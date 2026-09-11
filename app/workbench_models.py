@@ -42,6 +42,93 @@ class FactRecord(WorkbenchBase):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 
+class PersonalFactDetail(WorkbenchBase):
+    __tablename__ = "personal_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    phone: Mapped[str] = mapped_column(String(80), default="")
+    email: Mapped[str] = mapped_column(String(180), default="")
+    city: Mapped[str] = mapped_column(String(120), default="")
+    desired_city: Mapped[str] = mapped_column(String(120), default="")
+    birth_date: Mapped[str] = mapped_column(String(30), default="")
+    age: Mapped[str] = mapped_column(String(30), default="")
+    hometown: Mapped[str] = mapped_column(String(120), default="")
+    status: Mapped[str] = mapped_column(String(120), default="")
+    graduation: Mapped[str] = mapped_column(String(80), default="")
+    availability: Mapped[str] = mapped_column(Text, default="")
+    bio: Mapped[str] = mapped_column(Text, default="")
+
+
+class EducationFactDetail(WorkbenchBase):
+    __tablename__ = "education_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    school: Mapped[str] = mapped_column(String(220), default="")
+    major: Mapped[str] = mapped_column(String(220), default="")
+    degree: Mapped[str] = mapped_column(String(100), default="")
+    start_date: Mapped[str] = mapped_column(String(40), default="")
+    end_date: Mapped[str] = mapped_column(String(40), default="")
+    period: Mapped[str] = mapped_column(String(100), default="")
+    gpa: Mapped[str] = mapped_column(String(80), default="")
+    ranking: Mapped[str] = mapped_column(String(100), default="")
+    achievement: Mapped[str] = mapped_column(Text, default="")
+    courses: Mapped[str] = mapped_column(Text, default="")
+
+
+class ExperienceFactDetail(WorkbenchBase):
+    __tablename__ = "experience_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(100), default="")
+    period: Mapped[str] = mapped_column(String(100), default="")
+    organization: Mapped[str] = mapped_column(String(250), default="")
+    role: Mapped[str] = mapped_column(String(250), default="")
+    team_size: Mapped[str] = mapped_column(String(80), default="")
+    context: Mapped[str] = mapped_column(Text, default="")
+    work: Mapped[str] = mapped_column(Text, default="")
+    tools: Mapped[str] = mapped_column(Text, default="")
+    outcome: Mapped[str] = mapped_column(Text, default="")
+    challenge: Mapped[str] = mapped_column(Text, default="")
+    solution: Mapped[str] = mapped_column(Text, default="")
+    public_note: Mapped[str] = mapped_column(Text, default="")
+
+
+class SkillFactDetail(WorkbenchBase):
+    __tablename__ = "skill_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    skill_category: Mapped[str] = mapped_column(String(120), default="")
+    proficiency: Mapped[str] = mapped_column(String(80), default="")
+    context: Mapped[str] = mapped_column(Text, default="")
+
+
+class AchievementFactDetail(WorkbenchBase):
+    __tablename__ = "achievement_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    period: Mapped[str] = mapped_column(String(100), default="")
+    issuer: Mapped[str] = mapped_column(String(220), default="")
+    result: Mapped[str] = mapped_column(String(250), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+
+class LinkFactDetail(WorkbenchBase):
+    __tablename__ = "link_fact_details"
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), primary_key=True)
+    link_type: Mapped[str] = mapped_column(String(80), default="")
+    url: Mapped[str] = mapped_column(Text, default="")
+    label: Mapped[str] = mapped_column(String(220), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+
+class FactCustomField(WorkbenchBase):
+    __tablename__ = "fact_custom_fields"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fact_id: Mapped[int] = mapped_column(ForeignKey("fact_records.id"), index=True)
+    field_key: Mapped[str] = mapped_column(String(120))
+    value: Mapped[str] = mapped_column(Text, default="")
+    label: Mapped[str] = mapped_column(String(180), default="")
+    displayable: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    __table_args__ = (UniqueConstraint("fact_id", "field_key", name="uq_fact_custom_field"),)
+
+
 class FactAudit(WorkbenchBase):
     __tablename__ = "fact_audits"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -132,7 +219,9 @@ class ResumeIdentity(WorkbenchBase):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
-    __table_args__ = (UniqueConstraint("workspace_id", "identity_key", name="uq_resume_identity_key"), UniqueConstraint("workspace_id", "requirement_profile_id", name="uq_resume_per_profile"))
+    # A profile can have a recycled historical identity and a newly created active identity.
+    # identity_key remains unique so each formal identity is still addressable independently.
+    __table_args__ = (UniqueConstraint("workspace_id", "identity_key", name="uq_resume_identity_key"),)
 
 
 class ResumeVersion(WorkbenchBase):

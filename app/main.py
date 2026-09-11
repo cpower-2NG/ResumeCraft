@@ -2,22 +2,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from urllib.parse import quote
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .services import build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .services import FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
 from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
 
 app = FastAPI(title="简历工作台 API", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:5176", "http://127.0.0.1:5176"], allow_methods=["*"], allow_headers=["*"])
 WORKSPACE_ID = 1
 ATTACHMENTS_DIR = Path(__file__).resolve().parents[1] / "data" / "attachments"
 MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
@@ -28,6 +31,8 @@ class FactInput(BaseModel):
     category: str
     title: str
     content: dict = Field(default_factory=dict)
+    details: dict | None = None
+    custom_fields: list[dict] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     status: str = "active"
     source_note: str = ""
@@ -87,8 +92,18 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def unique_resume_identity_key(db: Session, base_key: str) -> str:
+    """Keep recycled identities addressable while allowing a new identity for the same profile."""
+    candidate = base_key or "resume"
+    suffix = 1
+    while db.scalar(select(ResumeIdentity.id).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.identity_key == candidate)):
+        suffix += 1
+        candidate = f"{base_key or 'resume'}-{suffix}"
+    return candidate
+
+
 def fact_response(db: Session, item: FactRecord) -> dict:
-    return {**serialize_fact(item), "evidence_count": evidence_count(db, item.id)}
+    return {**serialize_fact(db, item), "evidence_count": evidence_count(db, item.id)}
 
 
 def evidence_response(item: Evidence) -> dict:
@@ -131,12 +146,23 @@ def list_facts(category: str | None = None, q: str | None = None, include_recycl
     return [fact_response(db, item) for item in db.scalars(query.order_by(FactRecord.updated_at.desc())).all()]
 
 
+@app.get("/api/fact-schemas/{category}")
+def fact_schema(category: str, db: Session = Depends(get_db)):
+    require_workspace(db)
+    if category not in FACT_SCHEMAS:
+        raise HTTPException(404, "资料分类不存在")
+    return [{"key": key, "label": label, "type": kind, "required": required, "displayable": True} for key, label, kind, required in FACT_SCHEMAS[category]]
+
+
 @app.post("/api/facts", status_code=201)
 def create_fact(payload: FactInput, db: Session = Depends(get_db)):
     require_workspace(db)
-    data = payload.model_dump(exclude={"content", "tags"})
-    item = FactRecord(workspace_id=WORKSPACE_ID, **data, content=dump(payload.content), tags=dump(payload.tags))
+    details = payload.details if payload.details is not None else payload.content
+    data = payload.model_dump(exclude={"content", "details", "custom_fields", "tags"})
+    item = FactRecord(workspace_id=WORKSPACE_ID, **data, content=dump(details), tags=dump(payload.tags))
     db.add(item); db.flush()
+    replace_fact_details(db, item, details)
+    replace_custom_fields(db, item.id, payload.custom_fields)
     db.add(FactAudit(workspace_id=WORKSPACE_ID, fact_id=item.id, action="created", summary="创建事实资料", after_content=item.content))
     db.commit(); db.refresh(item)
     return fact_response(db, item)
@@ -152,8 +178,11 @@ def get_fact(fact_id: int, db: Session = Depends(get_db)):
 def update_fact(fact_id: int, payload: FactInput, db: Session = Depends(get_db)):
     require_workspace(db)
     item = get_or_404(db, FactRecord, fact_id); before = item.content
-    for key, value in payload.model_dump(exclude={"content", "tags"}).items(): setattr(item, key, value)
-    item.content, item.tags = dump(payload.content), dump(payload.tags)
+    details = payload.details if payload.details is not None else payload.content
+    for key, value in payload.model_dump(exclude={"content", "details", "custom_fields", "tags"}).items(): setattr(item, key, value)
+    item.content, item.tags = dump(details), dump(payload.tags)
+    replace_fact_details(db, item, details)
+    replace_custom_fields(db, item.id, payload.custom_fields)
     db.add(FactAudit(workspace_id=WORKSPACE_ID, fact_id=item.id, action="updated", summary="更新事实资料", before_content=before, after_content=item.content))
     for ref in db.scalars(select(ResumeFactReference).where(ResumeFactReference.fact_id == item.id)).all():
         exists = db.scalar(select(PendingItem.id).where(PendingItem.resume_identity_id == ref.resume_identity_id, PendingItem.fact_id == item.id, PendingItem.status == "open"))
@@ -239,7 +268,9 @@ def list_profiles(include_recycled: bool = False, db: Session = Depends(get_db))
     require_workspace(db)
     query = select(RequirementProfile).where(RequirementProfile.workspace_id == WORKSPACE_ID)
     if not include_recycled: query = query.where(RequirementProfile.status == "active")
-    return [serialize_profile(item) for item in db.scalars(query.order_by(RequirementProfile.updated_at.desc())).all()]
+    profiles = db.scalars(query.order_by(RequirementProfile.updated_at.desc())).all()
+    active_resumes = {item.requirement_profile_id: item.id for item in db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active")).all()}
+    return [{**serialize_profile(item), "active_resume_id": active_resumes.get(item.id)} for item in profiles]
 
 
 @app.post("/api/requirement-profiles", status_code=201)
@@ -323,8 +354,10 @@ def update_linked_resume(linked_id: int, payload: SelectionInput, db: Session = 
 @app.post("/api/linked-resumes/{linked_id}/convert", status_code=201)
 def convert_linked_resume(linked_id: int, db: Session = Depends(get_db)):
     require_workspace(db); linked = get_or_404(db, LinkedResume, linked_id); profile = get_or_404(db, RequirementProfile, linked.requirement_profile_id)
-    if db.scalar(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.requirement_profile_id == profile.id)): raise HTTPException(409, "该岗位画像已有正式简历")
-    content = build_resume_content(db, profile, json_value(linked.selection, {})); identity = ResumeIdentity(workspace_id=WORKSPACE_ID, requirement_profile_id=profile.id, identity_key=profile.identity_key, display_name=f"{profile.name}简历")
+    if db.scalar(select(ResumeIdentity.id).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.requirement_profile_id == profile.id, ResumeIdentity.status == "active")):
+        raise HTTPException(409, "该岗位画像已有活跃正式简历")
+    content = build_resume_content(db, profile, json_value(linked.selection, {}))
+    identity = ResumeIdentity(workspace_id=WORKSPACE_ID, requirement_profile_id=profile.id, identity_key=unique_resume_identity_key(db, profile.identity_key), display_name=f"{profile.name}简历")
     db.add(identity); db.flush()
     version = ResumeVersion(resume_identity_id=identity.id, version_number=1, content=dump(content), source_manifest=dump(source_manifest(content)), profile_snapshot=dump(serialize_profile(profile)), template_version_id=linked.template_version_id, reason="format_conversion", change_summary="格式化简历、未润色", content_hash=content_hash(content))
     db.add(version); db.flush(); identity.current_version_id = version.id; db.add(ResumeWorkingCopy(resume_identity_id=identity.id, base_version_id=version.id, content=dump(content), dirty=False)); sync_references(db, identity.id, content); db.commit()
@@ -334,13 +367,16 @@ def convert_linked_resume(linked_id: int, db: Session = Depends(get_db)):
 def resume_row(db: Session, item: ResumeIdentity) -> dict:
     current = db.get(ResumeVersion, item.current_version_id) if item.current_version_id else None; copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == item.id)); profile = db.get(RequirementProfile, item.requirement_profile_id)
     warnings = db.scalar(select(func.count()).select_from(PendingItem).where(PendingItem.resume_identity_id == item.id, PendingItem.status == "open"))
-    return {"id": item.id, "display_name": item.display_name, "profile_name": profile.name if profile else "", "current_version": current.version_number if current else None, "updated_at": item.updated_at, "dirty": copy.dirty if copy else False, "warnings": warnings}
+    return {"id": item.id, "display_name": item.display_name, "profile_name": profile.name if profile else "", "current_version": current.version_number if current else None, "updated_at": item.updated_at, "dirty": copy.dirty if copy else False, "warnings": warnings, "status": item.status}
 
 
 @app.get("/api/resumes")
-def list_resumes(db: Session = Depends(get_db)):
+def list_resumes(include_recycled: bool = False, db: Session = Depends(get_db)):
     require_workspace(db)
-    return [resume_row(db, item) for item in db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active").order_by(ResumeIdentity.updated_at.desc())).all()]
+    query = select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID)
+    if not include_recycled:
+        query = query.where(ResumeIdentity.status == "active")
+    return [resume_row(db, item) for item in db.scalars(query.order_by(ResumeIdentity.updated_at.desc())).all()]
 
 
 @app.delete("/api/resumes/{resume_id}")
@@ -371,7 +407,9 @@ def save_resume(resume_id: int, payload: SaveInput, db: Session = Depends(get_db
     require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); latest = db.get(ResumeVersion, identity.current_version_id)
     if copy.base_version_id != latest.id: raise HTTPException(409, "工作副本基线已过期，请从当前版本重新载入")
     content = json_value(copy.content, {}); version = ResumeVersion(resume_identity_id=identity.id, version_number=latest.version_number + 1, content=dump(content), source_manifest=dump(source_manifest(content)), profile_snapshot=latest.profile_snapshot, template_version_id=latest.template_version_id, reason="user_save", change_summary=payload.change_summary, content_hash=content_hash(content))
-    db.add(version); db.flush(); identity.current_version_id = version.id; copy.base_version_id = version.id; copy.dirty = False; sync_references(db, identity.id, content); db.commit(); return serialize_version(version)
+    db.add(version); db.flush(); identity.current_version_id = version.id; copy.base_version_id = version.id; copy.dirty = False; sync_references(db, identity.id, content)
+    db.query(PendingItem).filter(PendingItem.resume_identity_id == identity.id, PendingItem.status == "open").update({"status": "resolved"}, synchronize_session=False)
+    db.commit(); return serialize_version(version)
 
 
 @app.get("/api/resumes/{resume_id}/versions")
@@ -385,3 +423,17 @@ def restore_version(resume_id: int, version_number: int, db: Session = Depends(g
     require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); version = db.scalar(select(ResumeVersion).where(ResumeVersion.resume_identity_id == resume_id, ResumeVersion.version_number == version_number))
     if not version: raise HTTPException(404, "版本不存在")
     copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); copy.content, copy.base_version_id, copy.dirty = version.content, identity.current_version_id, True; db.commit(); return {"restored_version": version_number, "dirty": True}
+
+
+@app.post("/api/resumes/{resume_id}/versions/{version_number}/export")
+def export_resume(resume_id: int, version_number: int, db: Session = Depends(get_db)):
+    require_workspace(db)
+    identity = get_or_404(db, ResumeIdentity, resume_id)
+    version = db.scalar(select(ResumeVersion).where(ResumeVersion.resume_identity_id == resume_id, ResumeVersion.version_number == version_number))
+    if not version:
+        raise HTTPException(404, "版本不存在")
+    content = json_value(version.content, {})
+    html = render_resume_html(content, identity.display_name, version_number)
+    filename = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff._-]+", "-", f"{identity.display_name}-v{version_number}").strip("-") or f"resume-v{version_number}"
+    header_filename = quote(f"{filename}.html")
+    return Response(content=html, media_type="text/html; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="resume-v{version_number}.html"; filename*=UTF-8\'\'{header_filename}'})

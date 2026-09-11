@@ -6,6 +6,8 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $webDir = Join-Path $root "web"
 $python = Join-Path $root ".venv\Scripts\python.exe"
+$nodeModulesDir = Join-Path $webDir "node_modules"
+$viteJs = Join-Path $nodeModulesDir "vite\bin\vite.js"
 $backendUrl = "http://127.0.0.1:8000/api/health"
 $webUrl = "http://127.0.0.1:5173"
 $logDir = Join-Path $root "data\logs"
@@ -36,6 +38,27 @@ function Assert-PortAvailable([int]$Port, [string]$Name) {
     }
 }
 
+function Find-NodeExecutable {
+    $command = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+
+    $candidates = @(
+        (Join-Path $env:ProgramFiles "nodejs\node.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\nodejs\node.exe"),
+        (Join-Path $env:APPDATA "npm\node.exe")
+    )
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 Set-Location $root
 
 # A complete running workbench needs both the SPA and its API. Do this before
@@ -56,13 +79,24 @@ if (-not (Test-Path $python)) {
 Write-Host "Checking Python dependencies..."
 & $python -m pip install -r requirements.txt | Out-Host
 
-if (-not (Get-Command pnpm.cmd -ErrorAction SilentlyContinue)) {
-    throw "pnpm was not found. Install Node.js and enable pnpm, then run this launcher again."
+if (-not (Test-Path $nodeModulesDir)) {
+    Write-Host "Installing web dependencies..."
+    if (Get-Command pnpm.cmd -ErrorAction SilentlyContinue) {
+        & pnpm.cmd --dir $webDir install | Out-Host
+    } elseif (Get-Command npm.cmd -ErrorAction SilentlyContinue) {
+        & npm.cmd --prefix $webDir install | Out-Host
+    } else {
+        throw "Web dependencies are missing, and neither pnpm nor npm was found. Install Node.js and a package manager, then run this launcher again."
+    }
 }
 
-if (-not (Test-Path (Join-Path $webDir "node_modules"))) {
-    Write-Host "Installing web dependencies..."
-    & pnpm.cmd --dir $webDir install | Out-Host
+$node = Find-NodeExecutable
+if (-not $node) {
+    throw "Node.js was not found. Install Node.js and make sure node.exe is available in PATH."
+}
+
+if (-not (Test-Path $viteJs)) {
+    throw "Vite was not found at $viteJs. Install the web dependencies and run this launcher again."
 }
 
 Write-Host "Preparing database..."
@@ -86,9 +120,8 @@ if (-not (Test-Url $backendUrl)) {
 if (-not (Test-Url $webUrl)) {
     Assert-PortAvailable 5173 "Web"
     Write-Host "Starting web application..."
-    $pnpm = (Get-Command pnpm.cmd -ErrorAction Stop).Source
-    Start-Process -FilePath $pnpm -WorkingDirectory $root -WindowStyle Hidden `
-        -ArgumentList @("--dir", $webDir, "dev", "--host", "127.0.0.1", "--port", "5173", "--strictPort") `
+    Start-Process -FilePath $node -WorkingDirectory $webDir -WindowStyle Hidden `
+        -ArgumentList @($viteJs, "--host", "127.0.0.1", "--port", "5173", "--strictPort") `
         -RedirectStandardOutput (Join-Path $logDir "web.log") `
         -RedirectStandardError (Join-Path $logDir "web-error.log")
     Wait-ForUrl $webUrl "Web application"

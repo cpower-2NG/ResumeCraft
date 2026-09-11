@@ -1,5 +1,7 @@
 # 简历工作台实现设计书
 
+> 2026-09 实施基线：事实资料已采用公共主表加分类明细表；简历区块使用结构化 `fields` 与 `display_fields`；正式编辑采用只读 A4 预览加编辑卡片/右键菜单；正式版本支持独立 A4 HTML 导出，ZIP 附件包暂未纳入本阶段。
+
 > 文档性质：目标系统的技术说明
 >
 > 上位文档：[功能设计书](functional-design.md)
@@ -497,7 +499,7 @@ API 使用资源化 JSON 接口。具体字段以功能设计书和领域模型�
 | version actions | `POST /api/resumes/{id}/versions/{version}/restore` | 从历史版本恢复工作副本 |
 | templates | `GET/POST/PATCH /api/templates` | 模板和模板版本管理 |
 | AI | `POST /api/ai/edit` | 生成并应用 AI 工作副本修改 |
-| exports | `POST /api/resumes/{id}/versions/{version}/export` | 生成 HTML/ZIP 交付物 |
+| exports | `POST /api/resumes/{id}/versions/{version}/export` | 首版生成独立 HTML；后续扩展 ZIP 交付物 |
 
 ### 8.1 通用 API 规则
 
@@ -570,6 +572,8 @@ SPA 至少包含以下区域：
 - 修改前后差异查看。
 
 HTML 只作为预览和导出结果。用户内容不能直接变成任意 HTML、脚本或自定义 CSS；任何未来扩展都必须通过模板预先定义的受控区块实现。
+
+v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor` 弹层：`BlockView` 只渲染预览，点击/右键时通过 `BlockRef` 打开编辑卡片或上下文菜单；标题、字段和正文更新仍写入结构化 `content`，继续沿用分页片段 `fragment_index`，不改变工作副本与版本接口。
 
 ## 10. 数据库、迁移与兼容性
 

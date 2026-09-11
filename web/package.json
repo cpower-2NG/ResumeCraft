@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "test": "vitest run" },
+  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "test": "vitest run", "test:ui": "node scripts/interaction-smoke.mjs" },
   "dependencies": { "@vitejs/plugin-react": "latest", "lucide-react": "latest", "react": "latest", "react-dom": "latest" },
-  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest", "typescript": "latest", "vite": "latest", "vitest": "latest" }
+  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest", "playwright": "latest", "typescript": "latest", "vite": "latest", "vitest": "latest" }
 }

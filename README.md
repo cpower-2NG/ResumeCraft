@@ -20,6 +20,7 @@
 - [交互界面设计书](docs/interaction-design.md)：信息架构、页面组织、用户操作、状态反馈、编辑流程和导出交互。
 - [实现设计书](docs/technical-design.md)：目标架构、数据模型、前后端职责、接口、存储、版本、AI、导出和测试设计。
 - [项目计划](docs/project-plan.md)：开发阶段、交付顺序、已确定决策、待确认事项和迁移工作项。
+- [发布记录](docs/release-notes.md)：正式版本范围、交互变化和验证结果。
 
 ## 核心功能
 
@@ -36,22 +37,19 @@
 
 ## 当前实现状态
 
-当前工作区中的应用仍是早期本地原型，主要采用以下技术：
+当前正式版本为 `v1.0.0`，主要采用以下技术：
 
-- Python
+- TypeScript + React SPA（`web/`）
 - FastAPI
 - SQLAlchemy
 - SQLite
-- Jinja2
-- 原生 HTML/CSS
+- Jinja2（仅用于独立 HTML 导出模板）
 
-原型已经具备基本资料维护、岗位标签推荐、简历模板渲染、预览和 HTML 下载能力，但尚未完整实现设计文档中的结构化正式简历、证据管理、工作副本、版本历史、AI 辅助和 HTML/附件 ZIP 导出。
-
-目标系统的前后端形态暂定为 TypeScript SPA + REST API，具体前端工具可以在实现阶段继续确定。当前原型只作为迁移输入和功能验证基础，不作为目标架构约束。
+v1.0.0 已经具备事实资料维护、证据管理、岗位画像、临时简历选择、正式简历编辑、工作副本自动保存、线性不可变版本和独立 A4 HTML 导出。附件 ZIP 导出、AI 辅助和多用户能力仍按项目计划保留到后续阶段。
 
 ## 首版工作台
 
-首版实现位于 `app/workbench_*.py` 和 `web/`，不再使用原型的服务端模板流程。它提供：
+首版实现位于 `app/workbench_*.py` 和 `web/`，不再使用原型的服务端页面流程。它提供：
 
 - 默认本地用户和工作区；
 - 事实资料、审计记录、岗位画像和招聘机会；
@@ -59,9 +57,10 @@
 - 一画像一正式简历、自动保存工作副本和线性不可变版本；
 - 历史预览与恢复到工作副本；
 - 事实来源变更的待处理提醒；
+- 正式编辑采用“只读 A4 预览 + 点击区块编辑卡片 + 右键快捷菜单”；
 - 迁移后的经典侧栏模板与一页长度提示。
 
-原型数据库 `data/profile.db` 保持只读。新系统使用 `data/resume_workbench.db`，旧的 `ResumeDocument` 不会迁移，因为它不包含正式版本所需的完整来源和内容快照。
+原型数据库 `data/profile.db` 保持只读。新系统使用 `data/resume_workbench.db`，旧的 `ResumeDocument` 不会迁移，因为它不包含正式版本所需的完整来源和内容快照。当前正式版本支持独立严格 A4 HTML 导出；附件 ZIP 导出仍待后续阶段实现。
 
 ### 初始化和启动
 
@@ -90,7 +89,7 @@ pnpm dev
 
 Windows 下可直接双击项目根目录的 `Start-ResumeWorkbench.cmd`。若工作台的 API 和前端已在运行，启动器只会打开浏览器，不会重复安装依赖、迁移或启动进程；否则它会检查依赖、执行数据库迁移和资料导入，在后台启动 API 与前端，并在服务可用后打开工作台。服务日志位于 `data/logs/`；如提示端口已被占用，请先关闭占用 `8000` 或 `5173` 端口的程序。
 
-## 快速开始：当前原型
+## 快速开始：当前工作台
 
 ### 创建虚拟环境
 
@@ -122,22 +121,23 @@ python -m uvicorn app.main:app --reload
 
 启动后访问 <http://127.0.0.1:8000>。
 
-首次启动会创建 `data/profile.db` 并写入原型种子数据。当前原型生成的 HTML 文件位于 `output/默认简历成品目录/`。
+工作台首次启动会执行迁移并创建 `data/resume_workbench.db`；旧原型数据库 `data/profile.db` 仅作为迁移输入，保持只读。
 
-## 当前原型结构
+## 当前工作台结构
 
 ```text
 .
 |-- app/
-|   |-- main.py                    # FastAPI 路由和原型应用流程
-|   |-- models.py                  # 当前 SQLAlchemy 模型
+|   |-- main.py                    # FastAPI 路由和工作台应用流程
+|   |-- models.py                  # 原型兼容 SQLAlchemy 模型
 |   |-- database.py                # SQLite 连接和目录初始化
 |   |-- recommend.py               # 当前标签推荐逻辑
 |   |-- seed.py                    # 原型种子数据
 |   |-- static/app.css             # 原型页面样式
-|   `-- templates/                 # Jinja2 页面和原型简历模板
-|-- data/profile.db                # 当前原型数据库
-|-- output/默认简历成品目录/       # 当前原型 HTML 输出
+|   `-- templates/                 # Jinja2 页面和导出模板
+|-- data/profile.db                # 旧原型数据库，保持只读
+|-- data/resume_workbench.db       # 当前工作台数据库
+|-- output/默认简历成品目录/       # 旧原型 HTML 输出
 |-- docs/
 |   |-- functional-design.md       # 产品与功能行为基准
 |   |-- interaction-design.md      # 信息架构与交互行为设计
@@ -159,4 +159,4 @@ python -m uvicorn app.main:app --reload
 
 ## 备份
 
-当前原型的工作数据位于 `data/profile.db`，生成文件位于 `output/默认简历成品目录/`。备份时应同时保存这两个位置。目标系统的备份和恢复规则以实现设计书为准。
+当前工作台数据位于 `data/resume_workbench.db`，证据文件位于 `data/` 下的工作区目录。备份时至少保存数据库和证据目录；目标系统的备份和恢复规则以实现设计书为准。
