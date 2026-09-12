@@ -31,7 +31,7 @@ SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
 # 覆盖三种布局的新模板，作为端到端回归的代表样本。
-NEW_TEMPLATES = ["pine", "merlot", "ink", "brass"]
+NEW_TEMPLATES = ["pine", "merlot", "ink", "brass", "marine", "haze", "violet", "celadon", "vermilion"]
 
 
 def sample_content(long: bool = False) -> dict:
