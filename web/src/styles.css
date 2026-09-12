@@ -112,6 +112,11 @@
 .thumb-merlot{background:linear-gradient(105deg,#452331 0 30%,#fff 30%)}
 .thumb-ink{background:linear-gradient(#fff 0 18%,#e3e6ea 18% 100%)}
 .thumb-brass{background:linear-gradient(#3a3327 0 26%,#fff 26%)}
+.thumb-marine{background:linear-gradient(#fff 0 18%,#dce2ef 18% 100%)}
+.thumb-haze{background:linear-gradient(105deg,#46617a 0 30%,#fff 30%)}
+.thumb-violet{background:linear-gradient(105deg,#3d2e5e 0 30%,#fff 30%)}
+.thumb-celadon{background:linear-gradient(#0e6f6b 0 26%,#fff 26%)}
+.thumb-vermilion{background:linear-gradient(#fff 0 18%,#f0dfdb 18% 100%)}
 .template-card b{font-size:13px;padding:0 12px}
 .template-card small{font-size:10px;color:#71807a;padding:0 12px;line-height:1.5;min-height:30px}
 .template-card em{font-style:normal;font-size:10px;color:#8a978f;padding:0 12px}
@@ -198,6 +203,62 @@
 .resume-paper.theme-brass .block-meta{color:#6f6753}
 .resume-paper.theme-brass .block-copy{color:#4a4436}
 .resume-paper.theme-brass .block-copy strong,.resume-paper.theme-brass .block-copy a{color:#96742e}
+
+/* 海军蓝单栏模板 */
+.resume-paper.plain,.resume-paper.theme-marine{grid-template-columns:1fr}
+.resume-paper.theme-marine .resume-sidebar{display:none}
+.resume-paper.theme-marine .resume-main{padding:13mm 14mm}
+.resume-paper.theme-marine .template-section-title b{color:#1b2a4a}
+.resume-paper.theme-marine .template-section-title{border-bottom-color:#dce2ef}
+.resume-paper.theme-marine .block-head>b{color:#22304f}
+.resume-paper.theme-marine .block-meta{color:#5f6a85}
+.resume-paper.theme-marine .block-copy{color:#3c465e}
+.resume-paper.theme-marine .block-copy strong,.resume-paper.theme-marine .block-copy a{color:#2c4a8a}
+
+/* 雾蓝侧栏模板 */
+.resume-paper.theme-haze .resume-sidebar{background:#46617a;color:#f3f6f9}
+.resume-paper.theme-haze .sidebar-section .template-section-title b,.resume-paper.theme-haze .sidebar-section .template-section-title span{color:#a9c2d6}
+.resume-paper.theme-haze .sidebar-section .block-head>b,.resume-paper.theme-haze .sidebar-section .inline-title{color:#f3f6f9}
+.resume-paper.theme-haze .sidebar-section .block-copy,.resume-paper.theme-haze .sidebar-section .editable-copy,.resume-paper.theme-haze .sidebar-section .block-meta{color:#ccd8e2}
+.resume-paper.theme-haze .template-section-title b{color:#31485c}
+.resume-paper.theme-haze .template-section-title{border-bottom-color:#d8e1e8}
+.resume-paper.theme-haze .block-head>b{color:#3a4f60}
+.resume-paper.theme-haze .block-meta{color:#64798a}
+.resume-paper.theme-haze .block-copy{color:#45596a}
+.resume-paper.theme-haze .block-copy strong,.resume-paper.theme-haze .block-copy a{color:#527391}
+
+/* 紫藤侧栏模板 */
+.resume-paper.theme-violet .resume-sidebar{background:#3d2e5e;color:#f5f2fa}
+.resume-paper.theme-violet .sidebar-section .template-section-title b,.resume-paper.theme-violet .sidebar-section .template-section-title span{color:#b3a3d9}
+.resume-paper.theme-violet .sidebar-section .block-head>b,.resume-paper.theme-violet .sidebar-section .inline-title{color:#f5f2fa}
+.resume-paper.theme-violet .sidebar-section .block-copy,.resume-paper.theme-violet .sidebar-section .editable-copy,.resume-paper.theme-violet .sidebar-section .block-meta{color:#cfc6e2}
+.resume-paper.theme-violet .template-section-title b{color:#372a52}
+.resume-paper.theme-violet .template-section-title{border-bottom-color:#ded7ec}
+.resume-paper.theme-violet .block-head>b{color:#3e3159}
+.resume-paper.theme-violet .block-meta{color:#6a5f84}
+.resume-paper.theme-violet .block-copy{color:#4a4162}
+.resume-paper.theme-violet .block-copy strong,.resume-paper.theme-violet .block-copy a{color:#6d4fc2}
+
+/* 青瓷横幅模板 */
+.resume-paper.theme-celadon .resume-banner{background:#0e6f6b;color:#f2f9f8}
+.resume-paper.theme-celadon .banner-meta{color:#c5e2df}
+.resume-paper.theme-celadon .template-section-title b{color:#0d5a56}
+.resume-paper.theme-celadon .template-section-title{border-bottom-color:#d3e5e3}
+.resume-paper.theme-celadon .block-head>b{color:#1f4a47}
+.resume-paper.theme-celadon .block-meta{color:#5d7a77}
+.resume-paper.theme-celadon .block-copy{color:#405956}
+.resume-paper.theme-celadon .block-copy strong,.resume-paper.theme-celadon .block-copy a{color:#0d7377}
+
+/* 朱砂单栏模板 */
+.resume-paper.plain,.resume-paper.theme-vermilion{grid-template-columns:1fr}
+.resume-paper.theme-vermilion .resume-sidebar{display:none}
+.resume-paper.theme-vermilion .resume-main{padding:13mm 14mm}
+.resume-paper.theme-vermilion .template-section-title b{color:#a3352c}
+.resume-paper.theme-vermilion .template-section-title{border-bottom-color:#ecd9d5}
+.resume-paper.theme-vermilion .block-head>b{color:#332b28}
+.resume-paper.theme-vermilion .block-meta{color:#776a64}
+.resume-paper.theme-vermilion .block-copy{color:#4a413d}
+.resume-paper.theme-vermilion .block-copy strong,.resume-paper.theme-vermilion .block-copy a{color:#b03a2e}
 
 /* Markdown subset inside resume blocks */
 .resume-paper .block-copy strong{color:#263f40;font-weight:700}
