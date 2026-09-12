@@ -19,7 +19,7 @@ from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
 
-app = FastAPI(title="ResumeCraft API", version="1.0.1")
+app = FastAPI(title="ResumeCraft API", version="1.0.3")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:5176", "http://127.0.0.1:5176"], allow_methods=["*"], allow_headers=["*"])
 WORKSPACE_ID = 1
 ATTACHMENTS_DIR = Path(__file__).resolve().parents[1] / "data" / "attachments"
@@ -79,7 +79,8 @@ class OpportunityInput(BaseModel):
 
 
 class SelectionInput(BaseModel):
-    selection: dict[str, list[int]]
+    selection: dict[str, list[int]] | None = None
+    template_version_id: int | None = None
 
 
 class WorkingCopyInput(BaseModel):
@@ -142,7 +143,7 @@ def overview(db: Session = Depends(get_db)):
     require_workspace(db)
     count = lambda model, *conditions: db.scalar(select(func.count()).select_from(model).where(*conditions))
     rows = db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active").order_by(ResumeIdentity.updated_at.desc()).limit(5)).all()
-    return {"stats": {"facts": count(FactRecord, FactRecord.workspace_id == WORKSPACE_ID, FactRecord.status == "active"), "profiles": count(RequirementProfile, RequirementProfile.workspace_id == WORKSPACE_ID), "resumes": count(ResumeIdentity, ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active"), "working_copies": count(ResumeWorkingCopy, ResumeWorkingCopy.dirty.is_(True))}, "recent_resumes": [resume_row(db, item) for item in rows]}
+    return {"stats": {"facts": count(FactRecord, FactRecord.workspace_id == WORKSPACE_ID, FactRecord.status == "active"), "profiles": count(RequirementProfile, RequirementProfile.workspace_id == WORKSPACE_ID, RequirementProfile.status == "active"), "resumes": count(ResumeIdentity, ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active"), "working_copies": count(ResumeWorkingCopy, ResumeWorkingCopy.dirty.is_(True))}, "recent_resumes": [resume_row(db, item) for item in rows]}
 
 
 @app.get("/api/pending-items")
@@ -275,6 +276,11 @@ def archive_evidence(evidence_id: int, db: Session = Depends(get_db)):
     require_workspace(db); item = get_or_404(db, Evidence, evidence_id); item.status = "recycled"; db.commit(); return {"mode": "recycled"}
 
 
+@app.post("/api/evidence/{evidence_id}/restore")
+def restore_evidence(evidence_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, Evidence, evidence_id); item.status = "active"; db.commit(); return evidence_response(item)
+
+
 def set_profile(payload: ProfileInput, db: Session, item: RequirementProfile | None = None):
     item = item or RequirementProfile(workspace_id=WORKSPACE_ID, identity_key="")
     for key, value in payload.model_dump(exclude={"core_requirements"}).items(): setattr(item, key, value)
@@ -388,6 +394,14 @@ def default_template_version(db: Session) -> TemplateVersion:
     return item
 
 
+def resolve_template_version(db: Session, template_version_id: int) -> TemplateVersion:
+    version = db.get(TemplateVersion, template_version_id)
+    template = db.get(ResumeTemplate, version.template_id) if version else None
+    if not version or not template or not template.active or template.workspace_id != WORKSPACE_ID:
+        raise HTTPException(422, "模板不存在或未启用")
+    return version
+
+
 @app.get("/api/templates")
 def templates(db: Session = Depends(get_db)):
     require_workspace(db)
@@ -401,21 +415,27 @@ def templates(db: Session = Depends(get_db)):
 
 
 @app.post("/api/linked-resumes", status_code=201)
-def create_linked_resume(profile_id: int, db: Session = Depends(get_db)):
+def create_linked_resume(profile_id: int, template_version_id: int | None = None, db: Session = Depends(get_db)):
     require_workspace(db); get_or_404(db, RequirementProfile, profile_id)
-    item = LinkedResume(workspace_id=WORKSPACE_ID, requirement_profile_id=profile_id, template_version_id=default_template_version(db).id, selection="{}")
+    version = resolve_template_version(db, template_version_id) if template_version_id else default_template_version(db)
+    item = LinkedResume(workspace_id=WORKSPACE_ID, requirement_profile_id=profile_id, template_version_id=version.id, selection="{}")
     db.add(item); db.commit(); return {"id": item.id}
 
 
 @app.get("/api/linked-resumes/{linked_id}")
 def get_linked_resume(linked_id: int, db: Session = Depends(get_db)):
     require_workspace(db); item = get_or_404(db, LinkedResume, linked_id); profile = get_or_404(db, RequirementProfile, item.requirement_profile_id); selection = json_value(item.selection, {})
-    return {"id": item.id, "profile": serialize_profile(profile), "selection": selection, "preview": build_resume_content(db, profile, selection)}
+    return {"id": item.id, "profile": serialize_profile(profile), "selection": selection, "preview": build_resume_content(db, profile, selection), "template": template_info_response(db, item.template_version_id)}
 
 
 @app.patch("/api/linked-resumes/{linked_id}")
 def update_linked_resume(linked_id: int, payload: SelectionInput, db: Session = Depends(get_db)):
-    require_workspace(db); item = get_or_404(db, LinkedResume, linked_id); item.selection = dump(payload.selection); db.commit(); return get_linked_resume(linked_id, db)
+    require_workspace(db); item = get_or_404(db, LinkedResume, linked_id)
+    if payload.template_version_id is not None:
+        item.template_version_id = resolve_template_version(db, payload.template_version_id).id
+    if payload.selection is not None:
+        item.selection = dump(payload.selection)
+    db.commit(); return get_linked_resume(linked_id, db)
 
 
 @app.post("/api/linked-resumes/{linked_id}/convert", status_code=201)
@@ -460,10 +480,10 @@ def restore_resume(resume_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/resumes/{resume_id}")
 def get_resume(resume_id: int, db: Session = Depends(get_db)):
-    require_workspace(db); item = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == item.id)); current = db.get(ResumeVersion, item.current_version_id)
+    require_workspace(db); item = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == item.id)); current = db.get(ResumeVersion, item.current_version_id) if item.current_version_id else None
     template_version_id = copy.template_version_id if copy and copy.template_version_id else (current.template_version_id if current else None)
     template_info = template_info_response(db, template_version_id)
-    return {**resume_row(db, item), "working_copy": {"content": json_value(copy.content, {}), "dirty": copy.dirty, "base_version_id": copy.base_version_id, "updated_at": copy.updated_at}, "current": serialize_version(current), "template": template_info}
+    return {**resume_row(db, item), "working_copy": {"content": json_value(copy.content, {}), "dirty": copy.dirty, "base_version_id": copy.base_version_id, "updated_at": copy.updated_at}, "current": serialize_version(current) if current else None, "template": template_info}
 
 
 def template_info_response(db: Session, template_version_id: int | None) -> dict | None:
@@ -485,15 +505,16 @@ class TemplateChoiceInput(BaseModel):
 def choose_template(resume_id: int, payload: TemplateChoiceInput, db: Session = Depends(get_db)):
     """Record the template choice in the working copy; the next formal save pins it."""
     require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id)
-    version = db.get(TemplateVersion, payload.template_version_id)
-    template = db.get(ResumeTemplate, version.template_id) if version else None
-    if not version or not template or not template.active or template.workspace_id != WORKSPACE_ID:
-        raise HTTPException(422, "模板不存在或未启用")
+    version = resolve_template_version(db, payload.template_version_id)
     copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id))
-    copy.template_version_id = version.id
-    copy.dirty = True
+    latest = db.get(ResumeVersion, identity.current_version_id) if identity.current_version_id else None
+    effective = copy.template_version_id or (latest.template_version_id if latest else None)
+    # Re-picking the active template must not mark the working copy dirty.
+    if effective != version.id:
+        copy.template_version_id = version.id
+        copy.dirty = True
     db.commit()
-    return {"template": template_info_response(db, version.id), "dirty": True}
+    return {"template": template_info_response(db, version.id), "dirty": copy.dirty}
 
 
 @app.patch("/api/resumes/{resume_id}/working-copy")
@@ -503,7 +524,7 @@ def update_working_copy(resume_id: int, payload: WorkingCopyInput, db: Session =
 
 @app.post("/api/resumes/{resume_id}/save")
 def save_resume(resume_id: int, payload: SaveInput, db: Session = Depends(get_db)):
-    require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); latest = db.get(ResumeVersion, identity.current_version_id)
+    require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); latest = db.get(ResumeVersion, identity.current_version_id) if identity.current_version_id else None
     template_version_id = copy.template_version_id or (latest.template_version_id if latest else None)
     if not template_version_id: raise HTTPException(503, "没有可用模板")
     content = json_value(copy.content, {})
@@ -588,7 +609,8 @@ def fork_resume_identity(resume_id: int, db: Session = Depends(get_db)):
     if not current: raise HTTPException(409, "该简历还没有正式版本")
     new_identity = ResumeIdentity(workspace_id=WORKSPACE_ID, requirement_profile_id=identity.requirement_profile_id, identity_key=unique_resume_identity_key(db, identity.identity_key), display_name=f"{identity.display_name}（新身份）")
     db.add(new_identity); db.flush()
-    db.add(ResumeWorkingCopy(resume_identity_id=new_identity.id, base_version_id=None, content=current.content, dirty=True))
+    # The fork inherits the source version's content and template so its first save can create v1.
+    db.add(ResumeWorkingCopy(resume_identity_id=new_identity.id, base_version_id=None, content=current.content, dirty=True, template_version_id=current.template_version_id))
     db.commit()
     return {"resume_id": new_identity.id, "display_name": new_identity.display_name}
 

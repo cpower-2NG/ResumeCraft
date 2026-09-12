@@ -45,3 +45,25 @@ def test_deleted_resume_is_visible_in_recycle_bin_and_same_profile_can_create_ne
     restored = client.post(f"/api/resumes/{old_resume_id}/restore")
     assert restored.status_code == 200
     assert len(client.get("/api/resumes").json()) == 2
+
+
+def test_forked_identity_is_viewable_and_saves_v1(client):
+    _, resume_id = create_resume(client)
+    forked = client.post(f"/api/resumes/{resume_id}/fork")
+    assert forked.status_code == 201, forked.text
+    new_id = forked.json()["resume_id"]
+
+    detail = client.get(f"/api/resumes/{new_id}")
+    assert detail.status_code == 200, detail.text
+    data = detail.json()
+    # A forked identity has no formal version yet; the detail must still be readable.
+    assert data["current"] is None
+    assert data["current_version"] is None
+    assert data["working_copy"]["dirty"] is True
+    assert client.get(f"/api/resumes/{new_id}/versions").json() == []
+
+    saved = client.post(f"/api/resumes/{new_id}/save", json={"change_summary": "新身份首次保存"})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["version_number"] == 1
+    assert saved.json()["reason"] == "identity_copy"
+    assert client.get(f"/api/resumes/{new_id}").json()["current_version"] == 1

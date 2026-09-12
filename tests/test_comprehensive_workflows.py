@@ -216,3 +216,33 @@ def test_missing_resources_and_invalid_payloads_are_reported(client):
     assert client.post("/api/linked-resumes/999/convert").status_code == 404
     assert client.post("/api/requirement-profiles", json={"name": ""}).status_code == 201
     assert client.post("/api/evidence", json={"fact_id": 999, "title": "证据", "url": "https://example.com"}).status_code == 404
+
+
+def test_overview_profile_stat_counts_only_active_profiles(client):
+    client.post("/api/requirement-profiles", json={"name": "独立画像"})
+    assert client.get("/api/overview").json()["stats"]["profiles"] == 1
+
+    profile = create_profile(client, "带简历画像")
+    _, resume_id = create_resume(client, profile)
+    assert client.get("/api/overview").json()["stats"]["profiles"] == 2
+
+    client.delete(f"/api/resumes/{resume_id}")
+    client.delete(f"/api/requirement-profiles/{profile['id']}")
+    assert client.get(f"/api/requirement-profiles?include_recycled=true").json()[0]["status"] == "recycled"
+    # 画像进入回收站后，首页概览不应继续计入。
+    assert client.get("/api/overview").json()["stats"]["profiles"] == 1
+
+
+def test_rechoosing_active_template_does_not_dirty_working_copy(client):
+    _, resume_id = create_resume(client)
+    current_template = client.get(f"/api/resumes/{resume_id}").json()["template"]["template_version_id"]
+    same = client.patch(f"/api/resumes/{resume_id}/template", json={"template_version_id": current_template})
+    assert same.status_code == 200
+    assert same.json()["dirty"] is False
+    assert client.get(f"/api/resumes/{resume_id}").json()["working_copy"]["dirty"] is False
+
+    focus = client.get("/api/templates").json()
+    other = next(t for t in focus if t["template_version_id"] != current_template)
+    switched = client.patch(f"/api/resumes/{resume_id}/template", json={"template_version_id": other["template_version_id"]})
+    assert switched.status_code == 200
+    assert switched.json()["dirty"] is True

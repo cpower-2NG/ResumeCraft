@@ -25,6 +25,10 @@ def client():
         db.add(template)
         db.flush()
         db.add(TemplateVersion(template_id=template.id, version_number=1, content="<html></html>", checksum="test"))
+        focus = ResumeTemplate(workspace_id=workspace.id, name="Focus", slug="focus", description="Sidebar template in navy")
+        db.add(focus)
+        db.flush()
+        db.add(TemplateVersion(template_id=focus.id, version_number=1, content="code-rendered:focus", checksum="focus"))
         db.commit()
 
     def override():

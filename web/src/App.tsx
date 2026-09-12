@@ -27,7 +27,7 @@ const sourceIdOf = (b:Block) => b.id.split('--fragment-')[0]
 const factCategories = (id:string) => id === 'basics' || id === 'profile' ? ['basics'] : id === 'target' ? [] : [id]
 
 export default function App(){
-  const [page,setPage] = useState<'home'|'facts'|'profiles'|'resumes'|'compose'|'editor'>('home')
+  const [page,setPage] = useState<'home'|'facts'|'profiles'|'resumes'|'compose'|'editor'|'templates'>('home')
   const [error,setError] = useState(''); const [profile,setProfile] = useState<Profile|null>(null); const [linked,setLinked] = useState<number|null>(null); const [resume,setResume] = useState<number|null>(null)
   const [focusFact,setFocusFact] = useState<Fact|null>(null)
   const [focusBlock,setFocusBlock] = useState<{sectionId:string;blockId:string}|null>(null)
@@ -59,9 +59,10 @@ export default function App(){
     {page==='home'&&<Home go={setPage} openResume={openResume}/>}
     {page==='facts'&&<Facts back={()=>setPage('home')} error={setError} focus={focusFact} onFocusHandled={()=>setFocusFact(null)}/>}
     {page==='profiles'&&<Profiles back={()=>setPage('home')} create={create} open={openResume} error={setError}/>}
-    {page==='resumes'&&<Resumes back={()=>setPage('home')} open={openResume} create={()=>setPage('profiles')} pending={pending.data}/>}
+    {page==='resumes'&&<Resumes back={()=>setPage('home')} open={openResume} create={()=>setPage('profiles')} pending={pending.data} library={()=>setPage('templates')}/>}
     {page==='compose'&&profile&&linked&&<Composer id={linked} profile={profile} back={()=>setPage('profiles')} open={openResume} error={setError}/>}
     {page==='editor'&&resume&&<Editor id={resume} back={()=>setPage('resumes')} error={setError} refresh={pending.reload} focusBlock={focusBlock} onFocusLocated={()=>setFocusBlock(null)}/>}
+    {page==='templates'&&<TemplateLibrary back={()=>setPage('home')} go={setPage}/>}
     {pending.data.length>0&&<button className="pending-fab" onClick={()=>setPendingOpen(v=>!v)} title="待处理事项"><CircleAlert size={18}/><i>{pending.data.length}</i></button>}
     {pendingOpen&&<aside className="pending-panel">
       <header><h2>待处理事项</h2><button className="icon-btn" onClick={()=>setPendingOpen(false)}><X size={16}/></button></header>
@@ -110,7 +111,7 @@ function TopSearch({go,openResume,setFocusFact}:{go:(p:any)=>void;openResume:(id
 
 function Home({go,openResume}:{go:(p:any)=>void;openResume:(id:number)=>void}){
   const data=useLoad<{stats:Record<string,number>;recent_resumes:Resume[]}>('/api/overview',{stats:{facts:0,profiles:0,resumes:0,working_copies:0},recent_resumes:[]})
-  const modules=[[Library,'资料库','按分类维护事实与证据','facts'],[BriefcaseBusiness,'岗位画像','组织招聘要求和简历策略','profiles'],[FilePenLine,'ResumeCraft','在 A4 简历上直接工作','resumes']] as const
+  const modules=[[Library,'资料库','按分类维护事实与证据','facts'],[BriefcaseBusiness,'岗位画像','组织招聘要求和简历策略','profiles'],[FilePenLine,'ResumeCraft','在 A4 简历上直接工作','resumes'],[LayoutTemplate,'模板库','浏览模板并为简历选择版式','templates']] as const
   return <main className="page home">
     <p className="eyebrow">PERSONAL RESUME SYSTEM</p>
     <h1>让经历沉淀为<br/><em>可持续维护的简历</em></h1>
@@ -119,7 +120,7 @@ function Home({go,openResume}:{go:(p:any)=>void;openResume:(id:number)=>void}){
     <section className="stat-row">{[['事实资料',data.data.stats.facts],['岗位画像',data.data.stats.profiles],['正式简历',data.data.stats.resumes],['工作副本',data.data.stats.working_copies]].map(x=><div key={String(x[0])}><b>{x[1]}</b><span>{x[0]}</span></div>)}</section>
     {data.data.recent_resumes.length>0&&<section className="list-panel recent-panel">
       <div className="table-head"><span>近期正式简历</span><span></span></div>
-      {data.data.recent_resumes.map(r=><button className="resume-row" key={r.id} onClick={()=>openResume(r.id)}><FilePenLine size={18}/><span><b>{r.display_name}</b><small>{r.profile_name} · v{r.current_version} · {date(r.updated_at)}</small></span><em>打开工作台 <ChevronRight size={15}/></em></button>)}
+      {data.data.recent_resumes.map(r=><button className="resume-row" key={r.id} onClick={()=>openResume(r.id)}><FilePenLine size={18}/><span><b>{r.display_name}</b><small>{r.profile_name} · {r.current_version?`v${r.current_version}`:'未保存'} · {date(r.updated_at)}</small></span><em>打开工作台 <ChevronRight size={15}/></em></button>)}
     </section>}
   </main>
 }
@@ -161,9 +162,38 @@ function Profiles({back,create,open,error}:{back:()=>void;create:(p:Profile)=>vo
 }
 function ProfileModal({profile,close,done,create,error}:{profile?:Profile;close:()=>void;done:()=>void;create:(p:Profile)=>void;error:(s:string)=>void}){const[name,setName]=useState(profile?.name||''),[role,setRole]=useState(profile?.role_direction||''),[req,setReq]=useState(profile?.core_requirements.join('、')||''),[strategy,setStrategy]=useState(profile?.resume_strategy||''),[jd,setJd]=useState(profile?.raw_jd||'');const save=async(start=false)=>{try{const body={name,role_direction:role,core_requirements:req.split(/[、，,]/).map(x=>x.trim()).filter(Boolean),resume_strategy:strategy,raw_jd:jd};const item=profile?await patch<Profile>(`/api/requirement-profiles/${profile.id}`,body):await post<Profile>('/api/requirement-profiles',body);done();if(start)create(item)}catch(e){error((e as Error).message)}};return <Modal title={profile?'编辑岗位画像':'新建岗位画像'} close={close}><Field label="画像名称"><input autoFocus value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="岗位方向"><input value={role} onChange={e=>setRole(e.target.value)}/></Field><Field label="核心技术要求" hint="使用顿号或逗号分隔多条要求。"><input value={req} onChange={e=>setReq(e.target.value)} placeholder="Python、ROS2、数据标注"/></Field><Field label="简历强调方向"><textarea value={strategy} onChange={e=>setStrategy(e.target.value)}/></Field><details><summary>原始 JD 与来源</summary><textarea value={jd} onChange={e=>setJd(e.target.value)}/></details><div className="modal-actions"><button className="button" onClick={close}>取消</button><button className="button" disabled={!name.trim()} onClick={()=>save(false)}>保存画像</button><button className="button primary" disabled={!name.trim()} onClick={()=>save(true)}>保存并选择资料</button></div></Modal> }
 
-function Resumes({back,open,create,pending}:{back:()=>void;open:(id:number)=>void;create:()=>void;pending:Pending[]}){const data=useLoad<Resume[]>('/api/resumes',[]),recycled=useLoad<Resume[]>('/api/resumes?include_recycled=true',[]),[recycle,setRecycle]=useState(false);const rows=(recycle?recycled.data:data.data).filter(r=>recycle?r.status==='recycled':r.status==='active');const restore=async(id:number)=>{try{await post(`/api/resumes/${id}/restore`);data.reload();recycled.reload()}catch(e){console.error(e)}};return <main className="page"><Title crumb="ResumeCraft" title={recycle?'简历回收站':'正式简历'} desc={recycle?'已删除的正式简历仍可查看和恢复。':'每次正式保存都会增加一个不可变版本。'} back={back} action={<div className="header-actions">{!recycle&&<button className="button primary" onClick={create}><Plus size={16}/>创建临时简历</button>}<button className="button" onClick={()=>setRecycle(!recycle)}>{recycle?<ArchiveRestore size={15}/>:<Trash2 size={15}/>} {recycle?'返回正式简历':'回收站'}</button></div>}/>{!recycle&&pending.length>0&&<div className="warning-banner"><CircleAlert size={18}/><div><b>{pending.length} 项来源变化待处理</b><span>进入简历后，变化会直接标记在受影响的条目上。</span></div></div>}{!recycle&&rows.some(r=>r.dirty||r.warnings>0)&&(()=>{const r=rows.find(x=>x.dirty||x.warnings>0)!;return <button className="resume-row continue-card" onClick={()=>open(r.id)}><CircleAlert size={18}/><span><b>继续上次工作</b><small>{r.display_name} · {r.warnings?`${r.warnings} 项来源变化待处理`:'工作副本有未保存修改'}</small></span><em>继续 <ChevronRight size={15}/></em></button>})()}<section className="list-panel">{(data.loading||recycled.loading)?<Loading/>:rows.length?rows.map(r=><article className="resume-row" key={r.id} onClick={()=>open(r.id)}><FilePenLine size={18}/><span><b>{r.display_name}</b><small>v{r.current_version} · {date(r.updated_at)}{r.status==='recycled'?' · 已回收':''}</small></span>{r.status==='recycled'?<button className="button" onClick={e=>{e.stopPropagation();restore(r.id)}}><ArchiveRestore size={14}/>恢复</button>:<em>{r.warnings?`${r.warnings} 项来源变化`:'打开工作台'} <ChevronRight size={15}/></em>}</article>):<Empty icon={recycle?Trash2:FilePenLine} title={recycle?'回收站为空':'还没有正式简历'} body={recycle?'已删除的正式简历会保留在这里。':'从岗位画像创建一份临时简历开始。'}/>}</section></main> }
+function Resumes({back,open,create,pending,library}:{back:()=>void;open:(id:number)=>void;create:()=>void;pending:Pending[];library:()=>void}){const data=useLoad<Resume[]>('/api/resumes',[]),recycled=useLoad<Resume[]>('/api/resumes?include_recycled=true',[]),[recycle,setRecycle]=useState(false);const rows=(recycle?recycled.data:data.data).filter(r=>recycle?r.status==='recycled':r.status==='active');const restore=async(id:number)=>{try{await post(`/api/resumes/${id}/restore`);data.reload();recycled.reload()}catch(e){console.error(e)}};return <main className="page"><Title crumb="ResumeCraft" title={recycle?'简历回收站':'正式简历'} desc={recycle?'已删除的正式简历仍可查看和恢复。':'每次正式保存都会增加一个不可变版本。'} back={back} action={<div className="header-actions">{!recycle&&<><button className="button" onClick={library}><LayoutTemplate size={15}/>模板库</button><button className="button primary" onClick={create}><Plus size={16}/>创建临时简历</button></>}<button className="button" onClick={()=>setRecycle(!recycle)}>{recycle?<ArchiveRestore size={15}/>:<Trash2 size={15}/>} {recycle?'返回正式简历':'回收站'}</button></div>}/>{!recycle&&pending.length>0&&<div className="warning-banner"><CircleAlert size={18}/><div><b>{pending.length} 项来源变化待处理</b><span>进入简历后，变化会直接标记在受影响的条目上。</span></div></div>}{!recycle&&rows.some(r=>r.dirty||r.warnings>0)&&(()=>{const r=rows.find(x=>x.dirty||x.warnings>0)!;return <button className="resume-row continue-card" onClick={()=>open(r.id)}><CircleAlert size={18}/><span><b>继续上次工作</b><small>{r.display_name} · {r.warnings?`${r.warnings} 项来源变化待处理`:'工作副本有未保存修改'}</small></span><em>继续 <ChevronRight size={15}/></em></button>})()}<section className="list-panel">{(data.loading||recycled.loading)?<Loading/>:rows.length?rows.map(r=><article className="resume-row" key={r.id} onClick={()=>open(r.id)}><FilePenLine size={18}/><span><b>{r.display_name}</b><small>{r.current_version?`v${r.current_version}`:'未保存'} · {date(r.updated_at)}{r.status==='recycled'?' · 已回收':''}</small></span>{r.status==='recycled'?<button className="button" onClick={e=>{e.stopPropagation();restore(r.id)}}><ArchiveRestore size={14}/>恢复</button>:<em>{r.warnings?`${r.warnings} 项来源变化`:'打开工作台'} <ChevronRight size={15}/></em>}</article>):<Empty icon={recycle?Trash2:FilePenLine} title={recycle?'回收站为空':'还没有正式简历'} body={recycle?'已删除的正式简历会保留在这里。':'从岗位画像创建一份临时简历开始。'}/>}</section></main> }
 
-function Composer({id,profile,back,open,error}:{id:number;profile:Profile;back:()=>void;open:(id:number)=>void;error:(s:string)=>void}){const linked=useLoad<{selection:Record<string,number[]>;preview:Content}>(`/api/linked-resumes/${id}`,{selection:{},preview:{sections:[]}}),facts=useLoad<Fact[]>('/api/facts',[]),[sectionId,setSectionId]=useState<string|null>(null),[convertLoading,setConvertLoading]=useState(false),[zoom,setZoom]=useState(1),[compact,setCompact]=useState(false);useEffect(()=>{const h=()=>setCompact(window.scrollY>150);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h)},[]);const toggle=async(fid:number)=>{if(!sectionId)return;const old=linked.data.selection[sectionId]||[],next={...linked.data.selection,[sectionId]:old.includes(fid)?old.filter(x=>x!==fid):[...old,fid]};try{await patch(`/api/linked-resumes/${id}`,{selection:next});linked.reload()}catch(e){error((e as Error).message)}};const convert=async()=>{if(convertLoading)return;setConvertLoading(true);try{open((await post<{resume_id:number}>(`/api/linked-resumes/${id}/convert`)).resume_id)}catch(e){error((e as Error).message)}finally{setConvertLoading(false)}};const missing=Object.values(linked.data.selection).flat().filter(fid=>!facts.data.some(f=>f.id===fid)).length;return <main className="workbench"><BenchHead title="临时简历" subtitle={`${profile.name} · ${profile.core_requirements.join('、')||'未设置核心要求'}`} back={back} compact={compact}/>{missing>0&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>{missing} 条已选资料不可用</b><span>它们已归档或被删除，不会出现在预览中；点击对应栏目可重新选择。</span></div></div>}<p className="canvas-hint">初始画布只显示栏目；点击栏目选择事实资料，内容增加后自动续为 A4 页面。</p><StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(linked.data.preview,MAIN_IDS,MAIN_BUDGET,false).length}/><div className="stage-zoom" style={{zoom}}><Canvas content={linked.data.preview} mode="select" select={id=>factCategories(id).length&&setSectionId(id)}/></div><footer className="actionbar"><button className="button" onClick={back}>退出选择</button><button className="button primary" disabled={linked.loading||convertLoading} onClick={convert}>{convertLoading?'正在生成…':'生成格式化简历'} {!convertLoading&&<ChevronRight size={16}/>}</button></footer>{sectionId&&<Picker title={labels[sectionId]} facts={facts.data.filter(f=>factCategories(sectionId).includes(f.category))} chosen={linked.data.selection[sectionId]||[]} toggle={toggle} close={()=>setSectionId(null)}/>}</main> }
+// Sample facts used only by the template library previews: one compact entry
+// per section so every template shows its real layout, colours and typography.
+const SAMPLE_CONTENT:Content={sections:[
+  {id:'basics',title:'基本信息',visibility:true,blocks:[{id:'sample-basics',title:'陈晓萌',content:'',fields:{phone:'138 0000 0000',email:'chenxiaomeng@example.com',city:'上海',desired_city:'上海',status:'应届毕业生',graduation:'2026年6月'},display_fields:['phone','email','city','desired_city','status','graduation'],source_refs:[],origin:'fact'}]},
+  {id:'target',title:'求职目标',visibility:true,blocks:[{id:'sample-target',title:'机器人数据采集工程师',content:'突出数据采集流水线与标注质量管理的工程实践，强调跨团队协作。',fields:{role_direction:'机器人 · 数据工程'},display_fields:['role_direction'],source_refs:[],origin:'profile'}]},
+  {id:'profile',title:'个人简介',visibility:true,blocks:[{id:'sample-profile',title:'个人简介',content:'三年机器人数据采集与标注经验，熟悉采集规范制定、质量抽检与交付复盘。',fields:{},display_fields:[],source_refs:[],origin:'fact'}]},
+  {id:'experience',title:'项目与实践',visibility:true,blocks:[
+    {id:'sample-exp1',title:'越疆 X-Trainer 数据采集项目',content:'搭建 12 台机械臂的采集流水线，制定场景脚本与异常回传机制，累计交付 4.2 万条有效轨迹。',fields:{period:'2024.03 – 2025.06',organization:'智能机器人实验室',role:'数据采集负责人'},display_fields:['period','organization','role'],source_refs:[],origin:'fact'},
+    {id:'sample-exp2',title:'标注质量管理专项',content:'设计三级抽检流程，把标注一致率从 86% 提升到 97%，沉淀质量手册并被两个团队复用。',fields:{period:'2023.09 – 2024.02',role:'质量组长'},display_fields:['period','role'],source_refs:[],origin:'fact'}]},
+  {id:'education',title:'教育经历',visibility:true,blocks:[{id:'sample-edu',title:'华东理工大学 · 自动化',content:'主修控制理论与机器人学，毕业设计方向为遥操作数据合成。',fields:{period:'2022.09 – 2026.06',degree:'本科',gpa:'3.7/4.0'},display_fields:['period','degree','gpa'],source_refs:[],origin:'fact'}]},
+  {id:'skills',title:'技能',visibility:true,blocks:[
+    {id:'sample-skill1',title:'数据工具链',content:'ROS2 采集节点、标注平台管理、Python 数据清洗脚本。',fields:{skill_category:'工程工具',proficiency:'熟练'},display_fields:['skill_category','proficiency'],source_refs:[],origin:'fact'},
+    {id:'sample-skill2',title:'质量管理',content:'抽检设计、一致性度量、标注规范撰写。',fields:{skill_category:'方法论',proficiency:'熟练'},display_fields:['skill_category','proficiency'],source_refs:[],origin:'fact'}]},
+  {id:'awards',title:'成果',visibility:true,blocks:[{id:'sample-award',title:'校级优秀毕业设计',content:'遥操作数据合成方向，评级 A。',fields:{period:'2026.06',issuer:'华东理工大学'},display_fields:['period','issuer'],source_refs:[],origin:'fact'}]},
+  {id:'links',title:'链接与作品集',visibility:true,blocks:[{id:'sample-link',title:'个人作品集',content:'采集规范、质量手册与项目复盘节选。',fields:{link_type:'作品集',url:'https://example.com/portfolio',label:'example.com/portfolio'},display_fields:['link_type','label'],source_refs:[],origin:'fact'}]},
+]}
+
+function TemplateLibrary({back,go}:{back:()=>void;go:(p:any)=>void}){
+  const templates=useLoad<{slug:string;name:string;description:string;layout:string;template_version_id:number}[]>('/api/templates',[])
+  return <main className="page">
+    <Title crumb="模板库" title="简历模板库" desc="所有模板用同一份样例资料实时渲染，版式、配色与字体的差异即最终导出效果。选择后可在临时简历与正式简历中随时切换。" back={back} action={<button className="button primary" onClick={()=>go('profiles')}><Plus size={16}/>创建简历选用模板</button>}/>
+    <section className="template-library-grid">{templates.loading?<Loading/>:templates.data.map(t=><article className="template-library-card" key={t.slug}>
+      <div className="template-preview"><div className="template-preview-stage" style={{zoom:.34}}><Canvas content={SAMPLE_CONTENT} mode="select" template={t}/></div></div>
+      <div className="template-info"><b>{t.name}</b><small>{t.description}</small><em>{layoutLabel(t.layout)} · 模板 #{t.template_version_id}</em></div>
+      <div className="template-actions"><button className="button primary" onClick={()=>go('profiles')}>用此模板创建简历</button></div>
+    </article>)}</section>
+  </main>
+}
+
+function Composer({id,profile,back,open,error}:{id:number;profile:Profile;back:()=>void;open:(id:number)=>void;error:(s:string)=>void}){const linked=useLoad<{selection:Record<string,number[]>;preview:Content;template?:TemplateInfo}>(`/api/linked-resumes/${id}`,{selection:{},preview:{sections:[]}}),facts=useLoad<Fact[]>('/api/facts',[]),templates=useLoad<{slug:string;name:string;description:string;layout:string;template_version_id:number}[]>('/api/templates',[]),[sectionId,setSectionId]=useState<string|null>(null),[convertLoading,setConvertLoading]=useState(false),[templateOpen,setTemplateOpen]=useState(false),[zoom,setZoom]=useState(1),[compact,setCompact]=useState(false);useEffect(()=>{const h=()=>setCompact(window.scrollY>150);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h)},[]);const toggle=async(fid:number)=>{if(!sectionId)return;const old=linked.data.selection[sectionId]||[],next={...linked.data.selection,[sectionId]:old.includes(fid)?old.filter(x=>x!==fid):[...old,fid]};try{await patch(`/api/linked-resumes/${id}`,{selection:next});linked.reload()}catch(e){error((e as Error).message)}};const chooseTemplate=async(tvId:number)=>{try{await patch(`/api/linked-resumes/${id}`,{template_version_id:tvId});setTemplateOpen(false);linked.reload()}catch(e){error((e as Error).message)}};const convert=async()=>{if(convertLoading)return;setConvertLoading(true);try{open((await post<{resume_id:number}>(`/api/linked-resumes/${id}/convert`)).resume_id)}catch(e){error((e as Error).message)}finally{setConvertLoading(false)}};const missing=Object.values(linked.data.selection).flat().filter(fid=>!facts.data.some(f=>f.id===fid)).length;const layout=linked.data.template?.layout||'sidebar';return <main className="workbench"><BenchHead title="临时简历" subtitle={`${profile.name} · ${profile.core_requirements.join('、')||'未设置核心要求'}`} back={back} compact={compact}/>{missing>0&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>{missing} 条已选资料不可用</b><span>它们已归档或被删除，不会出现在预览中；点击对应栏目可重新选择。</span></div></div>}<p className="canvas-hint">初始画布只显示栏目；点击栏目选择事实资料，内容增加后自动续为 A4 页面。转换正式简历时会使用当前所选模板。</p><StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(linked.data.preview,layoutMainIds(layout),layoutBudget(layout),false).length}/><div className="stage-zoom" style={{zoom}}><Canvas content={linked.data.preview} mode="select" template={linked.data.template} select={id=>factCategories(id).length&&setSectionId(id)}/></div><footer className="actionbar"><button className="button" onClick={back}>退出选择</button><button className="button" onClick={()=>setTemplateOpen(true)}><LayoutTemplate size={15}/>模板 · {linked.data.template?.name||'默认模板'}</button><button className="button primary" disabled={linked.loading||convertLoading} onClick={convert}>{convertLoading?'正在生成…':'生成格式化简历'} {!convertLoading&&<ChevronRight size={16}/>}</button></footer>{sectionId&&<Picker title={labels[sectionId]} facts={facts.data.filter(f=>factCategories(sectionId).includes(f.category))} chosen={linked.data.selection[sectionId]||[]} toggle={toggle} close={()=>setSectionId(null)}/>}{templateOpen&&<TemplateModal current={linked.data.template?.template_version_id} templates={templates.data} loading={templates.loading} onChoose={chooseTemplate} close={()=>setTemplateOpen(false)}/>}</main> }
 function Picker({title,facts,chosen,toggle,close}:{title:string;facts:Fact[];chosen:number[];toggle:(id:number)=>void;close:()=>void}){const[q,setQ]=useState('');const shown=facts.filter(f=>`${f.title} ${brief(f)}`.toLowerCase().includes(q.toLowerCase()));return <div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget)close()}}><section className="selection-modal"><header><div><p className="eyebrow">选择事实资料</p><h2>{title}</h2></div><button className="icon-btn" onClick={close}><X size={18}/></button></header><div className="filterbar"><Search size={16}/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="搜索资料名称或详情"/></div><div className="selection-list">{shown.map(f=><label key={f.id}><input type="checkbox" checked={chosen.includes(f.id)} onChange={()=>toggle(f.id)}/><span><b>{f.title}</b><small>{brief(f)}</small></span></label>)}</div><footer><span>已选择 {chosen.length} 条</span><button className="button primary" onClick={close}>完成选择</button></footer></section></div> }
 
 function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:number;back:()=>void;error:(s:string)=>void;refresh:()=>void;focusBlock:{sectionId:string;blockId:string}|null;onFocusLocated:()=>void}){
@@ -217,7 +247,9 @@ function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:number;bac
         if(fragmentIndex===undefined){next.content=value;return next}
         const chunks=splitText(b.content||'',fragmentLimit(sid))
         chunks[fragmentIndex]=value
-        next.content=chunks.join('\n')
+        // splitText slices by position, so reassembly must be a plain concat;
+        // joining with '\n' would inject newlines at every fragment boundary.
+        next.content=chunks.join('')
         return next
       })}
     })}
@@ -256,13 +288,14 @@ function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:number;bac
   const addSource=(sid:string)=>{setMenu(null);setPick(sid)}
   const requestBack=()=>{if(localDirty&&!readOnly)setConfirmLeave(true);else back()}
   const activeMenu=menu
+  const versionLabel=resume.data.current_version?`v${resume.data.current_version}`:'未保存'
   const menuSection=activeMenu?section(content,activeMenu.sectionId):null
   const menuBlock=activeMenu&&menuSection?menuSection.blocks.find(b=>b.id===activeMenu.blockId)||null:null
   const menuIndex=menuSection&&menuBlock?menuSection.blocks.indexOf(menuBlock):-1
   return <main className="workbench">
-    <BenchHead title={`正式简历 · v${resume.data.current_version}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
+    <BenchHead title={`正式简历 · ${versionLabel}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
     {changed.length>0&&!readOnly&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>来源资料已变化</b><span>受影响条目已标记；正文没有被自动改写。</span></div></div>}
-    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(content,resume.data.template?.layout==='plain'?['basics','target','profile','experience','education','skills','awards','links']:MAIN_IDS,MAIN_BUDGET,false).length}/>
+    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(content,layoutMainIds(resume.data.template?.layout||'sidebar'),layoutBudget(resume.data.template?.layout||'sidebar'),false).length}/>
     <div className="stage-zoom" style={{zoom}}>
       <Canvas content={content} mode={readOnly?'select':'edit'} template={resume.data.template} changed={changed} addFact={setPick} onEdit={openEdit} onContext={openMenu}/>
     </div>
@@ -274,9 +307,9 @@ function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:number;bac
       {readOnly
         ? <button className="button primary" onClick={async()=>{try{await post(`/api/resumes/${id}/restore`);resume.reload();versions.reload()}catch(e){error((e as Error).message)}}}><ArchiveRestore size={15}/>恢复简历</button>
         : <button className="button danger" onClick={async()=>{if(confirm('正式简历将进入回收站，历史版本会保留。确认继续？')){await del(`/api/resumes/${id}`);back()}}}><Trash2 size={15}/>删除简历</button>}
-      {!readOnly&&<button className="button" disabled={!localDirty} onClick={discard}>放弃修改</button>}
+      {!readOnly&&<button className="button" disabled={!localDirty||!resume.data.current_version} onClick={discard}>放弃修改</button>}
       <button className="button" onClick={()=>setTemplateOpen(true)}><LayoutTemplate size={15}/>模板</button>
-      <button className="button" onClick={()=>exportVersion(resume.data.current_version)}><Download size={15}/>导出正式简历</button>
+      <button className="button" disabled={!resume.data.current_version} onClick={()=>exportVersion(resume.data.current_version)}><Download size={15}/>导出正式简历</button>
       <button className="button primary" disabled={saving||readOnly} onClick={save}>{saving?'保存中…':readOnly?'已回收':'保存正式版本'}</button>
     </footer>
     {!readOnly&&pick&&<Picker title={`为${labels[pick]}添加来源`} facts={facts.data.filter(f=>factCategories(pick).includes(f.category))} chosen={[]} toggle={fid=>{const f=facts.data.find(x=>x.id===fid);if(f)addFact(f)}} close={()=>setPick(null)}/>}
@@ -314,7 +347,7 @@ function TemplateModal({current,templates,loading,onChoose,close}:{current:numbe
       <span className={`template-thumb thumb-${t.slug}`}/>
       <b>{t.name}</b>
       <small>{t.description}</small>
-      <em>{t.layout==='plain'?'单栏通排':'侧栏双栏'} · v{t.template_version_id}</em>
+      <em>{layoutLabel(t.layout)} · v{t.template_version_id}</em>
       {t.template_version_id===current&&<span className="template-current">当前模板</span>}
     </button>)}</div>}
   </Modal>
@@ -357,8 +390,14 @@ const fragmentLimit=(sid:string)=>['basics','skills','awards'].includes(sid)?520
 
 export const MAIN_IDS=['target','profile','experience','education','links']
 export const SIDE_IDS=['basics','skills','awards']
+export const ALL_IDS=['basics','target','profile','experience','education','skills','awards','links']
 export const MAIN_BUDGET=2400
 export const SIDE_BUDGET=1500
+export const BANNER_BUDGET=2200
+// Section order and packing budget per template layout; mirrors render_resume_html().
+export const layoutMainIds=(layout:string)=>layout==='plain'?ALL_IDS:layout==='banner'?ALL_IDS.filter(id=>id!=='basics'):MAIN_IDS
+export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:MAIN_BUDGET
+export const layoutLabel=(layout:string)=>layout==='plain'?'单栏通排':layout==='banner'?'横幅单栏':'侧栏双栏'
 type Item={section:Section;block:Block;continued:boolean}
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})
 const itemWeight=(it:Item,side:boolean)=>{const b=it.block;return (side?70:90)+(b.content||'').length+Object.keys(b.fields||{}).length*(side?10:20)}
@@ -387,19 +426,27 @@ export function streamItems(content:Content,ids:string[],budget:number,side:bool
 
 type TemplateInfo={slug:string;name:string;layout:string;template_version_id:number}|null
 function Canvas({content,mode,template,select,changed=[],addFact,onEdit,onContext}:{content:Content;mode:'select'|'edit';template?:TemplateInfo;select?:(s:string)=>void;changed?:string[];addFact?:(s:string)=>void;onEdit?:(target:BlockRef)=>void;onContext?:(target:BlockRef,x:number,y:number)=>void}){
-  const plain=template?.layout==='plain'
-  const mainIds=plain?['basics','target','profile','experience','education','skills','awards','links']:MAIN_IDS
-  const mainPages=streamItems(content,mainIds,MAIN_BUDGET,false)
-  const sidePages=plain?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true)
+  const layout=template?.layout||'sidebar'
+  const plain=layout==='plain'
+  const banner=layout==='banner'
+  const single=plain||banner
+  const mainPages=streamItems(content,layoutMainIds(layout),layoutBudget(layout),false)
+  const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true)
   const count=Math.max(mainPages.length,sidePages.length,1)
   const shared={mode,select,changed,addFact,onEdit,onContext}
+  const basicBlock=section(content,'basics').blocks[0]
+  const bannerName=basicBlock?.title||'简历'
   return <section className={`resume-stage theme-${template?.slug||'classic'} ${mode==='edit'?'edit-mode':'select-mode'}`}>
-    {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} plain={plain} theme={template?.slug||'classic'} sidebar={!plain&&(sidePages[i]?.length?<Sidebar items={sidePages[i]} {...shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>)}>
-      <div className="main-sections">{renderGroups(mainPages[i]||[],shared)}</div>
+    {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} layout={layout} theme={template?.slug||'classic'} sidebar={!single&&(sidePages[i]?.length?<Sidebar items={sidePages[i]} {...shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>)}>
+      {banner&&(i===0
+        ?<header className="resume-banner"><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></header>
+        :<header className="resume-banner banner-slim"><h1>{bannerName}</h1></header>)}
+      <main className="resume-main"><div className="main-sections">{renderGroups(mainPages[i]||[],shared)}</div></main>
     </Paper>)}
   </section>
 }
-function Paper({number,plain,theme,sidebar,children}:{number:number;plain:boolean;theme:string;sidebar:ReactNode;children:ReactNode}){return <article className={`resume-paper theme-${theme}${plain?' plain':''}`} id={`resume-page-${number}`} data-page={number}>{plain?<main className="resume-main">{children}</main>:<><aside className="resume-sidebar">{sidebar}</aside><main className="resume-main">{children}</main></>}</article>}
+function bannerFields(b:Block|undefined){if(!b)return null;const fields=b.fields||{};const keys=(b.display_fields||Object.keys(fields)).filter(k=>fields[k]);const labelsFor={...fieldLabels,...(b.field_labels||{})};return <>{keys.map(k=><span key={k}><b>{labelsFor[k]||k}</b> {fields[k]}</span>)}</>}
+function Paper({number,layout,theme,sidebar,children}:{number:number;layout:string;theme:string;sidebar:ReactNode;children:ReactNode}){const plain=layout!=='sidebar';return <article className={`resume-paper theme-${theme}${plain?' plain':''}${layout==='banner'?' banner':''}`} id={`resume-page-${number}`} data-page={number}>{plain?children:<><aside className="resume-sidebar">{sidebar}</aside>{children}</>}</article>}
 function Sidebar({items,...shared}:{items:Item[];mode:'select'|'edit';select?:(s:string)=>void;changed:string[];addFact?:(s:string)=>void;onEdit?:(target:BlockRef)=>void;onContext?:(target:BlockRef,x:number,y:number)=>void}){return <div className="sidebar-content">{renderGroups(items,shared)}</div>}
 function renderGroups(items:Item[],shared:any){return <>{items.length?renderGroupList(items,shared):<SectionGroup section={emptySection('target')} blocks={[]} continued={false} {...shared}/>}</>}
 function emptySection(id:string):Section{return {id,title:labels[id],visibility:true,blocks:[]}}

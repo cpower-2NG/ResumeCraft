@@ -53,3 +53,13 @@ def test_evidence_link_is_reachable_from_fact(client):
     response = client.post("/api/evidence", json={"fact_id": fact["id"], "title": "作品链接", "url": "https://example.com", "note": "验证"})
     assert response.status_code == 201
     assert client.get(f"/api/facts/{fact['id']}/evidence").json()[0]["title"] == "作品链接"
+
+
+def test_evidence_can_be_recycled_and_restored(client):
+    fact = client.post("/api/facts", json={"category": "skills", "title": "Python"}).json()
+    evidence = client.post("/api/evidence", json={"fact_id": fact["id"], "title": "证书链接", "url": "https://example.com/cert"}).json()
+    assert client.delete(f"/api/evidence/{evidence['id']}").json() == {"mode": "recycled"}
+    assert client.get(f"/api/facts/{fact['id']}/evidence").json()[0]["status"] == "recycled"
+    restored = client.post(f"/api/evidence/{evidence['id']}/restore")
+    assert restored.status_code == 200
+    assert restored.json()["status"] == "active"

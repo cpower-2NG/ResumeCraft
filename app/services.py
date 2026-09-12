@@ -22,13 +22,18 @@ CORE_SECTIONS = [
 
 SECTION_HEADINGS = [(title, key) for key, title in CORE_SECTIONS]
 
-# Built-in code-rendered templates. ``layout`` decides the page skeleton; the
-# colour tokens are injected into the exported CSS. Adding a template to this
-# registry (plus a ResumeTemplate/TemplateVersion row) extends the library.
+# Built-in code-rendered templates. ``layout`` decides the page skeleton
+# (sidebar = 左侧栏双栏, plain = 单栏通排, banner = 顶部横幅单栏); the colour
+# tokens are injected into the exported CSS. ``serif`` switches the paper to a
+# serif family. Adding a template to this registry (plus a ResumeTemplate /
+# TemplateVersion row, created automatically on startup) extends the library.
 BUILTIN_TEMPLATES = {
     "classic": {"name": "经典侧栏模板", "description": "深青侧栏 + 双栏正文，适合技术项目型岗位。", "layout": "sidebar", "sidebar_bg": "#163b43", "sidebar_fg": "#f4f7f4", "sidebar_muted": "#cad9d5", "sidebar_heading": "#a7c9c2", "heading": "#17343a", "title": "#263f40", "meta": "#66807b", "meta_label": "#527875", "copy": "#4c605d", "accent": "#236b74", "rule": "#d5e0dc"},
     "focus": {"name": "深蓝聚焦模板", "description": "深蓝侧栏、强标题对比，强调重点条目。", "layout": "sidebar", "sidebar_bg": "#1f2a44", "sidebar_fg": "#eef1f8", "sidebar_muted": "#b8c2dc", "sidebar_heading": "#93a5cd", "heading": "#1c2947", "title": "#24324f", "meta": "#5f6c8c", "meta_label": "#4c5a7d", "copy": "#3d4a66", "accent": "#34549c", "rule": "#d7dcea"},
     "minimal": {"name": "简约无侧栏模板", "description": "单栏通排、浅色分隔线，内容密度优先。", "layout": "plain", "sidebar_bg": "#ffffff", "sidebar_fg": "#24342f", "sidebar_muted": "#4c605d", "sidebar_heading": "#1d5c69", "heading": "#1d5c69", "title": "#24342f", "meta": "#667a72", "meta_label": "#52706a", "copy": "#37473f", "accent": "#1d5c69", "rule": "#e1e8e3"},
+    "slate": {"name": "石墨侧栏模板", "description": "石墨灰侧栏配琥珀点缀，沉稳克制，适合管理、咨询与行政类岗位。", "layout": "sidebar", "sidebar_bg": "#2e383d", "sidebar_fg": "#f4f4f1", "sidebar_muted": "#c2cbc9", "sidebar_heading": "#d8b571", "heading": "#2c3438", "title": "#333c40", "meta": "#6d7773", "meta_label": "#57615e", "copy": "#4b5451", "accent": "#b0803c", "rule": "#dbe0dd"},
+    "azure": {"name": "天青横幅模板", "description": "顶部横幅呈现姓名与联系方式，单栏正文，现代明亮，适合产品、运营与市场类岗位。", "layout": "banner", "sidebar_bg": "#1d5c8f", "sidebar_fg": "#ffffff", "sidebar_muted": "#cfe2f2", "sidebar_heading": "#bcd9f0", "heading": "#1d4c74", "title": "#21374d", "meta": "#5c7186", "meta_label": "#4a5d72", "copy": "#45566a", "accent": "#2273b0", "rule": "#d7e4ef"},
+    "academic": {"name": "学术衬线模板", "description": "衬线字体单栏通排，严谨传统，适合科研、高校与研究院所简历。", "layout": "plain", "serif": True, "sidebar_bg": "#ffffff", "sidebar_fg": "#2c2822", "sidebar_muted": "#5f584b", "sidebar_heading": "#4a3b28", "heading": "#4a3b28", "title": "#2e2a22", "meta": "#6f6759", "meta_label": "#5c5446", "copy": "#423c30", "accent": "#7c5a2e", "rule": "#d9d2c3"},
 }
 
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
@@ -229,6 +234,7 @@ def evidence_count(db: Session, fact_id: int) -> int:
 
 MAIN_PAGE_BUDGET = 2400
 SIDE_PAGE_BUDGET = 1500
+BANNER_PAGE_BUDGET = 2200
 SIDE_SECTIONS = ("basics", "skills", "awards")
 
 
@@ -277,7 +283,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         if (block.get("fields") or {}).get("url"):
             url = str(block["fields"]["url"])
             label = (block.get("fields") or {}).get("label") or url
-            content_text = f'<a href="{esc(url, quote=True)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
+            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
         block_title = "" if block.get("title") and str(block.get("title")) == heading else f'<h3>{esc(block.get("title"))}</h3>'
         return f'<article class="block">{block_title}<div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
 
@@ -334,13 +340,18 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         return "".join(parts)
 
     plain = descriptor["layout"] == "plain"
-    side_ids = [] if plain else ["basics", "skills", "awards"]
+    banner = descriptor["layout"] == "banner"
+    single_column = plain or banner
+    side_ids = [] if single_column else ["basics", "skills", "awards"]
     if plain:
         main_ids = ["basics", "target", "profile", "experience", "education", "skills", "awards", "links"]
+    elif banner:
+        # The banner strip replaces the basics section on every page.
+        main_ids = ["target", "profile", "experience", "education", "skills", "awards", "links"]
     else:
         main_ids = ["target", "profile", "experience", "education", "links"]
-    sidebar_pages = stream_pages(side_ids, SIDE_PAGE_BUDGET)
-    main_pages = stream_pages(main_ids, MAIN_PAGE_BUDGET)
+    sidebar_pages = [] if single_column else stream_pages(side_ids, SIDE_PAGE_BUDGET)
+    main_pages = stream_pages(main_ids, BANNER_PAGE_BUDGET if banner else MAIN_PAGE_BUDGET)
     page_count = max(len(main_pages), 1)
 
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
@@ -349,16 +360,24 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     basics = sections.get("basics", {}).get("blocks", [])
     basic_block = basics[0] if basics else {}
     sidebar_head = f'<h1>{esc(basic_block.get("title") if basics else title)}</h1><div class="side-meta">{block_fields(basic_block)}</div><p class="side-copy">{block_text(basic_block)}</p>'
+    banner_name = esc(basic_block.get("title") if basics else title)
+    banner_head = f'<header class="page-banner"><h1>{banner_name}</h1><div class="banner-meta">{block_fields(basic_block)}</div></header>'
+    banner_head_slim = f'<header class="page-banner banner-slim"><h1>{banner_name}</h1></header>'
 
     chunks: list[str] = []
     for index in range(page_count):
-        if plain:
+        if banner:
+            body = render_page(main_pages[index] if index < len(main_pages) else [])
+            head = banner_head if index == 0 else banner_head_slim
+            chunks.append(f'<section class="page page-banner-page">{head}<main class="main main-plain">{body}</main></section>')
+        elif plain:
             body = render_page(main_pages[index] if index < len(main_pages) else [])
             chunks.append(f'<section class="page page-plain"><main class="main main-plain">{body}</main></section>')
         else:
             sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
             chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{render_page(main_pages[index] if index < len(main_pages) else [])}</main></section>')
     d = descriptor
+    serif_css = '.page,.page *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif;}' if d.get("serif") else ""
     return f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>{esc(title)} v{version_number}</title>
 <style>
@@ -366,8 +385,16 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
 * {{ box-sizing: border-box; }}
 html,body {{ margin:0; padding:0; background:#e9efeb; color:#24342f; font-family:Arial,"Microsoft YaHei",sans-serif; }}
 body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
+{serif_css}
 .page {{ width:210mm; height:297mm; margin:16px auto; display:grid; grid-template-columns:58mm 1fr; background:#fff; break-after:page; page-break-after:always; box-shadow:0 8px 25px #18302922; overflow:hidden; }}
 .page-plain {{ grid-template-columns:1fr; }}
+.page-banner-page {{ display:flex; flex-direction:column; }}
+.page-banner {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:11mm 12mm; flex:none; }}
+.page-banner h1 {{ font-size:20pt; line-height:1.15; margin:0 0 3mm; letter-spacing:.5px; }}
+.banner-meta {{ display:flex; flex-wrap:wrap; gap:1mm 4mm; color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; }}
+.banner-meta .meta {{ display:block; }}
+.banner-slim {{ padding:3.5mm 12mm; display:flex; align-items:baseline; }}
+.banner-slim h1 {{ font-size:10pt; margin:0; letter-spacing:1px; }}
 .page:last-child {{ break-after:auto; page-break-after:auto; }}
 .sidebar {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:14mm 7mm; overflow:hidden; }}
 .sidebar h1 {{ font-family:Georgia,"Microsoft YaHei",serif; font-size:23pt; line-height:1.1; margin:0 0 5mm; }}
@@ -381,6 +408,7 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .sidebar .block p {{ color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; margin:0; }}
 .main {{ padding:14mm 12mm; overflow:hidden; }}
 .main-plain {{ padding:13mm 14mm; }}
+.page-banner-page .main {{ flex:1; padding-top:8mm; }}
 .main > .section:first-child {{ margin-top:0; }}
 .section {{ margin-top:7mm; break-inside:avoid; }}
 .section h2 {{ border-bottom:1px solid {d['rule']}; color:{d['heading']}; font-size:12pt; margin:0 0 3mm; padding-bottom:2mm; }}
