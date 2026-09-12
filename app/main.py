@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .services import FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .services import CORE_SECTIONS, FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
 from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
@@ -270,7 +270,8 @@ def list_profiles(include_recycled: bool = False, db: Session = Depends(get_db))
     if not include_recycled: query = query.where(RequirementProfile.status == "active")
     profiles = db.scalars(query.order_by(RequirementProfile.updated_at.desc())).all()
     active_resumes = {item.requirement_profile_id: item.id for item in db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.status == "active")).all()}
-    return [{**serialize_profile(item), "active_resume_id": active_resumes.get(item.id)} for item in profiles]
+    opportunity_counts = {item.requirement_profile_id: item.count for item in db.execute(select(JobOpportunity.requirement_profile_id, func.count().label("count")).where(JobOpportunity.workspace_id == WORKSPACE_ID).group_by(JobOpportunity.requirement_profile_id)).all()}
+    return [{**serialize_profile(item), "active_resume_id": active_resumes.get(item.id), "opportunity_count": opportunity_counts.get(item.id, 0)} for item in profiles]
 
 
 @app.post("/api/requirement-profiles", status_code=201)
@@ -314,6 +315,50 @@ def list_opportunities(profile_id: int, db: Session = Depends(get_db)):
 def create_opportunity(profile_id: int, payload: OpportunityInput, db: Session = Depends(get_db)):
     require_workspace(db); get_or_404(db, RequirementProfile, profile_id)
     item = JobOpportunity(workspace_id=WORKSPACE_ID, requirement_profile_id=profile_id, **payload.model_dump()); db.add(item); db.commit(); return {"id": item.id}
+
+
+@app.patch("/api/opportunities/{opportunity_id}")
+def update_opportunity(opportunity_id: int, payload: OpportunityInput, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, JobOpportunity, opportunity_id)
+    for key, value in payload.model_dump().items(): setattr(item, key, value)
+    db.commit(); return {"id": item.id, **payload.model_dump()}
+
+
+@app.delete("/api/opportunities/{opportunity_id}")
+def delete_opportunity(opportunity_id: int, db: Session = Depends(get_db)):
+    require_workspace(db); item = get_or_404(db, JobOpportunity, opportunity_id); db.delete(item); db.commit(); return {"mode": "permanent"}
+
+
+def opportunity_response(item: JobOpportunity) -> dict:
+    return {"id": item.id, "requirement_profile_id": item.requirement_profile_id, "company": item.company, "title": item.title, "raw_jd": item.raw_jd, "url": item.url, "source_note": item.source_note, "created_at": item.created_at}
+
+
+@app.get("/api/opportunities")
+def list_all_opportunities(db: Session = Depends(get_db)):
+    require_workspace(db)
+    return [opportunity_response(item) for item in db.scalars(select(JobOpportunity).where(JobOpportunity.workspace_id == WORKSPACE_ID).order_by(JobOpportunity.created_at.desc())).all()]
+
+
+@app.get("/api/search")
+def global_search(q: str, db: Session = Depends(get_db)):
+    require_workspace(db)
+    keyword = f"%{q.strip()}%"
+    if not q.strip(): return []
+    facts = db.scalars(select(FactRecord).where(FactRecord.workspace_id == WORKSPACE_ID, FactRecord.title.contains(keyword)).order_by(FactRecord.updated_at.desc()).limit(5)).all()
+    profiles = db.scalars(select(RequirementProfile).where(RequirementProfile.workspace_id == WORKSPACE_ID, (RequirementProfile.name.contains(keyword)) | (RequirementProfile.role_direction.contains(keyword))).order_by(RequirementProfile.updated_at.desc()).limit(5)).all()
+    opportunities = db.scalars(select(JobOpportunity).where(JobOpportunity.workspace_id == WORKSPACE_ID, (JobOpportunity.company.contains(keyword)) | (JobOpportunity.title.contains(keyword))).limit(5)).all()
+    resumes = db.scalars(select(ResumeIdentity).where(ResumeIdentity.workspace_id == WORKSPACE_ID, ResumeIdentity.display_name.contains(keyword)).limit(5)).all()
+    evidence_rows = db.scalars(select(Evidence).where(Evidence.workspace_id == WORKSPACE_ID, (Evidence.title.contains(keyword)) | (Evidence.filename.contains(keyword))).limit(5)).all()
+    category_labels = {key: title for key, title in CORE_SECTIONS}
+    results = []
+    for item in facts: results.append({"type": "fact", "id": item.id, "title": item.title, "subtitle": category_labels.get(item.category, item.category), "status": item.status, "updated_at": item.updated_at, "payload": fact_response(db, item)})
+    for item in evidence_rows:
+        fact_id = db.scalar(select(FactEvidence.fact_id).where(FactEvidence.evidence_id == item.id))
+        results.append({"type": "evidence", "id": item.id, "title": item.title, "subtitle": item.filename or item.url or "说明材料", "status": item.status, "updated_at": item.updated_at, "payload": {"fact": fact_response(db, db.get(FactRecord, fact_id)) if fact_id and db.get(FactRecord, fact_id) else None}})
+    for item in profiles: results.append({"type": "profile", "id": item.id, "title": item.name, "subtitle": item.role_direction or "岗位方向待补充", "status": item.status, "updated_at": item.updated_at, "payload": None})
+    for item in opportunities: results.append({"type": "opportunity", "id": item.id, "title": f"{item.company} · {item.title}".strip(" ·"), "subtitle": "招聘机会", "status": "active", "updated_at": item.created_at, "payload": {"profile_id": item.requirement_profile_id}})
+    for item in resumes: results.append({"type": "resume", "id": item.id, "title": item.display_name, "subtitle": "正式简历", "status": item.status, "updated_at": item.updated_at, "payload": None})
+    return results
 
 
 def default_template_version(db: Session) -> TemplateVersion:
@@ -406,8 +451,10 @@ def update_working_copy(resume_id: int, payload: WorkingCopyInput, db: Session =
 def save_resume(resume_id: int, payload: SaveInput, db: Session = Depends(get_db)):
     require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); latest = db.get(ResumeVersion, identity.current_version_id)
     if copy.base_version_id != latest.id: raise HTTPException(409, "工作副本基线已过期，请从当前版本重新载入")
-    content = json_value(copy.content, {}); version = ResumeVersion(resume_identity_id=identity.id, version_number=latest.version_number + 1, content=dump(content), source_manifest=dump(source_manifest(content)), profile_snapshot=latest.profile_snapshot, template_version_id=latest.template_version_id, reason="user_save", change_summary=payload.change_summary, content_hash=content_hash(content))
-    db.add(version); db.flush(); identity.current_version_id = version.id; copy.base_version_id = version.id; copy.dirty = False; sync_references(db, identity.id, content)
+    content = json_value(copy.content, {})
+    reason = copy.pending_reason or "user_save"
+    version = ResumeVersion(resume_identity_id=identity.id, version_number=latest.version_number + 1, content=dump(content), source_manifest=dump(source_manifest(content)), profile_snapshot=latest.profile_snapshot, template_version_id=latest.template_version_id, reason=reason, change_summary=payload.change_summary, content_hash=content_hash(content))
+    db.add(version); db.flush(); identity.current_version_id = version.id; copy.base_version_id = version.id; copy.dirty = False; copy.pending_reason = None; sync_references(db, identity.id, content)
     db.query(PendingItem).filter(PendingItem.resume_identity_id == identity.id, PendingItem.status == "open").update({"status": "resolved"}, synchronize_session=False)
     db.commit(); return serialize_version(version)
 
@@ -418,11 +465,58 @@ def versions(resume_id: int, db: Session = Depends(get_db)):
     return [serialize_version(item) for item in db.scalars(select(ResumeVersion).where(ResumeVersion.resume_identity_id == resume_id).order_by(ResumeVersion.version_number.desc())).all()]
 
 
+def block_keys(section: dict, block: dict) -> list[str]:
+    keys = [f"{section['id']}|{block['id']}"]
+    keys.extend(f"{section['id']}|fact-{fact_id}" for fact_id in block.get("source_refs", []) if isinstance(fact_id, int))
+    return keys
+
+
+def version_block_index(content: dict) -> dict:
+    index = {}
+    for section in content.get("sections", []):
+        for block in section.get("blocks", []):
+            entry = {"section_id": section["id"], "section_title": section.get("title"), "title": block.get("title"), "content": block.get("content"), "fields": block.get("fields") or {}, "display_fields": block.get("display_fields") or [], "origin": block.get("origin"), "source_refs": block.get("source_refs") or []}
+            for key in block_keys(section, block):
+                index.setdefault(key, entry)
+    return index
+
+
+@app.get("/api/resumes/{resume_id}/versions/{from_number}/diff/{to_number}")
+def diff_versions(resume_id: int, from_number: int, to_number: int, db: Session = Depends(get_db)):
+    require_workspace(db); get_or_404(db, ResumeIdentity, resume_id)
+    versions_by_number = {item.version_number: item for item in db.scalars(select(ResumeVersion).where(ResumeVersion.resume_identity_id == resume_id, ResumeVersion.version_number.in_([from_number, to_number]))).all()}
+    if from_number not in versions_by_number or to_number not in versions_by_number:
+        raise HTTPException(404, "版本不存在")
+    before_index = version_block_index(json_value(versions_by_number[from_number].content, {}))
+    after_index = version_block_index(json_value(versions_by_number[to_number].content, {}))
+    changes = []
+    for key, after in after_index.items():
+        before = before_index.get(key)
+        if not before:
+            changes.append({"key": key, "kind": "added", "before": None, "after": after})
+        elif before["content"] != after["content"] or before["title"] != after["title"] or before["fields"] != after["fields"] or before["display_fields"] != after["display_fields"]:
+            changes.append({"key": key, "kind": "modified", "before": before, "after": after})
+    for key, before in before_index.items():
+        if key not in after_index:
+            changes.append({"key": key, "kind": "removed", "before": before, "after": None})
+    return {"from_version": from_number, "to_version": to_number, "changes": changes}
+
+
 @app.post("/api/resumes/{resume_id}/versions/{version_number}/restore")
 def restore_version(resume_id: int, version_number: int, db: Session = Depends(get_db)):
     require_workspace(db); identity = get_or_404(db, ResumeIdentity, resume_id); version = db.scalar(select(ResumeVersion).where(ResumeVersion.resume_identity_id == resume_id, ResumeVersion.version_number == version_number))
     if not version: raise HTTPException(404, "版本不存在")
-    copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id)); copy.content, copy.base_version_id, copy.dirty = version.content, identity.current_version_id, True; db.commit(); return {"restored_version": version_number, "dirty": True}
+    copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == resume_id))
+    current = db.get(ResumeVersion, identity.current_version_id)
+    restoring_current = current is not None and version.id == current.id
+    # Restoring an older version arms a "rollback" reason for the next formal save;
+    # restoring the current version is a discard, so the copy is clean again.
+    copy.content = version.content
+    copy.base_version_id = identity.current_version_id
+    copy.dirty = not restoring_current
+    copy.pending_reason = None if restoring_current else "rollback"
+    db.commit()
+    return {"restored_version": version_number, "dirty": copy.dirty, "pending_reason": copy.pending_reason}
 
 
 @app.post("/api/resumes/{resume_id}/versions/{version_number}/export")

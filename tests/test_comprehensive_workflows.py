@@ -165,10 +165,35 @@ def test_version_restore_does_not_overwrite_immutable_history(client):
     content["sections"][0]["blocks"].append({"id": "v2", "title": "第二版", "content": "修改", "source_refs": [], "origin": "user"})
     client.patch(f"/api/resumes/{resume_id}/working-copy", json={"content": content})
     client.post(f"/api/resumes/{resume_id}/save", json={"change_summary": "第二版"})
-    assert client.post(f"/api/resumes/{resume_id}/versions/1/restore").json() == {"restored_version": 1, "dirty": True}
+    restored = client.post(f"/api/resumes/{resume_id}/versions/1/restore").json()
+    assert restored == {"restored_version": 1, "dirty": True, "pending_reason": "rollback"}
     versions = client.get(f"/api/resumes/{resume_id}/versions").json()
     assert [item["version_number"] for item in versions] == [2, 1]
     assert client.post(f"/api/resumes/{resume_id}/versions/999/restore").status_code == 404
+
+
+def test_restore_current_version_discards_and_older_version_saves_as_rollback(client):
+    _, resume_id = create_resume(client)
+    content = client.get(f"/api/resumes/{resume_id}").json()["working_copy"]["content"]
+    content["sections"][0]["blocks"].append({"id": "v2", "title": "第二版", "content": "修改", "source_refs": [], "origin": "user"})
+    client.patch(f"/api/resumes/{resume_id}/working-copy", json={"content": content})
+    client.post(f"/api/resumes/{resume_id}/save", json={"change_summary": "第二版"})
+
+    # Restoring the current version is a discard: the working copy is clean again.
+    discarded = client.post(f"/api/resumes/{resume_id}/versions/2/restore").json()
+    assert discarded["dirty"] is False
+    assert discarded["pending_reason"] is None
+    assert client.get(f"/api/resumes/{resume_id}").json()["working_copy"]["dirty"] is False
+
+    # Restoring an older version arms "rollback", which the next formal save consumes.
+    client.post(f"/api/resumes/{resume_id}/versions/1/restore")
+    assert client.get(f"/api/resumes/{resume_id}").json()["working_copy"]["dirty"] is True
+    saved = client.post(f"/api/resumes/{resume_id}/save", json={"change_summary": "回退到第一版"})
+    assert saved.json()["reason"] == "rollback"
+    versions = client.get(f"/api/resumes/{resume_id}/versions").json()
+    assert [item["version_number"] for item in versions] == [3, 2, 1]
+    assert versions[0]["reason"] == "rollback"
+    assert client.get(f"/api/resumes/{resume_id}").json()["working_copy"]["dirty"] is False
 
 
 def test_evidence_validation_and_archive_flow(client):

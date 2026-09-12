@@ -247,6 +247,8 @@ class ResumeWorkingCopy(WorkbenchBase):
     base_version_id: Mapped[int | None] = mapped_column(ForeignKey("resume_versions.id"), nullable=True)
     content: Mapped[str] = mapped_column(Text)
     dirty: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Reason consumed by the next formal save, e.g. "rollback" after restoring an older version.
+    pending_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 

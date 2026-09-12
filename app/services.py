@@ -20,6 +20,8 @@ CORE_SECTIONS = [
     ("skills", "技能"), ("awards", "成果"), ("links", "链接与作品集"),
 ]
 
+SECTION_HEADINGS = [(title, key) for key, title in CORE_SECTIONS]
+
 FACT_SCHEMAS = {
     "basics": [("name", "姓名", "text", True), ("phone", "电话", "text", False), ("email", "邮箱", "email", False), ("city", "所在地", "text", False), ("desired_city", "目标城市", "text", False), ("birth_date", "出生日期", "text", False), ("age", "年龄", "text", False), ("hometown", "籍贯", "text", False), ("status", "身份状态", "text", False), ("graduation", "毕业时间", "text", False), ("availability", "到岗安排", "textarea", False), ("bio", "个人简介", "textarea", False)],
     "education": [("school", "学校", "text", True), ("major", "专业", "text", False), ("degree", "学历", "text", False), ("start_date", "入学时间", "text", False), ("end_date", "毕业时间", "text", False), ("period", "在读期间", "text", False), ("gpa", "GPA", "text", False), ("ranking", "专业排名", "text", False), ("achievement", "成绩与成果", "textarea", False), ("courses", "相关课程", "textarea", False)],
@@ -191,8 +193,28 @@ def evidence_count(db: Session, fact_id: int) -> int:
     return db.query(FactEvidence).filter(FactEvidence.fact_id == fact_id).count()
 
 
+MAIN_PAGE_BUDGET = 2400
+SIDE_PAGE_BUDGET = 1500
+SIDE_SECTIONS = ("basics", "skills", "awards")
+
+
+def section_fragment_limit(section_id: str) -> int:
+    return 520 if section_id in SIDE_SECTIONS else 900
+
+
+def section_item_weight(section_id: str, content: str, field_count: int) -> int:
+    base = 70 if section_id in SIDE_SECTIONS else 90
+    return base + len(content) + field_count * (10 if section_id in SIDE_SECTIONS else 20)
+
+
 def render_resume_html(content: dict, title: str, version_number: int) -> str:
-    """Render a self-contained, print-ready HTML snapshot from a saved version."""
+    """Render a self-contained, print-ready HTML snapshot from a saved version.
+
+    Blocks are fragmented and packed with the same weights as the SPA preview
+    (see ``web/src/App.tsx``) so page breaks match between preview and export.
+    Each page repeats a section heading at most once; a heading that continues
+    from an earlier page is suffixed with “（续）”.
+    """
     sections = {item.get("id"): item for item in content.get("sections", [])}
     field_labels = {
         "phone": "电话", "email": "邮箱", "city": "所在地", "desired_city": "目标城市", "hometown": "籍贯",
@@ -216,41 +238,78 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
         return "".join(f'<span class="meta"><b>{esc(labels.get(key, key))}</b> {esc(fields.get(key))}</span>' for key in displayed if fields.get(key))
 
     def block_html(block: dict) -> str:
-        content = block_text(block)
+        content_text = block_text(block)
         if (block.get("fields") or {}).get("url"):
             url = str(block["fields"]["url"])
             label = (block.get("fields") or {}).get("label") or url
-            content = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content}' if content else "")
-        return f'<article class="block"><h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block)}</div><p>{content}</p></article>'
+            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
+        return f'<article class="block"><h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
 
-    def section_units(section_id: str, heading: str) -> list[tuple[str, int]]:
-        section = sections.get(section_id, {})
-        units: list[tuple[str, int]] = []
-        for block in section.get("blocks", []):
-            text_value = str(block.get("content", "") or "")
-            chunks = [text_value[index:index + 900] for index in range(0, len(text_value), 900)] or [""]
-            for index, chunk in enumerate(chunks):
-                item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
-                units.append((f'<section class="section"><h2>{esc(heading)}</h2>{block_html(item)}</section>', 110 + len(chunk)))
-        return units
+    def stream_pages(section_ids: list[str], budget: int) -> list[list[tuple[dict, str]]]:
+        """Fragment blocks, pack them into pages, and mark heading continuations."""
+        items: list[tuple[str, dict, int]] = []
+        for section_id in section_ids:
+            section = sections.get(section_id, {})
+            limit = section_fragment_limit(section_id)
+            for block in section.get("blocks", []):
+                text_value = str(block.get("content", "") or "")
+                chunks = [text_value[index:index + limit] for index in range(0, len(text_value), limit)] or [""]
+                for index, chunk in enumerate(chunks):
+                    item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
+                    weight = section_item_weight(section_id, chunk, len(item.get("fields") or {}))
+                    items.append((section_id, item, weight))
+        pages: list[list[tuple[str, dict, int]]] = []
+        current: list[tuple[str, dict, int]] = []
+        size = 0
+        for item in items:
+            weight = item[2]
+            if current and size + weight > budget:
+                pages.append(current)
+                current, size = [], 0
+            current.append(item)
+            size += weight
+        if current or not pages:
+            pages.append(current)
+        seen: set[str] = set()
+        for page in pages:
+            local: set[str] = set()
+            for index, (section_id, _, _) in enumerate(page):
+                page[index] = (section_id, page[index][1], 1 if section_id in seen else 0)
+                local.add(section_id)
+            seen.update(local)
+        return pages
+
+    def render_page(items: list[tuple[str, dict, int]]) -> str:
+        parts: list[str] = []
+        current_id: str | None = None
+        for section_id, block, continued in items:
+            heading = next((section_title for section_title, section_key in SECTION_HEADINGS if section_key == section_id), section_id)
+            if section_id != current_id:
+                if current_id is not None:
+                    parts.append("</section>")
+                label = f"{heading}（续）" if continued else heading
+                parts.append(f'<section class="section"><h2>{esc(label)}</h2>')
+                current_id = section_id
+            parts.append(block_html(block))
+        if current_id is not None:
+            parts.append("</section>")
+        return "".join(parts)
+
+    sidebar_pages = stream_pages(["basics", "skills", "awards"], SIDE_PAGE_BUDGET)
+    main_pages = stream_pages(["target", "profile", "experience", "education", "links"], MAIN_PAGE_BUDGET)
+    page_count = max(len(main_pages), 1)
+
+    def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
+        return sidebar_pages[page_index] if page_index < len(sidebar_pages) else []
 
     basics = sections.get("basics", {}).get("blocks", [])
-    basic_text = block_text(basics[0]) if basics else ""
-    basic_meta = block_fields(basics[0]) if basics else ""
-    sidebar = f'<h1>{esc(basics[0].get("title") if basics else title)}</h1><div class="side-meta">{basic_meta}</div><p class="side-copy">{basic_text}</p>'
-    sidebar += "".join(section_html for section_html, _ in section_units("skills", "技能") + section_units("awards", "成果"))
-    main_units = []
-    for section_id, heading in (("target", "求职目标"), ("profile", "个人简介"), ("experience", "项目与实践"), ("education", "教育经历"), ("links", "链接与作品集")):
-        main_units.extend(section_units(section_id, heading))
+    basic_block = basics[0] if basics else {}
+    sidebar_head = f'<h1>{esc(basic_block.get("title") if basics else title)}</h1><div class="side-meta">{block_fields(basic_block)}</div><p class="side-copy">{block_text(basic_block)}</p>'
+
     chunks: list[str] = []
-    current, size = [], 0
-    for unit, unit_size in main_units:
-        if current and size + unit_size > 2600:
-            chunks.append("".join(current)); current, size = [], 0
-        current.append(unit); size += unit_size
-    if current or not chunks:
-        chunks.append("".join(current))
-    pages = "".join(f'<section class="page"><aside class="sidebar">{sidebar if index == 0 else ""}</aside><main class="main">{chunk}</main></section>' for index, chunk in enumerate(chunks))
+    for index in range(page_count):
+        sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
+        chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{render_page(main_pages[index] if index < len(main_pages) else [])}</main></section>')
     return f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>{esc(title)} v{version_number}</title>
 <style>
@@ -281,4 +340,4 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
     .block p {{ color:#4c605d; font-size:9pt; line-height:1.6; margin:0; white-space:normal; }}
     .block a {{ color:#236b74; }}
 @media print {{ html,body {{ background:#fff; }} .page {{ margin:0; box-shadow:none; }} }}
-</style></head><body>{pages}</body></html>'''
+</style></head><body>{"".join(chunks)}</body></html>'''
