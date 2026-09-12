@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from app.services import dump, fact_to_block, json_value
 from app.workbench_database import SessionLocal
-from app.workbench_models import FactRecord, ResumeIdentity, ResumeWorkingCopy
+from app.workbench_models import FactRecord, RequirementProfile, ResumeIdentity, ResumeWorkingCopy
 
 
 def repair() -> dict:
@@ -32,8 +32,22 @@ def repair() -> dict:
                 continue
             content = json_value(copy.content, {})
             changed = False
+            profile = db.get(RequirementProfile, identity.requirement_profile_id)
             for section in content.get("sections", []):
                 for block in section.get("blocks", []):
+                    if section["id"] == "target" and profile:
+                        # 求职目标 is always derived from the profile: rebuild it so the
+                        # block title carries the role direction instead of duplicating
+                        # the section heading.
+                        requirements = json_value(profile.core_requirements, [])
+                        block["title"] = profile.role_direction or profile.name or "求职目标"
+                        block["content"] = block.get("content") if block.get("origin") == "user" and block.get("content") not in (None, "", "请填写与目标岗位匹配的简历强调方向。") else (profile.resume_strategy or "")
+                        block["fields"] = {"role_direction": profile.role_direction, "core_requirements": "、".join(requirements)}
+                        block["field_labels"] = {"role_direction": "岗位方向", "core_requirements": "核心要求"}
+                        block["display_fields"] = [key for key, value in block["fields"].items() if value]
+                        changed = True
+                        report["repaired_blocks"] += 1
+                        continue
                     fact_ids = [fid for fid in block.get("source_refs", []) if isinstance(fid, int)]
                     if not fact_ids or block.get("fields"):
                         continue  # new-format or non-fact block

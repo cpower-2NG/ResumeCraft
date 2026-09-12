@@ -249,6 +249,8 @@ class ResumeWorkingCopy(WorkbenchBase):
     dirty: Mapped[bool] = mapped_column(Boolean, default=False)
     # Reason consumed by the next formal save, e.g. "rollback" after restoring an older version.
     pending_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Template chosen in the working copy; the saved version pins whatever was active at save time.
+    template_version_id: Mapped[int | None] = mapped_column(ForeignKey("template_versions.id"), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 

@@ -81,3 +81,88 @@
 .module-card,.library-card,.table-row,.resume-row{transition:background .12s ease,border-color .12s ease,box-shadow .12s ease}
 .module-card:hover,.library-card:hover{border-color:#9db8ab;box-shadow:0 6px 18px #18302914}
 .evidence-state{font-size:10px;color:#a34838;margin-left:auto}
+
+/* Stage toolbar: zoom + page navigation */
+.stage-toolbar{max-width:1050px;margin:0 auto 10px;display:flex;align-items:center;gap:8px;justify-content:center;font-size:11px;color:#5c6f65}
+.toolbar-btn{border:1px solid #c6d4c9;background:#fff;color:#35645e;min-width:28px;padding:4px 8px;font:inherit;font-size:12px;cursor:pointer}
+.toolbar-btn:hover{border-color:#7fa192}
+.toolbar-zoom{min-width:44px;text-align:center;font-weight:650;color:#30463b}
+.toolbar-sep{width:1px;height:16px;background:#cddbd0;margin:0 4px}
+.stage-zoom{transform-origin:top center}
+
+/* Compact workbench header while scrolling */
+.workbench-head{transition:padding .18s ease}
+.workbench-head h1{transition:font-size .18s ease}
+.workbench-head.compact h1{font-size:16px}
+.workbench-head.compact{margin-bottom:10px}
+
+/* Template gallery */
+.template-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.template-card{position:relative;border:1px solid #d6e0d9;background:#fff;padding:0 0 12px;text-align:left;cursor:pointer;font:inherit;color:#30463b;display:grid;gap:6px}
+.template-card:hover{border-color:#7fa192;box-shadow:0 6px 18px #18302914}
+.template-card.current{border-color:#1d5c69;box-shadow:0 0 0 2px #1d5c6933}
+.template-thumb{display:block;height:74px;border-bottom:1px solid #e5ece6}
+.thumb-classic{background:linear-gradient(105deg,#163b43 0 30%,#fff 30%)}
+.thumb-focus{background:linear-gradient(105deg,#1f2a44 0 30%,#fff 30%)}
+.thumb-minimal{background:linear-gradient(#fff 0 18%,#eef3ef 18% 100%)}
+.template-card b{font-size:13px;padding:0 12px}
+.template-card small{font-size:10px;color:#71807a;padding:0 12px;line-height:1.5;min-height:30px}
+.template-card em{font-style:normal;font-size:10px;color:#8a978f;padding:0 12px}
+.template-current{position:absolute;top:8px;right:8px;font-size:9px;background:#1d5c69;color:#fff;padding:2px 6px}
+
+/* Resume canvas themes (mirror BUILTIN_TEMPLATES in app/services.py) */
+.resume-paper.theme-focus .resume-sidebar{background:#1f2a44;color:#eef1f8}
+.resume-paper.theme-focus .sidebar-section .template-section-title b{color:#93a5cd}
+.resume-paper.theme-focus .sidebar-section .block-head>b,.resume-paper.theme-focus .sidebar-section .inline-title{color:#eef1f8}
+.resume-paper.theme-focus .sidebar-section .block-copy,.resume-paper.theme-focus .sidebar-section .block-meta{color:#b8c2dc}
+.resume-paper.plain,.resume-paper.theme-minimal{grid-template-columns:1fr}
+.resume-paper.theme-minimal .resume-sidebar{display:none}
+.resume-paper.theme-minimal .resume-main{padding:13mm 14mm}
+.resume-paper.theme-minimal .resume-section .template-section-title b{color:#1d5c69}
+.resume-paper.theme-minimal .block-head>b{color:#24342f}
+
+/* Markdown subset inside resume blocks */
+.resume-paper .block-copy strong{color:#263f40;font-weight:700}
+.resume-paper.theme-minimal .block-copy strong{color:#1d5c69}
+.resume-paper .block-copy a{color:#236b74;text-decoration:underline}
+.resume-paper .block-copy ul{margin:1mm 0 0;padding-left:4mm;text-align:left}
+.resume-paper .block-copy li{line-height:1.5}
+
+/* BlockEditor source reminder (replaces the full source/evidence sidebar) */
+.source-note{border:1px solid #d8e7da;background:#f4faf5;padding:12px 14px;display:grid;gap:6px}
+.source-note.changed{border-color:#e2b8a6;background:#fff5ee}
+.source-note.user-note{background:#f6f7f9;border-color:#d7dde6}
+.source-note header{display:flex;justify-content:space-between;align-items:center}
+.source-note header b{font-size:12px;color:#396454}
+.source-note.changed header b{color:#794633}
+.source-note.user-note header b{color:#4c5a7d}
+.source-note header span{font-size:10px;color:#52706a;background:#e3f0e6;padding:2px 7px}
+.source-note.changed header span{background:#f7dfd4;color:#a34838}
+.source-note p{margin:0;font-size:11px;line-height:1.6;color:#4c605d}
+.source-note small{font-size:10px;color:#71807a}
+
+/* Format toolbar inside the edit card */
+.format-bar{display:flex;gap:6px;margin-bottom:8px}
+.format-bar button{border:1px solid #c6d4c9;background:#fff;color:#35645e;font:inherit;font-size:11px;padding:4px 10px;cursor:pointer}
+.format-bar button:hover{border-color:#7fa192;background:#f4faf5}
+
+/* Pending-item block location flash */
+@keyframes block-flash{0%,100%{box-shadow:0 0 0 0 #3b9ba100}35%{box-shadow:0 0 0 4px #3b9ba1cc;background:#e7f6f4}}
+.flash-highlight{animation:block-flash 1.6s ease 2;border-radius:2px}
+
+/* Facts home extras */
+.home-extras{display:grid;grid-template-columns:1.6fr 1fr;gap:13px;margin-top:15px;align-items:start}
+.mini-panel .table-row{grid-template-columns:1fr auto}
+.quality-hints{border:1px dashed #c9d8cd;background:#fbfdfb;padding:14px;display:grid;gap:7px}
+.quality-hints b{font-size:11px;letter-spacing:1px;color:#5c7a6b}
+.quality-hints p{margin:0;font-size:11px;color:#687970;line-height:1.6}
+.audit-box{border:1px solid #e3ebe4;background:#fbfcfb;padding:10px 12px}
+.audit-box summary{cursor:pointer;font-size:11px;color:#52645c;font-weight:650}
+.audit-row{margin:7px 0 0;font-size:11px;color:#4c605d;display:flex;justify-content:space-between;gap:8px}
+.audit-row small{color:#8a978f;flex:none}
+
+/* Resumes: continue-where-you-left card */
+.continue-card{background:#f0f8f3;border:1px solid #cfe6d8;margin-bottom:11px}
+.continue-card b{color:#1d5c69}
+
+@media(max-width:850px){.home-extras{grid-template-columns:1fr}.template-grid{grid-template-columns:1fr}.topbar-spacer{display:none}}

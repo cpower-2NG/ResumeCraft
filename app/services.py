@@ -22,6 +22,40 @@ CORE_SECTIONS = [
 
 SECTION_HEADINGS = [(title, key) for key, title in CORE_SECTIONS]
 
+# Built-in code-rendered templates. ``layout`` decides the page skeleton; the
+# colour tokens are injected into the exported CSS. Adding a template to this
+# registry (plus a ResumeTemplate/TemplateVersion row) extends the library.
+BUILTIN_TEMPLATES = {
+    "classic": {"name": "经典侧栏模板", "description": "深青侧栏 + 双栏正文，适合技术项目型岗位。", "layout": "sidebar", "sidebar_bg": "#163b43", "sidebar_fg": "#f4f7f4", "sidebar_muted": "#cad9d5", "sidebar_heading": "#a7c9c2", "heading": "#17343a", "title": "#263f40", "meta": "#66807b", "meta_label": "#527875", "copy": "#4c605d", "accent": "#236b74", "rule": "#d5e0dc"},
+    "focus": {"name": "深蓝聚焦模板", "description": "深蓝侧栏、强标题对比，强调重点条目。", "layout": "sidebar", "sidebar_bg": "#1f2a44", "sidebar_fg": "#eef1f8", "sidebar_muted": "#b8c2dc", "sidebar_heading": "#93a5cd", "heading": "#1c2947", "title": "#24324f", "meta": "#5f6c8c", "meta_label": "#4c5a7d", "copy": "#3d4a66", "accent": "#34549c", "rule": "#d7dcea"},
+    "minimal": {"name": "简约无侧栏模板", "description": "单栏通排、浅色分隔线，内容密度优先。", "layout": "plain", "sidebar_bg": "#ffffff", "sidebar_fg": "#24342f", "sidebar_muted": "#4c605d", "sidebar_heading": "#1d5c69", "heading": "#1d5c69", "title": "#24342f", "meta": "#667a72", "meta_label": "#52706a", "copy": "#37473f", "accent": "#1d5c69", "rule": "#e1e8e3"},
+}
+
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
+
+
+def render_markdown(text: str) -> str:
+    """Escape, then apply the controlled subset: bold, italic, links, unordered lists."""
+    escaped = html.escape(str(text or ""), quote=False)
+    escaped = MARKDOWN_LINK_RE.sub(lambda m: f'<a href="{html.escape(m.group(2), quote=True)}">{m.group(1)}</a>', escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<em>\1</em>", escaped)
+    lines = escaped.split("\n")
+    rendered: list[str] = []
+    list_items: list[str] = []
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith("- "):
+            list_items.append(f"<li>{stripped[2:]}</li>")
+            continue
+        if list_items:
+            rendered.append("<ul>" + "".join(list_items) + "</ul>")
+            list_items = []
+        rendered.append(line)
+    if list_items:
+        rendered.append("<ul>" + "".join(list_items) + "</ul>")
+    return "".join(rendered).replace("\n", "<br>")
+
 FACT_SCHEMAS = {
     "basics": [("name", "姓名", "text", True), ("phone", "电话", "text", False), ("email", "邮箱", "email", False), ("city", "所在地", "text", False), ("desired_city", "目标城市", "text", False), ("birth_date", "出生日期", "text", False), ("age", "年龄", "text", False), ("hometown", "籍贯", "text", False), ("status", "身份状态", "text", False), ("graduation", "毕业时间", "text", False), ("availability", "到岗安排", "textarea", False), ("bio", "个人简介", "textarea", False)],
     "education": [("school", "学校", "text", True), ("major", "专业", "text", False), ("degree", "学历", "text", False), ("start_date", "入学时间", "text", False), ("end_date", "毕业时间", "text", False), ("period", "在读期间", "text", False), ("gpa", "GPA", "text", False), ("ranking", "专业排名", "text", False), ("achievement", "成绩与成果", "textarea", False), ("courses", "相关课程", "textarea", False)],
@@ -207,7 +241,7 @@ def section_item_weight(section_id: str, content: str, field_count: int) -> int:
     return base + len(content) + field_count * (10 if section_id in SIDE_SECTIONS else 20)
 
 
-def render_resume_html(content: dict, title: str, version_number: int) -> str:
+def render_resume_html(content: dict, title: str, version_number: int, template_slug: str = "classic") -> str:
     """Render a self-contained, print-ready HTML snapshot from a saved version.
 
     Blocks are fragmented and packed with the same weights as the SPA preview
@@ -215,6 +249,7 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
     Each page repeats a section heading at most once; a heading that continues
     from an earlier page is suffixed with “（续）”.
     """
+    descriptor = BUILTIN_TEMPLATES.get(template_slug) or BUILTIN_TEMPLATES["classic"]
     sections = {item.get("id"): item for item in content.get("sections", [])}
     field_labels = {
         "phone": "电话", "email": "邮箱", "city": "所在地", "desired_city": "目标城市", "hometown": "籍贯",
@@ -229,7 +264,7 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
         return html.escape(str(value or ""), quote=True)
 
     def block_text(block: dict) -> str:
-        return esc(block.get("content", "")).replace("\n", "<br>")
+        return render_markdown(block.get("content", ""))
 
     def block_fields(block: dict) -> str:
         fields = block.get("fields") or {}
@@ -237,13 +272,14 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
         labels = {**field_labels, **(block.get("field_labels") or {})}
         return "".join(f'<span class="meta"><b>{esc(labels.get(key, key))}</b> {esc(fields.get(key))}</span>' for key in displayed if fields.get(key))
 
-    def block_html(block: dict) -> str:
+    def block_html(block: dict, heading: str = "") -> str:
         content_text = block_text(block)
         if (block.get("fields") or {}).get("url"):
             url = str(block["fields"]["url"])
             label = (block.get("fields") or {}).get("label") or url
-            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
-        return f'<article class="block"><h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
+            content_text = f'<a href="{esc(url, quote=True)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
+        block_title = "" if block.get("title") and str(block.get("title")) == heading else f'<h3>{esc(block.get("title"))}</h3>'
+        return f'<article class="block">{block_title}<div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
 
     def stream_pages(section_ids: list[str], budget: int) -> list[list[tuple[dict, str]]]:
         """Fragment blocks, pack them into pages, and mark heading continuations."""
@@ -282,6 +318,7 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
     def render_page(items: list[tuple[str, dict, int]]) -> str:
         parts: list[str] = []
         current_id: str | None = None
+        current_heading = ""
         for section_id, block, continued in items:
             heading = next((section_title for section_title, section_key in SECTION_HEADINGS if section_key == section_id), section_id)
             if section_id != current_id:
@@ -290,13 +327,20 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
                 label = f"{heading}（续）" if continued else heading
                 parts.append(f'<section class="section"><h2>{esc(label)}</h2>')
                 current_id = section_id
-            parts.append(block_html(block))
+                current_heading = heading
+            parts.append(block_html(block, current_heading))
         if current_id is not None:
             parts.append("</section>")
         return "".join(parts)
 
-    sidebar_pages = stream_pages(["basics", "skills", "awards"], SIDE_PAGE_BUDGET)
-    main_pages = stream_pages(["target", "profile", "experience", "education", "links"], MAIN_PAGE_BUDGET)
+    plain = descriptor["layout"] == "plain"
+    side_ids = [] if plain else ["basics", "skills", "awards"]
+    if plain:
+        main_ids = ["basics", "target", "profile", "experience", "education", "skills", "awards", "links"]
+    else:
+        main_ids = ["target", "profile", "experience", "education", "links"]
+    sidebar_pages = stream_pages(side_ids, SIDE_PAGE_BUDGET)
+    main_pages = stream_pages(main_ids, MAIN_PAGE_BUDGET)
     page_count = max(len(main_pages), 1)
 
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
@@ -308,8 +352,13 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
 
     chunks: list[str] = []
     for index in range(page_count):
-        sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
-        chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{render_page(main_pages[index] if index < len(main_pages) else [])}</main></section>')
+        if plain:
+            body = render_page(main_pages[index] if index < len(main_pages) else [])
+            chunks.append(f'<section class="page page-plain"><main class="main main-plain">{body}</main></section>')
+        else:
+            sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
+            chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{render_page(main_pages[index] if index < len(main_pages) else [])}</main></section>')
+    d = descriptor
     return f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>{esc(title)} v{version_number}</title>
 <style>
@@ -318,26 +367,31 @@ def render_resume_html(content: dict, title: str, version_number: int) -> str:
 html,body {{ margin:0; padding:0; background:#e9efeb; color:#24342f; font-family:Arial,"Microsoft YaHei",sans-serif; }}
 body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .page {{ width:210mm; height:297mm; margin:16px auto; display:grid; grid-template-columns:58mm 1fr; background:#fff; break-after:page; page-break-after:always; box-shadow:0 8px 25px #18302922; overflow:hidden; }}
+.page-plain {{ grid-template-columns:1fr; }}
 .page:last-child {{ break-after:auto; page-break-after:auto; }}
-.sidebar {{ background:#163b43; color:#f4f7f4; padding:14mm 7mm; overflow:hidden; }}
+.sidebar {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:14mm 7mm; overflow:hidden; }}
 .sidebar h1 {{ font-family:Georgia,"Microsoft YaHei",serif; font-size:23pt; line-height:1.1; margin:0 0 5mm; }}
-    .side-meta {{ display:grid; gap:1.5mm; color:#cad9d5; font-size:8pt; line-height:1.45; }}
+    .side-meta {{ display:grid; gap:1.5mm; color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; }}
     .side-meta .meta {{ display:block; }}
-    .side-copy {{ white-space:pre-wrap; color:#cad9d5; font-size:9pt; line-height:1.6; }}
+    .side-copy {{ white-space:pre-wrap; color:{d['sidebar_muted']}; font-size:9pt; line-height:1.6; }}
 .sidebar .section {{ margin-top:9mm; }}
-.sidebar .section h2 {{ border:0; color:#a7c9c2; font-size:8pt; letter-spacing:1.4px; padding:0; margin:0 0 3mm; }}
+.sidebar .section h2 {{ border:0; color:{d['sidebar_heading']}; font-size:8pt; letter-spacing:1.4px; padding:0; margin:0 0 3mm; }}
 .sidebar .block {{ margin-bottom:4mm; }}
-.sidebar .block h3 {{ color:#fff; font-size:8.5pt; margin:0 0 1mm; }}
-.sidebar .block p {{ color:#cad9d5; font-size:8pt; line-height:1.45; margin:0; }}
+.sidebar .block h3 {{ color:{d['sidebar_fg']}; font-size:8.5pt; margin:0 0 1mm; }}
+.sidebar .block p {{ color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; margin:0; }}
 .main {{ padding:14mm 12mm; overflow:hidden; }}
+.main-plain {{ padding:13mm 14mm; }}
 .main > .section:first-child {{ margin-top:0; }}
 .section {{ margin-top:7mm; break-inside:avoid; }}
-.section h2 {{ border-bottom:1px solid #d5e0dc; color:#17343a; font-size:12pt; margin:0 0 3mm; padding-bottom:2mm; }}
+.section h2 {{ border-bottom:1px solid {d['rule']}; color:{d['heading']}; font-size:12pt; margin:0 0 3mm; padding-bottom:2mm; }}
 .block {{ margin:0 0 5mm; break-inside:avoid; }}
-    .block h3 {{ color:#263f40; font-size:10.5pt; line-height:1.35; margin:0 0 1.5mm; }}
-    .block-meta {{ display:flex; flex-wrap:wrap; gap:1mm 3mm; color:#66807b; font-size:7.8pt; line-height:1.4; margin:0 0 1mm; }}
-    .meta b {{ color:#527875; font-weight:600; }}
-    .block p {{ color:#4c605d; font-size:9pt; line-height:1.6; margin:0; white-space:normal; }}
-    .block a {{ color:#236b74; }}
+    .block h3 {{ color:{d['title']}; font-size:10.5pt; line-height:1.35; margin:0 0 1.5mm; }}
+    .block-meta {{ display:flex; flex-wrap:wrap; gap:1mm 3mm; color:{d['meta']}; font-size:7.8pt; line-height:1.4; margin:0 0 1mm; }}
+    .meta b {{ color:{d['meta_label']}; font-weight:600; }}
+    .block p {{ color:{d['copy']}; font-size:9pt; line-height:1.6; margin:0; white-space:normal; }}
+    .block a {{ color:{d['accent']}; }}
+    .block ul {{ margin:1mm 0 0; padding-left:5mm; }}
+    .block li {{ color:{d['copy']}; font-size:9pt; line-height:1.6; }}
+    .block strong {{ color:{d['title']}; }}
 @media print {{ html,body {{ background:#fff; }} .page {{ margin:0; box-shadow:none; }} }}
 </style></head><body>{"".join(chunks)}</body></html>'''
