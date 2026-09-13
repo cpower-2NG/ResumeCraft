@@ -40,9 +40,13 @@ export const ALL_IDS=['basics','target','profile','experience','education','skil
 export const MAIN_BUDGET=2400
 export const SIDE_BUDGET=1500
 export const BANNER_BUDGET=2200
+export const GRID_BUDGET=2100
+export const LINE_BUDGET=2300
+export const TIMELINE_BUDGET=2200
 // Section order and packing budget per template layout; mirrors render_resume_html().
-export const layoutMainIds=(layout:string)=>layout==='plain'?ALL_IDS:layout==='banner'?ALL_IDS.filter(id=>id!=='basics'):MAIN_IDS
-export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:MAIN_BUDGET
+// grid/line/banner 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目。
+export const layoutMainIds=(layout:string)=>layout==='plain'||layout==='timeline'?ALL_IDS:ALL_IDS.filter(id=>id!=='basics')
+export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:layout==='grid'?GRID_BUDGET:layout==='line'?LINE_BUDGET:layout==='timeline'?TIMELINE_BUDGET:MAIN_BUDGET
 
 export type Item={section:Section;block:Block;continued:boolean}
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})

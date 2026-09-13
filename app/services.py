@@ -222,6 +222,9 @@ def evidence_count(db: Session, fact_id: int) -> int:
 MAIN_PAGE_BUDGET = 2400
 SIDE_PAGE_BUDGET = 1500
 BANNER_PAGE_BUDGET = 2200
+GRID_PAGE_BUDGET = 2100
+LINE_PAGE_BUDGET = 2300
+TIMELINE_PAGE_BUDGET = 2200
 SIDE_SECTIONS = ("basics", "skills", "awards")
 
 
@@ -241,9 +244,9 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     """Render a self-contained, print-ready HTML snapshot from a saved version.
 
     Blocks are fragmented and packed with the same weights as the SPA preview
-    (see ``web/src/App.tsx``) so page breaks match between preview and export.
-    Each page repeats a section heading at most once; a heading that continues
-    from an earlier page is suffixed with “（续）”.
+    (see ``web/src/lib/resume.ts``) so page breaks match between preview and
+    export. Each page repeats a section heading at most once; a heading that
+    continues from an earlier page is suffixed with “（续）”.
     """
     descriptor = BUILTIN_TEMPLATES.get(template_slug) or BUILTIN_TEMPLATES["classic"]
     sections = {item.get("id"): item for item in content.get("sections", [])}
@@ -262,11 +265,18 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     def block_text(block: dict) -> str:
         return render_markdown(block.get("content", ""))
 
-    def block_fields(block: dict) -> str:
+    def block_fields(block: dict, exclude: tuple = ()) -> str:
         fields = block.get("fields") or {}
         displayed = block.get("display_fields") or list(fields)
         labels = {**field_labels, **(block.get("field_labels") or {})}
-        return "".join(f'<span class="meta"><b>{esc(labels.get(key, key))}</b> {esc(fields.get(key))}</span>' for key in displayed if fields.get(key))
+        return "".join(f'<span class="meta"><b>{esc(labels.get(key, key))}</b> {esc(fields.get(key))}</span>' for key in displayed if fields.get(key) and key not in exclude)
+
+    def block_period(block: dict) -> str:
+        """条目的时间字段值；仅当时间属于展示字段时才返回（用于线式/时间轴布局）。"""
+        fields = block.get("fields") or {}
+        displayed = block.get("display_fields") or list(fields)
+        value = str(fields.get("period") or "")
+        return value if value and "period" in displayed else ""
 
     def block_html(block: dict, heading: str = "") -> str:
         content_text = block_text(block)
@@ -276,6 +286,30 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
             content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
         block_title = "" if block.get("title") and str(block.get("title")) == heading else f'<h3>{esc(block.get("title"))}</h3>'
         return f'<article class="block">{block_title}<div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
+
+    def line_block_html(block: dict, heading: str = "") -> str:
+        """经典线式：条目标题居左、时间右对齐同一行，其余字段仍在元信息行。"""
+        content_text = block_text(block)
+        if (block.get("fields") or {}).get("url"):
+            url = str(block["fields"]["url"])
+            label = (block.get("fields") or {}).get("label") or url
+            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
+        block_title = "" if block.get("title") and str(block.get("title")) == heading else f'<h3>{esc(block.get("title"))}</h3>'
+        period = block_period(block)
+        row = ""
+        if block_title or period:
+            row = f'<div class="line-row">{block_title}' + (f'<span class="line-period">{esc(period)}</span>' if period else "") + "</div>"
+        return f'<article class="block">{row}<div class="block-meta">{block_fields(block, ("period",))}</div><p>{content_text}</p></article>'
+
+    def timeline_block_html(block: dict) -> str:
+        """时间轴：左侧时间栏 + 中线圆点，正文收在右侧时间轴体内。"""
+        content_text = block_text(block)
+        if (block.get("fields") or {}).get("url"):
+            url = str(block["fields"]["url"])
+            label = (block.get("fields") or {}).get("label") or url
+            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
+        body = f'<h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block, ("period",))}</div><p>{content_text}</p>'
+        return f'<article class="block"><span class="t-time">{esc(block_period(block))}</span><div class="t-body">{body}</div></article>'
 
     def stream_pages(section_ids: list[str], budget: int) -> list[list[tuple[dict, str]]]:
         """Fragment blocks, pack them into pages, and mark heading continuations."""
@@ -324,24 +358,32 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
                 parts.append(f'<section class="section"><h2>{esc(label)}</h2>')
                 current_id = section_id
                 current_heading = heading
-            parts.append(block_html(block, current_heading))
+            if layout_id == "line":
+                parts.append(line_block_html(block, current_heading))
+            elif layout_id == "timeline":
+                parts.append(timeline_block_html(block))
+            else:
+                parts.append(block_html(block, current_heading))
         if current_id is not None:
             parts.append("</section>")
         return "".join(parts)
 
     plain = descriptor["layout"] == "plain"
     banner = descriptor["layout"] == "banner"
-    single_column = plain or banner
-    side_ids = [] if single_column else ["basics", "skills", "awards"]
-    if plain:
+    grid = descriptor["layout"] == "grid"
+    line = descriptor["layout"] == "line"
+    timeline = descriptor["layout"] == "timeline"
+    layout_id = descriptor["layout"]
+    head_layout = banner or grid or line  # 基本信息栏目被页头取代的布局
+    if plain or timeline:
         main_ids = ["basics", "target", "profile", "experience", "education", "skills", "awards", "links"]
-    elif banner:
-        # The banner strip replaces the basics section on every page.
-        main_ids = ["target", "profile", "experience", "education", "skills", "awards", "links"]
     else:
-        main_ids = ["target", "profile", "experience", "education", "links"]
-    sidebar_pages = [] if single_column else stream_pages(side_ids, SIDE_PAGE_BUDGET)
-    main_pages = stream_pages(main_ids, BANNER_PAGE_BUDGET if banner else MAIN_PAGE_BUDGET)
+        # 横幅/表格/线式布局：页头呈现姓名与联系方式，正文不再重复基本信息栏目。
+        main_ids = ["target", "profile", "experience", "education", "skills", "awards", "links"]
+    side_ids = ["basics", "skills", "awards"] if not (head_layout or timeline) else []
+    sidebar_pages = [] if not side_ids else stream_pages(side_ids, SIDE_PAGE_BUDGET)
+    budget = BANNER_PAGE_BUDGET if banner else GRID_PAGE_BUDGET if grid else LINE_PAGE_BUDGET if line else TIMELINE_PAGE_BUDGET if timeline else MAIN_PAGE_BUDGET
+    main_pages = stream_pages(main_ids, budget)
     page_count = max(len(main_pages), 1)
 
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
@@ -350,22 +392,34 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     basics = sections.get("basics", {}).get("blocks", [])
     basic_block = basics[0] if basics else {}
     sidebar_head = f'<h1>{esc(basic_block.get("title") if basics else title)}</h1><div class="side-meta">{block_fields(basic_block)}</div><p class="side-copy">{block_text(basic_block)}</p>'
-    banner_name = esc(basic_block.get("title") if basics else title)
-    banner_head = f'<header class="page-banner"><h1>{banner_name}</h1><div class="banner-meta">{block_fields(basic_block)}</div></header>'
-    banner_head_slim = f'<header class="page-banner banner-slim"><h1>{banner_name}</h1></header>'
+    head_name = esc(basic_block.get("title") if basics else title)
+    head_fields = block_fields(basic_block)
+    banner_head = f'<header class="page-banner"><h1>{head_name}</h1><div class="banner-meta">{head_fields}</div></header>'
+    banner_head_slim = f'<header class="page-banner banner-slim"><h1>{head_name}</h1></header>'
+    grid_head = f'<header class="grid-head"><h1>{head_name}</h1><div class="grid-meta">{head_fields}</div></header>'
+    grid_head_slim = f'<header class="grid-head grid-head-slim"><h1>{head_name}</h1></header>'
+    line_head = f'<header class="line-head"><h1>{head_name}</h1><div class="line-meta">{head_fields}</div></header>'
+    line_head_slim = f'<header class="line-head line-head-slim"><h1>{head_name}</h1></header>'
 
     chunks: list[str] = []
     for index in range(page_count):
+        body = render_page(main_pages[index] if index < len(main_pages) else [])
         if banner:
-            body = render_page(main_pages[index] if index < len(main_pages) else [])
             head = banner_head if index == 0 else banner_head_slim
             chunks.append(f'<section class="page page-banner-page">{head}<main class="main main-plain">{body}</main></section>')
+        elif grid:
+            head = grid_head if index == 0 else grid_head_slim
+            chunks.append(f'<section class="page page-grid">{head}<main class="main main-plain main-grid">{body}</main></section>')
+        elif line:
+            head = line_head if index == 0 else line_head_slim
+            chunks.append(f'<section class="page page-line">{head}<main class="main main-plain main-line">{body}</main></section>')
+        elif timeline:
+            chunks.append(f'<section class="page page-timeline"><main class="main main-plain main-timeline">{body}</main></section>')
         elif plain:
-            body = render_page(main_pages[index] if index < len(main_pages) else [])
             chunks.append(f'<section class="page page-plain"><main class="main main-plain">{body}</main></section>')
         else:
             sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
-            chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{render_page(main_pages[index] if index < len(main_pages) else [])}</main></section>')
+            chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{body}</main></section>')
     d = descriptor
     serif_css = '.page,.page *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif;}' if d.get("serif") else ""
     return f'''<!doctype html>
@@ -414,5 +468,44 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
     .block ul {{ margin:1mm 0 0; padding-left:5mm; }}
     .block li {{ color:{d['copy']}; font-size:9pt; line-height:1.6; }}
     .block strong {{ color:{d['title']}; }}
+/* —— 表格表单版式（grid）：表头 + 带边框栏目，栏目标题为实底表头行 —— */
+.page-grid {{ display:flex; flex-direction:column; }}
+.grid-head {{ flex:none; border:1px solid {d['rule']}; padding:4.5mm 5mm 4mm; text-align:center; }}
+.grid-head h1 {{ font-size:16pt; letter-spacing:2px; margin:0 0 2.5mm; color:{d['title']}; }}
+.grid-meta {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1mm 4mm; color:{d['meta']}; font-size:8pt; line-height:1.45; }}
+.grid-meta .meta {{ display:block; }}
+.grid-meta .meta b {{ color:{d['meta_label']}; font-weight:600; }}
+.grid-head.grid-head-slim {{ padding:2.2mm 5mm; border-bottom:1px solid {d['rule']}; }}
+.grid-head.grid-head-slim h1 {{ font-size:9.5pt; margin:0; letter-spacing:1px; }}
+.main-grid {{ flex:1; padding:5mm 10mm 9mm; }}
+.main-grid .section {{ border:1px solid {d['rule']}; margin-top:4mm; overflow:hidden; }}
+.main-grid .section h2 {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; border:0; padding:1.8mm 3mm; margin:0; font-size:10pt; letter-spacing:1.2px; }}
+.main-grid .block {{ margin:0 3mm 3mm; }}
+.main-grid .section .block:first-of-type {{ margin-top:2.4mm; }}
+.main-grid .block:last-of-type {{ margin-bottom:2.6mm; }}
+/* —— 经典线式版式（line）：居中页头，栏目居中标题，条目时间右对齐 —— */
+.page-line {{ display:flex; flex-direction:column; }}
+.line-head {{ flex:none; text-align:center; padding:3mm 8mm 4.5mm; border-bottom:2px solid {d['sidebar_bg']}; }}
+.line-head h1 {{ font-size:17pt; letter-spacing:1.5px; margin:0 0 2mm; color:{d['title']}; }}
+.line-meta {{ display:flex; flex-wrap:wrap; justify-content:center; gap:1mm 4mm; color:{d['meta']}; font-size:8pt; line-height:1.45; }}
+.line-meta .meta {{ display:block; }}
+.line-meta .meta b {{ color:{d['meta_label']}; font-weight:600; }}
+.line-head.line-head-slim {{ padding:2.2mm 8mm; border-bottom:1px solid {d['rule']}; }}
+.line-head.line-head-slim h1 {{ font-size:9.5pt; margin:0; letter-spacing:1px; }}
+.main-line {{ flex:1; padding:5mm 12mm 9mm; }}
+.main-line .section h2 {{ text-align:center; letter-spacing:2.5px; font-size:10.5pt; }}
+.line-row {{ display:flex; justify-content:space-between; align-items:baseline; gap:3mm; margin:0 0 1mm; }}
+.line-row h3 {{ margin:0; }}
+.line-period {{ color:{d['accent']}; font-weight:600; font-size:8.5pt; white-space:nowrap; }}
+.main-line .block:not(:last-child) {{ border-bottom:1px solid {d['rule']}; padding-bottom:2.8mm; }}
+/* —— 时间轴版式（timeline）：左侧时间栏 + 中线圆点 —— */
+.page-timeline {{ grid-template-columns:1fr; }}
+.main-timeline {{ padding:13mm 14mm; }}
+.main-timeline .block {{ display:grid; grid-template-columns:18mm 3mm 1fr; }}
+.main-timeline .t-time {{ grid-column:1; color:{d['accent']}; font-size:7.6pt; font-weight:600; line-height:1.45; padding-top:.4mm; overflow-wrap:anywhere; }}
+.main-timeline .block::before {{ content:''; grid-column:2; grid-row:1; width:1px; justify-self:center; background:{d['rule']}; }}
+.main-timeline .block::after {{ content:''; grid-column:2; grid-row:1; width:2mm; height:2mm; border-radius:50%; background:{d['accent']}; justify-self:center; margin-top:1.2mm; box-shadow:0 0 0 .7mm #fff; }}
+.main-timeline .t-body {{ grid-column:3; min-width:0; }}
+.main-timeline .t-body h3 {{ margin:0 0 1.5mm; }}
 @media print {{ html,body {{ background:#fff; }} .page {{ margin:0; box-shadow:none; }} }}
 </style></head><body>{"".join(chunks)}</body></html>'''

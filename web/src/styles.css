@@ -120,6 +120,49 @@
 .resume-banner.banner-slim .banner-meta{display:none}
 .resume-paper.banner .resume-main{padding:8mm 12mm 13mm}
 
+/* Grid layout (雅蓝/灰石表格模板): Word-form look, bordered sections with solid header rows */
+.resume-paper.grid{grid-template-rows:auto 1fr}
+.resume-paper.grid .grid-head{border:1px solid var(--t-rule);text-align:center;padding:4mm 5mm 3.5mm;flex:none}
+.resume-paper.grid .grid-head h1{font-size:15.5pt;letter-spacing:2px;margin:0 0 2.5mm;color:var(--t-title)}
+.resume-paper.grid .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:1mm 4mm;color:var(--t-meta);font-size:8pt;line-height:1.45}
+.resume-paper.grid .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
+.resume-paper.grid .banner-meta span b{color:var(--t-meta-label);font-weight:600}
+.resume-paper.grid .grid-head-slim{padding:2.2mm 5mm;border-bottom:1px solid var(--t-rule)}
+.resume-paper.grid .grid-head-slim h1{font-size:9.5pt;margin:0;letter-spacing:1px}
+.resume-paper.grid .resume-main{flex:1;padding:5mm 10mm 9mm}
+.resume-paper.grid .main-sections{gap:4mm}
+.resume-paper.grid .resume-section{border:1px solid var(--t-rule);overflow:hidden}
+.resume-paper.grid .template-section-title{background:var(--t-sidebar-bg);margin:0;padding:1.6mm 3mm}
+.resume-paper.grid .template-section-title b{color:var(--t-sidebar-fg);font-size:10pt;letter-spacing:1.2px}
+.resume-paper.grid .template-section-title span{color:var(--t-sidebar-fg)}
+.resume-paper.grid .resume-block{margin:0 3mm 3mm}
+.resume-paper.grid .resume-section .resume-block:first-of-type{margin-top:2.4mm}
+.resume-stage.edit-mode .resume-paper.grid .template-section-title{border-bottom:0;padding-bottom:0}
+
+/* Line layout (羽墨/靛青线式模板): centered head, centered section titles, right-aligned periods */
+.resume-paper.line{grid-template-rows:auto 1fr}
+.resume-paper.line .line-head{text-align:center;flex:none;padding:3mm 8mm 4mm;border-bottom:2px solid var(--t-sidebar-bg)}
+.resume-paper.line .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 2mm;color:var(--t-title)}
+.resume-paper.line .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:1mm 4mm;color:var(--t-meta);font-size:8pt;line-height:1.45}
+.resume-paper.line .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
+.resume-paper.line .banner-meta span b{color:var(--t-meta-label);font-weight:600}
+.resume-paper.line .line-head-slim{padding:2.2mm 8mm;border-bottom:1px solid var(--t-rule)}
+.resume-paper.line .line-head-slim h1{font-size:9.5pt;margin:0;letter-spacing:1px}
+.resume-paper.line .resume-main{flex:1;padding:5mm 12mm 9mm}
+.resume-paper.line .template-section-title{justify-content:center}
+.resume-paper.line .template-section-title b{letter-spacing:2.5px;font-size:10.5pt}
+.resume-paper.line .line-period{margin-left:auto;color:var(--t-accent);font-weight:650;font-size:8.5pt;white-space:nowrap}
+.resume-paper.line .block-head .source-tag{margin-left:2mm}
+.resume-paper.line .resume-block:not(:last-child){border-bottom:1px solid var(--t-rule);padding-bottom:2.8mm}
+
+/* Timeline layout (晨光/赭金时间轴模板): left time column, center rule with accent dots */
+.resume-paper.timeline .main-sections{gap:6mm}
+.resume-paper.timeline .resume-block{display:grid;grid-template-columns:18mm 3mm 1fr}
+.resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent);font-size:7.6pt;font-weight:650;line-height:1.45;padding-top:.4mm;overflow-wrap:anywhere}
+.resume-paper.timeline .resume-block::before{content:'';grid-column:2;grid-row:1;width:1px;justify-self:center;background:var(--t-rule)}
+.resume-paper.timeline .resume-block::after{content:'';grid-column:2;grid-row:1;width:2mm;height:2mm;border-radius:50%;background:var(--t-accent);justify-self:center;margin-top:1.2mm;box-shadow:0 0 0 .7mm #fff}
+.resume-paper.timeline .t-body{grid-column:3;min-width:0}
+
 /* 石墨侧栏模板 */
 
 /* 学术衬线模板 */

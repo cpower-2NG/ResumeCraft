@@ -7,10 +7,10 @@ Every template is described once here and consumed everywhere:
   per-template stylesheets.
 
 ``layout`` decides the page skeleton (sidebar = 左侧栏双栏, plain = 单栏通排,
-banner = 顶部横幅单栏); the colour tokens drive both renderers; ``serif``
-switches the paper to a serif family. Adding an entry here (plus the
-ResumeTemplate / TemplateVersion row created automatically on startup)
-extends the library with no frontend changes.
+banner = 顶部横幅单栏, grid = 表格表单, line = 经典线式, timeline = 时间轴通排);
+the colour tokens drive both renderers; ``serif`` switches the paper to a serif
+family. Adding an entry here (plus the ResumeTemplate / TemplateVersion row
+created automatically on startup) extends the library with no frontend changes.
 """
 
 from __future__ import annotations
@@ -36,6 +36,15 @@ BUILTIN_TEMPLATES: dict[str, dict] = {
     "regent": {"name": "藏金行政横幅模板", "description": "深藏青横幅配鎏金细节的全衬线版式，沉稳华贵，适合高管、金融与法务类岗位。", "layout": "banner", "serif": True, "sidebar_bg": "#16283f", "sidebar_fg": "#f4f1e6", "sidebar_muted": "#bcc7d6", "sidebar_heading": "#d2b36a", "heading": "#1d3050", "title": "#25344c", "meta": "#5e6b80", "meta_label": "#4c5a72", "copy": "#3c495c", "accent": "#a07f2e", "rule": "#e0e0d2"},
     "umber": {"name": "赭木侧栏模板", "description": "赭木棕侧栏配赤陶点缀，温暖亲和有质感，适合品牌、市场与消费行业岗位。", "layout": "sidebar", "sidebar_bg": "#4c3a2a", "sidebar_fg": "#f8f4ec", "sidebar_muted": "#dbcdba", "sidebar_heading": "#dcae7e", "heading": "#3c2e21", "title": "#463628", "meta": "#716355", "meta_label": "#5e5145", "copy": "#4c4034", "accent": "#b05c33", "rule": "#e8dfd2"},
     "onyx": {"name": "曜黑侧栏模板", "description": "曜石黑侧栏配钴蓝点缀，对比强烈而克制，适合技术、设计与游戏行业岗位。", "layout": "sidebar", "sidebar_bg": "#191b1f", "sidebar_fg": "#f1f3f6", "sidebar_muted": "#b7bec9", "sidebar_heading": "#8fb0e8", "heading": "#1c2026", "title": "#232830", "meta": "#667080", "meta_label": "#545e6d", "copy": "#404854", "accent": "#2e6bdc", "rule": "#dee1e6"},
+    # —— 表格表单版式（grid）：传统 Word 表格风，栏目标题为实底表头行，栏目内容带边框 ——
+    "atlas": {"name": "雅蓝表格模板", "description": "雅蓝表头的表格表单版式，行列规整如传统 Word 表格，适合国企、银行、校招与公职类岗位。", "layout": "grid", "sidebar_bg": "#33427a", "sidebar_fg": "#f2f4fa", "sidebar_muted": "#c6cde4", "sidebar_heading": "#c6cde4", "heading": "#26325c", "title": "#2a3554", "meta": "#666f8c", "meta_label": "#535c7a", "copy": "#3d455c", "accent": "#3a56a8", "rule": "#d5dae8"},
+    "flint": {"name": "灰石表格模板", "description": "灰石表头的表格表单版式，中性稳重、边线清爽，适合行政、制造业与跨行业通用投递。", "layout": "grid", "sidebar_bg": "#46494d", "sidebar_fg": "#f4f4f2", "sidebar_muted": "#c9cbcc", "sidebar_heading": "#d4d6d4", "heading": "#34383c", "title": "#3a3e42", "meta": "#6e7377", "meta_label": "#5a5f63", "copy": "#45494d", "accent": "#5c636b", "rule": "#dcdedc"},
+    # —— 经典线式版式（line）：居中姓名 + 联系方式单行，栏目标题居中带横线，条目时间右对齐 ——
+    "quill": {"name": "羽墨线式模板", "description": "羽墨衬线经典线式版式，居中姓名配细横线，黑白严谨，适合高校、科研与留学申请。", "layout": "line", "serif": True, "sidebar_bg": "#26231f", "sidebar_fg": "#faf8f4", "sidebar_muted": "#cfc9be", "sidebar_heading": "#cfc9be", "heading": "#2b2722", "title": "#322d26", "meta": "#756e60", "meta_label": "#5f594d", "copy": "#45403a", "accent": "#6b5f46", "rule": "#d9d4c8"},
+    "indigo": {"name": "靛青线式模板", "description": "靛青经典线式版式，居中姓名配右对齐时间，干净利落，适合技术、数据与研究类岗位。", "layout": "line", "sidebar_bg": "#24365e", "sidebar_fg": "#eef2fa", "sidebar_muted": "#b9c4dd", "sidebar_heading": "#b9c4dd", "heading": "#22335c", "title": "#2c3a5e", "meta": "#62708d", "meta_label": "#4f5c78", "copy": "#3c4763", "accent": "#3452b0", "rule": "#d6dcf0"},
+    # —— 时间轴版式（timeline）：左侧时间线串起条目，圆点标注时间节点 ——
+    "lumen": {"name": "晨光时间轴模板", "description": "晨蓝时间轴版式，左侧时间线串起经历，脉络清晰，适合互联网、产品与运营类岗位。", "layout": "timeline", "sidebar_bg": "#2f7fb5", "sidebar_fg": "#f4f9fc", "sidebar_muted": "#cfe3ee", "sidebar_heading": "#cfe3ee", "heading": "#1f4c66", "title": "#24455a", "meta": "#647d8c", "meta_label": "#526b7a", "copy": "#3f5666", "accent": "#2f7fb5", "rule": "#d8e5ec"},
+    "meridian": {"name": "赭金时间轴模板", "description": "赭金时间轴版式，暖色圆点标注时间节点，亲和醒目，适合市场、教育与创意类岗位。", "layout": "timeline", "sidebar_bg": "#b5652f", "sidebar_fg": "#fbf6f0", "sidebar_muted": "#eed9c4", "sidebar_heading": "#eed9c4", "heading": "#7a4426", "title": "#6e4026", "meta": "#8a7364", "meta_label": "#73604f", "copy": "#5c4638", "accent": "#b5652f", "rule": "#ecdfd2"},
 }
 
 # Colour tokens shared by the export renderer and the SPA canvas (via /api/templates).

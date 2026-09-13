@@ -3,7 +3,7 @@
 // the canvas needs no per-template stylesheets.
 import type { CSSProperties } from 'react'
 
-export type TemplateLayout = 'sidebar' | 'plain' | 'banner'
+export type TemplateLayout = 'sidebar' | 'plain' | 'banner' | 'grid' | 'line' | 'timeline'
 // Row of GET /api/templates.
 export type TemplateDescriptor = { id:number; slug:string; name:string; description:string; layout:string; serif?:boolean; tokens:Record<string,string>; version:number|null; template_version_id:number }
 // Template info embedded in resume payloads (GET /api/resumes/{id}.template).
@@ -24,13 +24,16 @@ export function templateVars(template?:TemplateInfo):CSSProperties{
   return style as CSSProperties
 }
 
-export const layoutLabel=(layout?:string)=>layout==='plain'?'单栏通排':layout==='banner'?'横幅单栏':'侧栏双栏'
+export const layoutLabel=(layout?:string)=>layout==='plain'?'单栏通排':layout==='banner'?'横幅单栏':layout==='grid'?'表格表单':layout==='line'?'经典线式':layout==='timeline'?'时间轴通排':'侧栏双栏'
 
 // Miniature thumbnail for template pickers, generated from the palette: dark
-// band = 侧栏/横幅底色, tinted band = 分隔线/纸面。
+// band = 侧栏/横幅底色/表头行, tinted band = 分隔线/纸面, accent bar = 时间轴线。
 export function templateThumbStyle(template:TemplateDescriptor):CSSProperties{
   const t={...CLASSIC_TOKENS,...template.tokens}
   if(template.layout==='banner') return {background:`linear-gradient(${t.sidebar_bg} 0 26%, #fff 26%)`}
   if(template.layout==='plain') return {background:`linear-gradient(#fff 0 18%, ${t.rule} 18% 100%)`}
+  if(template.layout==='grid') return {background:`linear-gradient(#fff 0 24%, ${t.sidebar_bg} 24% 34%, #fff 34% 58%, ${t.rule} 58% 62%, #fff 62%)`,boxShadow:`inset 0 0 0 1px ${t.rule}`}
+  if(template.layout==='line') return {background:`linear-gradient(#fff 0 26%, ${t.sidebar_bg} 26% 29%, #fff 29% 55%, ${t.rule} 55% 58%, #fff 58%)`}
+  if(template.layout==='timeline') return {background:`linear-gradient(90deg, #fff 0 30%, ${t.accent} 30% 32%, #fff 32%)`}
   return {background:`linear-gradient(105deg, ${t.sidebar_bg} 0 30%, #fff 30%)`}
 }

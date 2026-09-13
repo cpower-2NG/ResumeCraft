@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, splitText, streamItems } from './lib/resume'
+import { ALL_IDS, BANNER_BUDGET, GRID_BUDGET, LINE_BUDGET, MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, layoutBudget, layoutMainIds, splitText, streamItems } from './lib/resume'
 import type { Block, Content } from './lib/resume'
 
 const makeBlock = (id: string, content: string): Block => ({ id, title: `标题${id}`, content, source_refs: [], origin: 'fact' })
@@ -11,6 +11,34 @@ describe('splitText', () => {
   it('splits long text into fixed-size chunks', () => {
     expect(splitText('a'.repeat(10), 4)).toEqual(['aaaa', 'aaaa', 'aa'])
     expect(splitText('', 4)).toEqual([''])
+  })
+})
+
+describe('layoutMainIds / layoutBudget for new layouts', () => {
+  it('mirrors the export renderer for grid/line/timeline', () => {
+    // grid/line 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目。
+    expect(layoutMainIds('grid')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
+    expect(layoutMainIds('line')).toEqual(layoutMainIds('banner'))
+    expect(layoutMainIds('timeline')).toEqual(ALL_IDS)
+    expect(layoutBudget('grid')).toBe(GRID_BUDGET)
+    expect(layoutBudget('line')).toBe(LINE_BUDGET)
+    expect(layoutBudget('timeline')).toBe(2200)
+    expect(layoutBudget('banner')).toBe(BANNER_BUDGET)
+    expect(layoutBudget('sidebar')).toBe(MAIN_BUDGET)
+  })
+
+  it('paginates long content into multiple pages for the new layouts', () => {
+    for (const layout of ['grid', 'line', 'timeline']) {
+      const pages = streamItems(
+        makeContent([{ id: 'experience', blocks: [makeBlock('long', '很'.repeat(MAIN_BUDGET))] }]),
+        layoutMainIds(layout), layoutBudget(layout), false,
+      )
+      expect(pages.length).toBeGreaterThan(1)
+      // 排在长栏目之后的空栏目可能被挤到后续页，续页标记只应检查长栏目自身的条目。
+      const later = pages.slice(1).flat().filter(it => it.section.id === 'experience')
+      expect(later.length).toBeGreaterThan(0)
+      expect(later.every(it => it.continued)).toBe(true)
+    }
   })
 })
 

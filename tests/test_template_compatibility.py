@@ -28,12 +28,14 @@ WEB_STYLES = Path(__file__).resolve().parents[1] / "web" / "src" / "styles.css"
 
 REQUIRED_TOKENS = {"name", "description", "layout", "sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
 COLOUR_TOKENS = {"sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
-LAYOUTS = {"sidebar", "plain", "banner"}
+LAYOUTS = {"sidebar", "plain", "banner", "grid", "line", "timeline"}
+# 基本信息栏目被页头取代的布局（姓名/联系方式直接呈现为页头）。
+HEADER_LAYOUTS = {"banner", "grid", "line"}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
-# 覆盖三种布局的新模板，作为端到端回归的代表样本。
-NEW_TEMPLATES = ["pine", "merlot", "ink", "brass", "marine", "haze", "violet", "celadon", "vermilion", "cobalt", "forest", "regent", "umber", "onyx"]
+# 覆盖六种布局的新模板，作为端到端回归的代表样本。
+NEW_TEMPLATES = ["pine", "merlot", "ink", "brass", "marine", "haze", "violet", "celadon", "vermilion", "cobalt", "forest", "regent", "umber", "onyx", "atlas", "flint", "quill", "indigo", "lumen", "meridian"]
 
 
 def sample_content(long: bool = False) -> dict:
@@ -74,7 +76,7 @@ def test_builtin_descriptors_are_complete():
         assert descriptor["name"].strip() and descriptor["description"].strip(), f"模板 {slug} 的名称与说明不能为空"
         names.add(descriptor["name"])
     assert len(names) == len(BUILTIN_TEMPLATES), "模板名称必须唯一"
-    # 三种布局都必须有模板覆盖，保证分页与导出路径始终被使用。
+    # 六种布局都必须有模板覆盖，保证分页与导出路径始终被使用。
     assert {item["layout"] for item in BUILTIN_TEMPLATES.values()} == LAYOUTS
 
 
@@ -101,14 +103,26 @@ def test_export_html_is_valid_for_every_template(slug):
     elif descriptor["layout"] == "plain":
         assert 'class="page page-plain"' in html
         assert "<aside class=\"sidebar\">" not in html
-    else:
+    elif descriptor["layout"] == "banner":
         assert 'class="page page-banner-page"' in html and 'class="page-banner"' in html
         assert "<aside class=\"sidebar\">" not in html
+    elif descriptor["layout"] == "grid":
+        assert 'class="page page-grid"' in html and 'class="grid-head"' in html
+        assert "<aside class=\"sidebar\">" not in html
+        assert 'class="page page-plain"' not in html
+    elif descriptor["layout"] == "line":
+        assert 'class="page page-line"' in html and 'class="line-head"' in html
+        assert "<aside class=\"sidebar\">" not in html
+        assert 'class="page page-plain"' not in html
+    else:  # timeline
+        assert 'class="page page-timeline"' in html and "main-timeline" in html
+        assert "<aside class=\"sidebar\">" not in html
+        assert 'class="page page-plain"' not in html
 
-    # 正文块完整渲染；横幅布局用横幅头部取代基本信息栏目。
+    # 正文块完整渲染；页头布局用页头取代基本信息栏目。
     assert "电商中台重构" in html and "技能" in html
-    if descriptor["layout"] == "banner":
-        assert 'class="page-banner"' in html and "陈晓" in html
+    if descriptor["layout"] in HEADER_LAYOUTS:
+        assert "陈晓" in html
     else:
         assert "基本信息" in html
 
@@ -157,6 +171,13 @@ def test_spa_canvas_is_variable_driven():
     assert ".resume-stage{--t-sidebar-bg:#163b43" in css
     assert ".resume-paper.serif,.resume-paper.serif *" in css
     assert ".resume-paper.plain{grid-template-columns:1fr}" in css
+    # 新布局（grid/line/timeline）的画布规则必须存在，且与导出渲染共用同一套 token。
+    assert ".resume-paper.grid .resume-section{border:1px solid var(--t-rule);overflow:hidden}" in css
+    assert ".resume-paper.grid .template-section-title{background:var(--t-sidebar-bg)" in css
+    assert ".resume-paper.line .line-head{text-align:center" in css
+    assert ".resume-paper.line .line-period{margin-left:auto;color:var(--t-accent)" in css
+    assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:18mm 3mm 1fr}" in css
+    assert ".resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent)" in css
     # 不允许出现逐模板的硬编码主题/缩略图类——新增模板不应再改前端样式。
     for slug in BUILTIN_TEMPLATES:
         assert f"theme-{slug}" not in css, f"styles.css 仍残留 {slug} 的 theme-* 类"
@@ -249,9 +270,8 @@ def test_new_template_end_to_end_flow(builtin_client, slug):
     descriptor = BUILTIN_TEMPLATES[slug]
     for token in COLOUR_TOKENS:
         assert descriptor[token] in body, f"导出 HTML 缺少模板 {slug} 的 {token}"
+    page_class = {"sidebar": '<section class="page">', "plain": "page-plain", "banner": "page-banner-page",
+                  "grid": "page-grid", "line": "page-line", "timeline": "page-timeline"}[layout]
+    assert page_class in body
     if layout == "sidebar":
         assert "<aside class=\"sidebar\">" in body
-    elif layout == "plain":
-        assert "page-plain" in body
-    else:
-        assert "page-banner-page" in body
