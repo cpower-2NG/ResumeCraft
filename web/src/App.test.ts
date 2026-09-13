@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, splitText, streamItems } from './App'
-import type { Block, Content } from './App'
+import { MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, splitText, streamItems } from './lib/resume'
+import type { Block, Content } from './lib/resume'
 
 const makeBlock = (id: string, content: string): Block => ({ id, title: `标题${id}`, content, source_refs: [], origin: 'fact' })
 const makeContent = (sections: { id: string; blocks: Block[] }[]): Content => ({

@@ -14,12 +14,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .services import BUILTIN_TEMPLATES, CORE_SECTIONS, FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .services import CORE_SECTIONS, FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .templates import BUILTIN_TEMPLATES, template_public_info
 from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
 
-app = FastAPI(title="ResumeCraft API", version="1.0.3")
+app = FastAPI(title="ResumeCraft API", version="1.0.6")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:5176", "http://127.0.0.1:5176"], allow_methods=["*"], allow_headers=["*"])
 WORKSPACE_ID = 1
 ATTACHMENTS_DIR = Path(__file__).resolve().parents[1] / "data" / "attachments"
@@ -418,7 +419,7 @@ def templates(db: Session = Depends(get_db)):
     for item in templates:
         version = db.scalar(select(TemplateVersion).where(TemplateVersion.template_id == item.id).order_by(TemplateVersion.version_number.desc()))
         descriptor = BUILTIN_TEMPLATES.get(item.slug, {})
-        result.append({"id": item.id, "name": item.name, "slug": item.slug, "description": item.description, "layout": descriptor.get("layout", "sidebar"), "version": version.version_number if version else None, "template_version_id": version.id if version else None})
+        result.append({"id": item.id, "name": item.name, "slug": item.slug, "description": item.description, "version": version.version_number if version else None, "template_version_id": version.id if version else None, **template_public_info(descriptor)})
     return result
 
 
@@ -502,7 +503,7 @@ def template_info_response(db: Session, template_version_id: int | None) -> dict
         return None
     template = db.get(ResumeTemplate, version.template_id)
     descriptor = BUILTIN_TEMPLATES.get(template.slug, {}) if template else {}
-    return {"template_version_id": template_version_id, "template_id": template.id if template else None, "slug": template.slug if template else "classic", "name": template.name if template else "经典侧栏模板", "layout": descriptor.get("layout", "sidebar")}
+    return {"template_version_id": template_version_id, "template_id": template.id if template else None, "slug": template.slug if template else "classic", "name": template.name if template else "经典侧栏模板", **template_public_info(descriptor or BUILTIN_TEMPLATES["classic"])}
 
 
 class TemplateChoiceInput(BaseModel):

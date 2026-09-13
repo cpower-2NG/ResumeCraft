@@ -7,7 +7,9 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-const browser = await chromium.launch({ headless: true })
+// channel:'chromium' 使用完整 Chromium 的新无头模式（与真实渲染一致），
+// 避免额外下载 chrome-headless-shell 二进制。
+const browser = await chromium.launch({ headless: true, channel: 'chromium' })
 const page = await browser.newPage()
 const consoleErrors = []
 page.on('console', message => {
@@ -21,27 +23,27 @@ try {
   await page.getByRole('button', { name: /资料库/ }).click()
   await page.getByRole('heading', { name: '资料库' }).waitFor()
   await page.getByRole('button', { name: '新增资料' }).click()
-  await page.getByRole('textbox', { name: /资料名称/ }).fill(`交互测试资料-${marker}`)
+  await page.locator('.modal').getByRole('textbox', { name: /资料名称/ }).fill(`交互测试资料-${marker}`)
   await page.getByRole('button', { name: '保存资料' }).click()
   await page.getByText(`交互测试资料-${marker}`).waitFor()
 
-  await page.getByRole('button', { name: 'R ResumeCraft' }).click()
+  await page.getByRole('button', { name: '简 简历工坊' }).click()
   await page.getByRole('button', { name: /岗位画像/ }).click()
   await page.getByRole('button', { name: '新建岗位画像' }).click()
   await page.getByRole('textbox', { name: '画像名称' }).fill(`交互测试岗位-${marker}`)
-  await page.getByRole('textbox', { name: '岗位方向' }).fill('交互测试')
+  await page.getByRole('textbox', { name: '岗位方向' }).fill(`交互测试-${marker}`)
   await page.getByRole('button', { name: '保存画像' }).click()
   await page.getByText(`交互测试岗位-${marker}`).waitFor()
 
-  await page.getByRole('button', { name: 'R ResumeCraft' }).click()
-  await page.getByRole('button', { name: /ResumeCraft/ }).click()
+  await page.getByRole('button', { name: '简 简历工坊' }).click()
+  await page.getByRole('button', { name: /简历工作台/ }).click()
   await page.getByRole('heading', { name: '正式简历' }).waitFor()
   await page.getByRole('button', { name: '回收站' }).click()
   await page.getByRole('heading', { name: '简历回收站' }).waitFor()
   await page.getByRole('button', { name: '返回正式简历' }).click()
   await page.getByRole('heading', { name: '正式简历' }).waitFor()
 
-  await page.getByRole('button', { name: 'R ResumeCraft' }).click()
+  await page.getByRole('button', { name: '简 简历工坊' }).click()
   await page.getByRole('button', { name: /资料库/ }).click()
   await page.getByRole('button', { name: '回收站' }).click()
   await page.getByRole('heading', { name: '资料库' }).waitFor()

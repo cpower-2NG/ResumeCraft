@@ -1,5 +1,33 @@
 # ResumeCraft 发布记录
 
+## v1.0.6
+
+发布日期：2026-09-13
+
+### 变更：模板系统解耦与前端模块化
+
+- **模板单一事实源**：模板注册表从 `app/services.py` 迁至 `app/templates.py`，每份描述符（布局 + 11 个色板 + 衬线开关）只定义一次；`/api/templates` 与简历负载（`template_info_response`）下发完整 `tokens`/`serif`/`layout`。
+- **画布主题变量化**：SPA 画布不再维护逐模板样式——删除 `styles.css` 中 20 套硬编码 `theme-*` 画布主题与 20 条 `thumb-*` 缩略图规则（约 170 行），画布/横幅/侧栏改为消费 API 下发的 CSS 自定义属性（`--t-*`，经典色板作为回退值）；模板弹窗缩略图由色板实时生成。新增模板自此只需改 `app/templates.py` 注册表，前端零改动。
+- **前端模块化拆分**：548 行单体 `App.tsx` 拆分为 `lib/`（resume 领域逻辑与 mdLite）、`lib/templates.ts`（模板描述符 → CSS 变量）、`components/`（Canvas、Picker、TemplateModal、StageToolbar、BenchHead、通用 UI）、`pages/`（Home/Facts/Profiles/Resumes/Composer/Editor/TemplateLibrary 七个页面）与瘦壳 `App.tsx`；分页/分片逻辑原样迁移，前端预览与导出断点仍逐字对齐。
+- **模板库创建链路补全**：模板库“用此模板创建简历”此前只跳转岗位画像、所选模板被丢弃（新临时简历一律回退最早模板）；现在所选模板会带入临时简历创建（`POST /api/linked-resumes?template_version_id=…`），临时简历/正式简历继续沿用。
+- **首页收敛为三个主入口并列**：移除首页“模板库”大图标卡片（落实交互设计 3.1/4.4 与 ui-audit GAP-11 的产品决策），模板入口保留在简历工作台页与编辑器/临时简历的模板选择弹层；三个入口并列一行，“简历工作台”居首并改为深色渐变主卡片（白字、浅色图标、悬浮上浮），提升视觉层级。
+- **品牌中文化**：应用名改为“简历工坊”（顶栏品牌、页面标题、面包屑），品牌文字加深加重（`#15211d`、字重 800、徽标深色 `#12262b`）。
+
+### 修复
+
+- **画布回退变量覆盖模板色板**：变量化初版把回退色板声明在 `.resume-paper` 上，直接声明会压过从画布舞台继承的模板变量，导致所有模板在纸张内回退经典配色；回退声明移至 `.resume-stage` 后，侧栏/横幅/标题色经计算样式逐一校验（20 个模板全部命中各自色板）。
+
+### 测试
+
+- `tests/test_template_compatibility.py` 前端同步契约改为新架构口径：`/api/templates` 必须对每个模板下发完整 `tokens`/`serif`/`layout`，`styles.css` 必须为变量驱动且不得残留任何 `theme-*`/`thumb-*` 逐模板类；全链路用例增加简历负载 `tokens` 断言。
+- `web/scripts/interaction-smoke.mjs` 修复三处导致其长期无法运行的问题并全流程跑通：品牌选择器同步为“简 简历工坊”、第三入口选择器改为“简历工作台”；改用完整 Chromium 的新无头模式（`channel: 'chromium'`，免去下载 chrome-headless-shell 二进制）；资料名称定位器限定到弹层内（原先与列表搜索框严格模式冲突）；画像“岗位方向”加入时间戳标记，消除重复运行时的身份键 409（脚本此前不幂等）。
+- 新增内联 SVG favicon（品牌徽标“简”），消除浏览器控制台的 `/favicon.ico` 404 噪音。
+- 首次全流程冒烟通过：新增资料 → 新建画像 → 简历工作台/回收站切换，零控制台错误（此前该脚本因上述问题从未跑通）。
+
+### 验证
+
+- 后端 pytest 107 项、前端 vitest 4 项、`tsc -b && vite build` 全部通过；浏览器实测：首页三入口与深色中文品牌、模板库 20 个实时预览配色逐一经 `getComputedStyle` 校验、编辑器内 侧栏/单栏/横幅 三种布局即点即换、模板库选模板 → 岗位画像 → 创建临时简历全程携带所选模板。
+
 ## v1.0.5
 
 发布日期：2026-09-13

@@ -3,7 +3,8 @@
 BUILTIN_TEMPLATES 注册表中的每个模板都必须同时满足四层契约：
 - 描述符完整：布局合法、色板齐全、slug 可安全用于 CSS 类名与数据库唯一键；
 - 导出可用：render_resume_html 产出自包含、正确分页、无渲染残留的 A4 HTML；
-- 前端同步：SPA 预览样式（theme-*/thumb-* 类）覆盖注册表中的每个 slug；
+- 前端同步：/api/templates 与简历负载下发完整色板/衬线描述符，SPA 画布以
+  CSS 变量消费同一份数据，不再维护逐模板的 theme-*/thumb-* 样式；
 - 接口可用：启动建库 -> /api/templates -> 选择模板 -> 转正式 -> 导出全链路畅通。
 """
 from __future__ import annotations
@@ -18,7 +19,8 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from app.main import app, ensure_builtin_templates
-from app.services import BUILTIN_TEMPLATES, render_resume_html
+from app.services import render_resume_html
+from app.templates import BUILTIN_TEMPLATES, COLOUR_TOKENS
 from app.workbench_database import WorkbenchBase, get_db
 from app.workbench_models import ResumeTemplate, User, Workspace
 
@@ -137,20 +139,28 @@ def test_unknown_slug_falls_back_to_classic():
 
 # ---------------------------------------------------------------- 前端同步
 
-# classic 与 azure 分别是侧栏/横幅的基础主题：styles.css 的基础纸张与横幅样式即其覆盖。
-BASE_THEME_SLUGS = {"classic", "azure"}
-
-
-def test_spa_css_covers_every_registered_template():
-    css = WEB_STYLES.read_text(encoding="utf-8")
+def test_api_exposes_palette_for_every_template(builtin_client):
+    """SPA 画布的主题完全来自 API 下发的 tokens/serif/layout，注册表必须完整下发。"""
+    rows = {item["slug"]: item for item in builtin_client.get("/api/templates").json()}
     for slug, descriptor in BUILTIN_TEMPLATES.items():
-        assert f"thumb-{slug}" in css, f"styles.css 缺少 {slug} 的 thumb-* 缩略图样式，模板弹窗会显示空白缩略图"
-        if slug not in BASE_THEME_SLUGS:
-            assert f"theme-{slug}" in css, f"styles.css 缺少 {slug} 的 theme-* 预览样式，画布会回退到经典配色"
-        if descriptor["layout"] == "sidebar":
-            assert re.search(rf"\.resume-sidebar\{{[^}}]*background:{descriptor['sidebar_bg']}", css), f"模板 {slug} 的侧栏底色未同步到预览"
-        if descriptor["layout"] == "banner":
-            assert re.search(rf"\.resume-banner\{{[^}}]*background:{descriptor['sidebar_bg']}", css), f"模板 {slug} 的横幅底色未同步到预览"
+        row = rows[slug]
+        assert row["layout"] == descriptor["layout"]
+        assert row["serif"] is bool(descriptor.get("serif"))
+        assert row["tokens"] == {key: descriptor[key] for key in COLOUR_TOKENS}
+
+
+def test_spa_canvas_is_variable_driven():
+    css = WEB_STYLES.read_text(encoding="utf-8")
+    # 画布与横幅直接消费 API 色板变量；classic 色板作为 CSS 回退值保留。
+    assert ".resume-sidebar{background:var(--t-sidebar-bg)" in css
+    assert ".resume-banner{padding:9mm 11mm;flex:none;background:var(--t-sidebar-bg)" in css
+    assert ".resume-stage{--t-sidebar-bg:#163b43" in css
+    assert ".resume-paper.serif,.resume-paper.serif *" in css
+    assert ".resume-paper.plain{grid-template-columns:1fr}" in css
+    # 不允许出现逐模板的硬编码主题/缩略图类——新增模板不应再改前端样式。
+    for slug in BUILTIN_TEMPLATES:
+        assert f"theme-{slug}" not in css, f"styles.css 仍残留 {slug} 的 theme-* 类"
+        assert f"thumb-{slug}" not in css, f"styles.css 仍残留 {slug} 的 thumb-* 类"
 
 
 # ---------------------------------------------------------------- API 全链路
@@ -227,6 +237,7 @@ def test_new_template_end_to_end_flow(builtin_client, slug):
     resume_id = builtin_client.post(f"/api/linked-resumes/{linked['id']}/convert").json()["resume_id"]
     resume = builtin_client.get(f"/api/resumes/{resume_id}").json()
     assert resume["template"]["slug"] == slug and resume["template"]["layout"] == layout
+    assert resume["template"]["tokens"] == {key: BUILTIN_TEMPLATES[slug][key] for key in COLOUR_TOKENS}
 
     saved = builtin_client.post(f"/api/resumes/{resume_id}/save", json={"change_summary": "兼容性验证"})
     assert saved.status_code == 200, saved.text
