@@ -20,7 +20,7 @@ from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
 
-app = FastAPI(title="ResumeCraft API", version="1.0.6")
+app = FastAPI(title="ResumeCraft API", version="1.0.8")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:5175", "http://127.0.0.1:5175", "http://localhost:5176", "http://127.0.0.1:5176"], allow_methods=["*"], allow_headers=["*"])
 WORKSPACE_ID = 1
 ATTACHMENTS_DIR = Path(__file__).resolve().parents[1] / "data" / "attachments"

@@ -13,8 +13,8 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   const grid=layout==='grid'
   const line=layout==='line'
   const single=layout!=='sidebar'
-  const mainPages=streamItems(content,layoutMainIds(layout),layoutBudget(layout),false)
-  const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true)
+  const mainPages=streamItems(content,layoutMainIds(layout),layoutBudget(layout),false,layout)
+  const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true,'sidebar')
   const count=Math.max(mainPages.length,sidePages.length,1)
   const shared:CanvasShared={mode,select,changed,addFact,onEdit,onContext,layout}
   const basicBlock=section(content,'basics').blocks[0]

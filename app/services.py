@@ -219,25 +219,80 @@ def evidence_count(db: Session, fact_id: int) -> int:
     return db.query(FactEvidence).filter(FactEvidence.fact_id == fact_id).count()
 
 
-MAIN_PAGE_BUDGET = 2400
-SIDE_PAGE_BUDGET = 1500
-BANNER_PAGE_BUDGET = 2200
-GRID_PAGE_BUDGET = 2100
-LINE_PAGE_BUDGET = 2300
-TIMELINE_PAGE_BUDGET = 2200
 SIDE_SECTIONS = ("basics", "skills", "awards")
+
+# —— 分页权重模型（单位：px，96dpi 下的 A4 = 1122px 高）——
+# 权重即估算的渲染高度，数值由导出 CSS 反推：正文 9pt×1.6 行高、元信息
+# 7.8pt×1.4、条目 h3 10.5pt + 5mm 下边距、栏目标题 12pt + 7mm 上边距；
+# 侧栏 8pt 行高、4mm 条目边距、9mm 栏目上边距。header/header_first 是栏目
+# 标题行成本（页内首个栏目 margin-top 归零，故更低）。两端（app/services.py
+# 与 web/src/lib/resume.ts）必须保持同一公式与预算。
+LAYOUT_METRICS = {
+    # header 栏目标题行（页内非首个栏目）；header_first 页内首个栏目；base 条目
+    # 固定成本；extra 布局装饰；content_line 正文行高；chars_per_line 每行字数；meta 元信息行高。
+    "sidebar":  {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45},
+    "side":     {"header": 56, "header_first": 56, "base": 33, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 15, "meta_chars": 15},
+    "plain":    {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "banner":   {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "grid":     {"header": 44, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "line":     {"header": 60, "header_first": 34, "base": 54, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "timeline": {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+}
+# 每页可用高度（px）= A4 高 − 页头 − 上下页边距；页头较高的布局取首页口径，
+# 避免首页溢出（后续页的细页头只会更宽松）。
+PAGE_BUDGET_PX = {
+    "sidebar": 1010, "side": 1000, "plain": 1050, "banner": 970,
+    "grid": 975, "line": 995, "timeline": 1045,
+}
+MAIN_PAGE_BUDGET = PAGE_BUDGET_PX["sidebar"]
+SIDE_PAGE_BUDGET = PAGE_BUDGET_PX["side"]
+BANNER_PAGE_BUDGET = PAGE_BUDGET_PX["banner"]
+GRID_PAGE_BUDGET = PAGE_BUDGET_PX["grid"]
+LINE_PAGE_BUDGET = PAGE_BUDGET_PX["line"]
+TIMELINE_PAGE_BUDGET = PAGE_BUDGET_PX["timeline"]
 
 
 def section_fragment_limit(section_id: str) -> int:
     return 520 if section_id in SIDE_SECTIONS else 900
 
 
-def section_item_weight(section_id: str, content: str, field_count: int) -> int:
-    # 每个条目固定承载栏目标题与页边距（主栏约 13mm、侧栏约 9mm），每个展示
-    # 字段在页面上是独立换行的 flex/grid 行（主栏约 4mm、侧栏约 3mm）。低估这
-    # 两项会让字段密集的简历在导出时溢出 A4 底边、末尾栏目被裁剪。
-    side = section_id in SIDE_SECTIONS
-    return (90 if side else 130) + len(content) + field_count * (25 if side else 40)
+def content_line_count(content: str, chars_per_line: int) -> int:
+    """正文行数：按 \\n 分段后逐段折行（markdown 子集的 <br> 会真实换行）。"""
+    text = str(content or "")
+    if not text:
+        return 0
+    return sum(max(1, -(-len(seg) // chars_per_line)) for seg in text.split("\n"))
+
+
+def section_item_weight(section_id: str, content: str, meta_lines: int, layout: str) -> int:
+    # 条目高度(px) = 固定成本 + 正文行数 × 行高 + 元信息行数 × 行高 + 布局装饰。
+    # 此前按“字段个数×固定值”计价，长字段值（到岗安排、核心要求等）折行后的
+    # 高度被低估，导致导出内容溢出 A4 底边。
+    style = LAYOUT_METRICS["side" if section_id in SIDE_SECTIONS else layout]
+    return style["base"] + style["extra"] + content_line_count(content, style["chars_per_line"]) * style["content_line"] + meta_lines * style["meta"]
+
+
+def meta_field_lines(block: dict, side: bool, layout: str = "plain") -> int:
+    fields = block.get("fields") or {}
+    displayed = block.get("display_fields") or list(fields)
+    if side:
+        chars = LAYOUT_METRICS["side"]["meta_chars"]
+        return sum(max(1, -(-(len(str(FIELD_LABELS.get(key, "")) + str(fields.get(key, "")))) // chars)) for key in displayed if fields.get(key))
+    chars = LAYOUT_METRICS[layout]["meta_chars"]
+    total = sum(len(str(FIELD_LABELS.get(key, "")) + str(fields.get(key, ""))) for key in displayed if fields.get(key))
+    return max(1, -(-total // chars)) if displayed else 0
+
+
+FIELD_LABELS = {
+    "phone": "电话", "email": "邮箱", "city": "所在地", "desired_city": "目标城市", "hometown": "籍贯",
+    "status": "身份状态", "graduation": "毕业时间", "availability": "到岗安排", "bio": "个人简介",
+    "period": "时间", "major": "专业", "degree": "学历", "gpa": "GPA", "ranking": "专业排名",
+    "organization": "组织/公司", "role": "角色", "team_size": "团队规模", "tools": "工具与技术",
+    "skill_category": "技能分类", "proficiency": "熟练程度", "issuer": "颁发方", "result": "结果",
+    "link_type": "链接类型", "url": "地址", "label": "显示名称", "role_direction": "岗位方向",
+    "core_requirements": "核心要求", "summary": "简介", "name": "姓名", "birth_date": "出生日期",
+    "age": "年龄", "start_date": "入学时间", "end_date": "毕业时间",
+}
 
 
 def render_resume_html(content: dict, title: str, version_number: int, template_slug: str = "classic") -> str:
@@ -250,14 +305,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     """
     descriptor = BUILTIN_TEMPLATES.get(template_slug) or BUILTIN_TEMPLATES["classic"]
     sections = {item.get("id"): item for item in content.get("sections", [])}
-    field_labels = {
-        "phone": "电话", "email": "邮箱", "city": "所在地", "desired_city": "目标城市", "hometown": "籍贯",
-        "status": "身份状态", "graduation": "毕业时间", "availability": "到岗安排", "bio": "个人简介",
-        "period": "时间", "major": "专业", "degree": "学历", "gpa": "GPA", "ranking": "专业排名",
-        "organization": "组织/公司", "role": "角色", "team_size": "团队规模", "tools": "工具与技术",
-        "skill_category": "技能分类", "proficiency": "熟练程度", "issuer": "颁发方", "result": "结果",
-        "link_type": "链接类型", "url": "地址", "label": "显示名称",
-    }
+    field_labels = FIELD_LABELS
 
     def esc(value) -> str:
         return html.escape(str(value or ""), quote=True)
@@ -312,27 +360,40 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         return f'<article class="block"><span class="t-time">{esc(block_period(block))}</span><div class="t-body">{body}</div></article>'
 
     def stream_pages(section_ids: list[str], budget: int) -> list[list[tuple[dict, str]]]:
-        """Fragment blocks, pack them into pages, and mark heading continuations."""
+        """Fragment blocks, pack them into pages, and mark heading continuations.
+
+        Each section costs one heading per page it appears on (标题行 + 间距)，
+        so section-heavy resumes no longer get their headers' height silently
+        dropped from the packing estimate.
+        """
         items: list[tuple[str, dict, int]] = []
         for section_id in section_ids:
             section = sections.get(section_id, {})
+            side = section_id in SIDE_SECTIONS
+            style = LAYOUT_METRICS["side" if side else layout_id]
             limit = section_fragment_limit(section_id)
             for block in section.get("blocks", []):
                 text_value = str(block.get("content", "") or "")
                 chunks = [text_value[index:index + limit] for index in range(0, len(text_value), limit)] or [""]
                 for index, chunk in enumerate(chunks):
                     item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
-                    weight = section_item_weight(section_id, chunk, len(item.get("fields") or {}))
+                    weight = section_item_weight(section_id, chunk, meta_field_lines(item, side, layout_id), layout_id)
                     items.append((section_id, item, weight))
         pages: list[list[tuple[str, dict, int]]] = []
         current: list[tuple[str, dict, int]] = []
         size = 0
-        for item in items:
-            weight = item[2]
-            if current and size + weight > budget:
+        current_id: str | None = None
+        for section_id, item, weight in items:
+            style = LAYOUT_METRICS["side" if section_id in SIDE_SECTIONS else layout_id]
+            header = style["header"] if section_id != current_id else 0
+            if current and size + weight + header > budget:
                 pages.append(current)
-                current, size = [], 0
-            current.append(item)
+                current, size, current_id = [], 0, None
+                header = style["header_first"]
+            if header:
+                size += header
+                current_id = section_id
+            current.append((section_id, item, weight + header))
             size += weight
         if current or not pages:
             pages.append(current)
@@ -377,9 +438,12 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     head_layout = banner or grid or line  # 基本信息栏目被页头取代的布局
     if plain or timeline:
         main_ids = ["basics", "target", "profile", "experience", "education", "skills", "awards", "links"]
-    else:
+    elif head_layout:
         # 横幅/表格/线式布局：页头呈现姓名与联系方式，正文不再重复基本信息栏目。
         main_ids = ["target", "profile", "experience", "education", "skills", "awards", "links"]
+    else:
+        # 侧栏布局：技能与成果只出现在侧栏，主栏保持五个栏目。
+        main_ids = ["target", "profile", "experience", "education", "links"]
     side_ids = ["basics", "skills", "awards"] if not (head_layout or timeline) else []
     sidebar_pages = [] if not side_ids else stream_pages(side_ids, SIDE_PAGE_BUDGET)
     budget = BANNER_PAGE_BUDGET if banner else GRID_PAGE_BUDGET if grid else LINE_PAGE_BUDGET if line else TIMELINE_PAGE_BUDGET if timeline else MAIN_PAGE_BUDGET

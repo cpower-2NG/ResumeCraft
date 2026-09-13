@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_IDS, BANNER_BUDGET, GRID_BUDGET, LINE_BUDGET, MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, layoutBudget, layoutMainIds, splitText, streamItems } from './lib/resume'
+import { ALL_IDS, BANNER_BUDGET, GRID_BUDGET, LINE_BUDGET, MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, TIMELINE_BUDGET, layoutBudget, layoutMainIds, splitText, streamItems } from './lib/resume'
 import type { Block, Content } from './lib/resume'
 
 const makeBlock = (id: string, content: string): Block => ({ id, title: `标题${id}`, content, source_refs: [], origin: 'fact' })
@@ -16,22 +16,26 @@ describe('splitText', () => {
 
 describe('layoutMainIds / layoutBudget for new layouts', () => {
   it('mirrors the export renderer for grid/line/timeline', () => {
-    // grid/line 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目。
+    // grid/line 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目；
+    // sidebar 侧栏承载基本信息/技能/成果，主栏五栏（预算单位为 px）。
     expect(layoutMainIds('grid')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
     expect(layoutMainIds('line')).toEqual(layoutMainIds('banner'))
     expect(layoutMainIds('timeline')).toEqual(ALL_IDS)
+    expect(layoutMainIds('sidebar')).toEqual(MAIN_IDS)
     expect(layoutBudget('grid')).toBe(GRID_BUDGET)
     expect(layoutBudget('line')).toBe(LINE_BUDGET)
-    expect(layoutBudget('timeline')).toBe(2200)
+    expect(layoutBudget('timeline')).toBe(TIMELINE_BUDGET)
     expect(layoutBudget('banner')).toBe(BANNER_BUDGET)
     expect(layoutBudget('sidebar')).toBe(MAIN_BUDGET)
+    expect(layoutBudget('sidebar')).toBeGreaterThan(0)
+    expect(layoutBudget('timeline')).toBeGreaterThan(layoutBudget('banner'))
   })
 
   it('paginates long content into multiple pages for the new layouts', () => {
     for (const layout of ['grid', 'line', 'timeline']) {
       const pages = streamItems(
-        makeContent([{ id: 'experience', blocks: [makeBlock('long', '很'.repeat(MAIN_BUDGET))] }]),
-        layoutMainIds(layout), layoutBudget(layout), false,
+        makeContent([{ id: 'experience', blocks: [makeBlock('long', '很'.repeat(2000))] }]),
+        layoutMainIds(layout), layoutBudget(layout), false, layout,
       )
       expect(pages.length).toBeGreaterThan(1)
       // 排在长栏目之后的空栏目可能被挤到后续页，续页标记只应检查长栏目自身的条目。
@@ -56,8 +60,8 @@ describe('streamItems section aggregation', () => {
 
   it('marks a heading as continued when its blocks move to a later page', () => {
     const pages = streamItems(
-      makeContent([{ id: 'experience', blocks: [makeBlock('short', '短内容'), makeBlock('long', '很'.repeat(MAIN_BUDGET))] }]),
-      MAIN_IDS, MAIN_BUDGET, false,
+      makeContent([{ id: 'experience', blocks: [makeBlock('short', '短内容'), makeBlock('long', '很'.repeat(2000))] }]),
+      MAIN_IDS, MAIN_BUDGET, false, 'sidebar',
     )
     expect(pages.length).toBeGreaterThan(1)
     const later = pages.slice(1).flat().filter(it => it.section.id === 'experience')

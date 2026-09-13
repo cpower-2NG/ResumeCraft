@@ -17,7 +17,7 @@ export type UpdateBlock = (sectionId:string, blockId:string, value:string, key?:
 
 export const labels:Record<string,string> = { basics:'基本信息', target:'求职目标', profile:'个人简介', education:'教育经历', experience:'项目与实践', skills:'技能', awards:'成果', links:'链接与作品集' }
 export const categories = ['basics','education','experience','skills','awards','links']
-export const fieldLabels:Record<string,string> = { name:'姓名', phone:'电话', email:'邮箱', city:'所在地', desired_city:'目标城市', birth_date:'出生日期', age:'年龄', hometown:'籍贯', status:'身份状态', graduation:'毕业时间', availability:'到岗安排', bio:'个人简介', school:'学校', major:'专业', degree:'学历', start_date:'入学时间', end_date:'毕业时间', period:'时间', gpa:'GPA', ranking:'专业排名', achievement:'成绩与成果', courses:'相关课程', kind:'经历类型', organization:'组织/公司', role:'角色', team_size:'团队规模', context:'背景/使用场景', work:'具体工作', tools:'工具与技术', outcome:'结果', challenge:'挑战', solution:'解决方案', public_note:'公开说明', skill_category:'技能分类', proficiency:'熟练程度', issuer:'颁发方', result:'结果', note:'说明', link_type:'链接类型', url:'地址', label:'显示名称' }
+export const fieldLabels:Record<string,string> = { name:'姓名', phone:'电话', email:'邮箱', city:'所在地', desired_city:'目标城市', birth_date:'出生日期', age:'年龄', hometown:'籍贯', status:'身份状态', graduation:'毕业时间', availability:'到岗安排', bio:'个人简介', school:'学校', major:'专业', degree:'学历', start_date:'入学时间', end_date:'毕业时间', period:'时间', gpa:'GPA', ranking:'专业排名', achievement:'成绩与成果', courses:'相关课程', kind:'经历类型', organization:'组织/公司', role:'角色', team_size:'团队规模', context:'背景/使用场景', work:'具体工作', tools:'工具与技术', outcome:'结果', challenge:'挑战', solution:'解决方案', public_note:'公开说明', skill_category:'技能分类', proficiency:'熟练程度', issuer:'颁发方', result:'结果', note:'说明', link_type:'链接类型', url:'地址', label:'显示名称', role_direction:'岗位方向', core_requirements:'核心要求', summary:'简介' }
 export const searchTypeLabels:Record<string,string> = { fact:'事实资料', evidence:'证据', profile:'岗位画像', opportunity:'招聘机会', resume:'正式简历' }
 export const pendingKindLabels:Record<string,string> = { source_changed:'来源资料变化', source_recycled:'来源移入回收站' }
 
@@ -37,25 +37,64 @@ export const fragmentLimit=(sid:string)=>['basics','skills','awards'].includes(s
 export const MAIN_IDS=['target','profile','experience','education','links']
 export const SIDE_IDS=['basics','skills','awards']
 export const ALL_IDS=['basics','target','profile','experience','education','skills','awards','links']
-export const MAIN_BUDGET=2400
-export const SIDE_BUDGET=1500
-export const BANNER_BUDGET=2200
-export const GRID_BUDGET=2100
-export const LINE_BUDGET=2300
-export const TIMELINE_BUDGET=2200
+
+// —— 分页权重模型（单位：px，96dpi 下 A4 = 1122px 高）——
+// 与 app/services.py 的 LAYOUT_METRICS / PAGE_BUDGET_PX 保持同一公式与数值：
+// 权重即估算渲染高度，预算即页面可用高度。常数由导出 CSS 反推（正文 9pt×1.6、
+// 条目 h3 + 5mm 边距、栏目标题 12pt + 7mm 上边距、页内首栏目 margin 归零）。
+const LAYOUT_METRICS:Record<string,{header:number;header_first:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number}> = {
+  sidebar:  {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:40, meta:14, meta_chars:45},
+  side:     {header:56, header_first:56, base:33, extra:0,  content_line:15, chars_per_line:15, meta:15, meta_chars:15},
+  plain:    {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  banner:   {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  grid:     {header:44, header_first:29, base:30, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  line:     {header:60, header_first:34, base:54, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  timeline: {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+}
+export const MAIN_BUDGET=1010
+export const SIDE_BUDGET=1000
+export const BANNER_BUDGET=970
+export const GRID_BUDGET=975
+export const LINE_BUDGET=995
+export const TIMELINE_BUDGET=1045
+const MAIN_META_CHARS_PER_LINE=60
+const SIDE_META_CHARS_PER_LINE=15
 // Section order and packing budget per template layout; mirrors render_resume_html().
-// grid/line/banner 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目。
-export const layoutMainIds=(layout:string)=>layout==='plain'||layout==='timeline'?ALL_IDS:ALL_IDS.filter(id=>id!=='basics')
+// plain/timeline 通排全部栏目；grid/line/banner 页头取代基本信息栏目；
+// sidebar 侧栏承载基本信息/技能/成果，主栏保持五个栏目。
+export const layoutMainIds=(layout:string)=>layout==='plain'||layout==='timeline'?ALL_IDS:layout==='sidebar'?MAIN_IDS:ALL_IDS.filter(id=>id!=='basics')
 export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:layout==='grid'?GRID_BUDGET:layout==='line'?LINE_BUDGET:layout==='timeline'?TIMELINE_BUDGET:MAIN_BUDGET
 
 export type Item={section:Section;block:Block;continued:boolean}
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})
-const itemWeight=(it:Item,side:boolean)=>{const b=it.block;return (side?90:130)+(b.content||'').length+Object.keys(b.fields||{}).length*(side?25:40)}
+const contentLineCount=(content:string,charsPerLine:number)=>{
+  const text=String(content||'')
+  if(!text)return 0
+  return text.split('\n').reduce((s,seg)=>s+Math.max(1,Math.ceil(seg.length/charsPerLine)),0)
+}
+const metaFieldLines=(b:Block,side:boolean,layout:string)=>{
+  const fields=b.fields||{}
+  const displayed=(b.display_fields||Object.keys(fields)).filter(k=>fields[k])
+  if(!displayed.length)return 0
+  if(side){
+    const chars=LAYOUT_METRICS.side.meta_chars
+    return displayed.reduce((s,k)=>s+Math.max(1,Math.ceil((String(fieldLabels[k]??k)+String(fields[k])).length/chars)),0)
+  }
+  const chars=(LAYOUT_METRICS[layout]||LAYOUT_METRICS.plain).meta_chars
+  const total=displayed.reduce((s,k)=>s+(String(fieldLabels[k]??k)+String(fields[k])).length,0)
+  return Math.max(1,Math.ceil(total/chars))
+}
+const itemWeight=(it:Item,side:boolean,layout:string)=>{
+  const style=LAYOUT_METRICS[side?'side':layout]||LAYOUT_METRICS.sidebar
+  // 与 services.py 的 section_item_weight 同一公式：固定成本 + 正文行数 × 行高
+  // + 元信息行数 × 行高，否则预览分页与导出断点会错位。
+  return style.base+style.extra+contentLineCount(it.block.content,style.chars_per_line)*style.content_line+metaFieldLines(it.block,side,layout)*style.meta
+}
 
 // Fragments blocks, packs them into fixed-size pages, and marks headings that
 // continue from an earlier page. Mirrors render_resume_html() in app/services.py
 // so preview page breaks match the exported A4 HTML.
-export function streamItems(content:Content,ids:string[],budget:number,side:boolean):Item[][]{
+export function streamItems(content:Content,ids:string[],budget:number,side:boolean,layout:string=''):Item[][]{
   const items:Item[]=[]
   for(const id of ids){
     const original=section(content,id)
@@ -66,8 +105,17 @@ export function streamItems(content:Content,ids:string[],budget:number,side:bool
       chunks.forEach((chunk,index)=>items.push({section:original,block:{...block,id:index?`${block.id}--fragment-${index}`:block.id,content:chunk,fields:index===0?block.fields:{},display_fields:index===0?block.display_fields:[],fragment_index:index,continuation:index>0},continued:false}))
     }
   }
-  const pages:Item[][]=[];let current:Item[]=[];let size=0
-  for(const it of items){const w=itemWeight(it,side);if(current.length&&size+w>budget){pages.push(current);current=[];size=0}current.push(it);size+=w}
+  const headerWeightFor=(sid:string)=>(LAYOUT_METRICS[side?'side':layout]||LAYOUT_METRICS.sidebar).header
+  const headerFirst=(sid:string)=>(LAYOUT_METRICS[side?'side':layout]||LAYOUT_METRICS.sidebar).header_first
+  const pages:Item[][]=[];let current:Item[]=[];let size=0;let currentId:string|null=null
+  for(const it of items){
+    // 栏目在每个页面上计一次标题行成本；换页后首个栏目 margin 归零。
+    const w=itemWeight(it,side,layout)
+    let header=it.section.id!==currentId?headerWeightFor(it.section.id):0
+    if(current.length&&size+w+header>budget){pages.push(current);current=[];size=0;currentId=null;header=headerFirst(it.section.id)}
+    if(header){size+=header;currentId=it.section.id}
+    current.push(it);size+=w
+  }
   if(current.length||!pages.length)pages.push(current)
   const seen=new Set<string>()
   for(const page of pages){const local=new Set<string>();for(const it of page){it.continued=seen.has(it.section.id);local.add(it.section.id)}for(const key of local)seen.add(key)}

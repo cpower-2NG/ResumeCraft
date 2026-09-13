@@ -111,7 +111,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   return <main className="workbench">
     <BenchHead title={`正式简历 · ${versionLabel}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
     {changed.length>0&&!readOnly&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>来源资料已变化</b><span>受影响条目已标记；正文没有被自动改写。</span></div></div>}
-    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(content,layoutMainIds(layout),layoutBudget(layout),false).length}/>
+    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(content,layoutMainIds(layout),layoutBudget(layout),false,layout).length}/>
     <div className="stage-zoom" style={{zoom}}>
       <Canvas content={content} mode={readOnly?'select':'edit'} template={resume.data.template} changed={changed} addFact={setPick} onEdit={openEdit} onContext={openMenu}/>
     </div>
