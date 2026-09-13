@@ -30,7 +30,7 @@ REQUIRED_TOKENS = {"name", "description", "layout", "sidebar_bg", "sidebar_fg", 
 COLOUR_TOKENS = {"sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
 LAYOUTS = {"sidebar", "plain", "banner", "grid", "line", "timeline"}
 # 基本信息栏目被页头取代的布局（姓名/联系方式直接呈现为页头）。
-HEADER_LAYOUTS = {"banner", "grid", "line"}
+HEADER_LAYOUTS = {"banner", "grid", "line", "plain", "timeline"}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
@@ -175,7 +175,9 @@ def test_spa_canvas_is_variable_driven():
     assert ".resume-paper.grid .resume-section{border:1px solid var(--t-rule);overflow:hidden}" in css
     assert ".resume-paper.grid .template-section-title{background:var(--t-sidebar-bg)" in css
     assert ".resume-paper.line .line-head{text-align:center" in css
-    assert ".resume-paper.line .line-period{margin-left:auto;color:var(--t-accent)" in css
+    assert ".resume-paper .entry-period{margin-left:auto;color:var(--t-accent)" in css
+    assert ".resume-paper.plain .line-head" in css, "plain 布局缺少紧凑页头样式"
+    assert ".resume-paper.timeline .line-head" in css, "timeline 布局缺少紧凑页头样式"
     assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:18mm 3mm 1fr}" in css
     assert ".resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent)" in css
     # 不允许出现逐模板的硬编码主题/缩略图类——新增模板不应再改前端样式。

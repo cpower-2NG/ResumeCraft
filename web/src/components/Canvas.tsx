@@ -11,7 +11,6 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   const layout=template?.layout||'sidebar'
   const banner=layout==='banner'
   const grid=layout==='grid'
-  const line=layout==='line'
   const single=layout!=='sidebar'
   const mainPages=streamItems(content,layoutMainIds(layout),layoutBudget(layout),false,layout)
   const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true,'sidebar')
@@ -19,11 +18,12 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   const shared:CanvasShared={mode,select,changed,addFact,onEdit,onContext,layout}
   const basicBlock=section(content,'basics').blocks[0]
   const bannerName=basicBlock?.title||'简历'
-  const headClass=banner?'resume-banner':grid?'grid-head':line?'line-head':''
-  const headSlimClass=banner?'banner-slim':grid?'grid-head-slim':line?'line-head-slim':''
+  // 所有单栏布局都用页头呈现姓名与联系方式；侧栏布局的基本信息在侧栏。
+  const headClass=banner?'resume-banner':grid?'grid-head':'line-head'
+  const headSlimClass=banner?'banner-slim':grid?'grid-head-slim':'line-head-slim'
   return <section className={`resume-stage ${mode==='edit'?'edit-mode':'select-mode'}`} style={templateVars(template)} data-template={template?.slug||'classic'}>
     {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} layout={layout} serif={template?.serif} sidebar={!single&&(sidePages[i]?.length?<Sidebar items={sidePages[i]} {...shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>)}>
-      {banner||grid||line?(i===0
+      {single?(i===0
         ?<header className={headClass}><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></header>
         :<header className={`${headClass} ${headSlimClass}`}><h1>{bannerName}</h1></header>)
         :null}
@@ -68,18 +68,17 @@ function SectionGroup({section:s,blocks,continued=false,mode,select,changed,addF
 
 function BlockView({section:s,block:b,mode,changed,sidebar,layout,onEdit,onContext}:{section:Section;block:Block;mode:'select'|'edit';changed:boolean;sidebar:boolean;layout?:string}&Pick<CanvasShared,'onEdit'|'onContext'>){
   const fields=b.fields||{}
-  const line=layout==='line'
   const timeline=layout==='timeline'
-  // 线式/时间轴布局把时间字段从元信息行取出：线式放在标题行右端，时间轴放入左侧时间栏。
+  // 时间轴布局把时间放进左栏时间列；其余布局的时间右对齐到条目标题行行尾。
   const period=fields['period']&&(b.display_fields||Object.keys(fields)).includes('period')?fields['period']:''
-  const fieldKeysShown=(b.display_fields||Object.keys(fields)).filter(k=>fields[k]&&((line||timeline)?k!=='period':true))
+  const fieldKeysShown=(b.display_fields||Object.keys(fields)).filter(k=>fields[k]&&(timeline?true:k!=='period'))
   const sourceId=sourceIdOf(b)
   const labelsFor={...fieldLabels,...(b.field_labels||{})}
   const editClick=(e:ReactMouseEvent)=>{if(mode!=='edit')return;e.stopPropagation();onEdit?.({sectionId:s.id,blockId:sourceId,fragmentIndex:b.fragment_index??0})}
   const editContext=(e:ReactMouseEvent)=>{if(mode!=='edit')return;e.preventDefault();e.stopPropagation();onContext?.({sectionId:s.id,blockId:sourceId,fragmentIndex:b.fragment_index??0},e.clientX,e.clientY)}
   const showTitle=!!b.title&&b.title!==s.title
   const body=<>
-    <div className="block-head">{showTitle&&<b>{b.title}</b>}{line&&period&&<span className="line-period">{period}</span>}{b.continuation&&<small className="continuation-label">续</small>}{mode==='edit'&&b.source_refs.length>0&&<small className={`source-tag${changed?' alert':''}`}>{changed?'来源已变化':'事实来源'}</small>}</div>
+    <div className="block-head">{showTitle&&<b>{b.title}</b>}{!timeline&&period&&<span className="entry-period">{period}</span>}{b.continuation&&<small className="continuation-label">续</small>}{mode==='edit'&&b.source_refs.length>0&&<small className={`source-tag${changed?' alert':''}`}>{changed?'来源已变化':'事实来源'}</small>}</div>
     {fieldKeysShown.length>0&&<div className="block-meta">{fieldKeysShown.map(k=><span key={k}><b>{labelsFor[k]||k}</b> {fields[k]}</span>)}</div>}
     <p className="block-copy" dangerouslySetInnerHTML={{__html:mdLite(b.content)}}/>
   </>

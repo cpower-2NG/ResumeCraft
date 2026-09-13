@@ -230,19 +230,19 @@ SIDE_SECTIONS = ("basics", "skills", "awards")
 LAYOUT_METRICS = {
     # header 栏目标题行（页内非首个栏目）；header_first 页内首个栏目；base 条目
     # 固定成本；extra 布局装饰；content_line 正文行高；chars_per_line 每行字数；meta 元信息行高。
-    "sidebar":  {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45},
-    "side":     {"header": 56, "header_first": 56, "base": 33, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 15, "meta_chars": 15},
-    "plain":    {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "banner":   {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "grid":     {"header": 44, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "line":     {"header": 60, "header_first": 34, "base": 54, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "timeline": {"header": 60, "header_first": 34, "base": 44, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "sidebar":  {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45},
+    "side":     {"header": 46, "header_first": 46, "base": 30, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 14, "meta_chars": 15},
+    "plain":    {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "banner":   {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "grid":     {"header": 42, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "line":     {"header": 52, "header_first": 31, "base": 52, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    "timeline": {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
 }
 # 每页可用高度（px）= A4 高 − 页头 − 上下页边距；页头较高的布局取首页口径，
 # 避免首页溢出（后续页的细页头只会更宽松）。
 PAGE_BUDGET_PX = {
-    "sidebar": 1010, "side": 1000, "plain": 1050, "banner": 970,
-    "grid": 975, "line": 995, "timeline": 1045,
+    "sidebar": 1015, "side": 1015, "plain": 930, "banner": 915,
+    "grid": 950, "line": 940, "timeline": 895,
 }
 MAIN_PAGE_BUDGET = PAGE_BUDGET_PX["sidebar"]
 SIDE_PAGE_BUDGET = PAGE_BUDGET_PX["side"]
@@ -327,16 +327,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         return value if value and "period" in displayed else ""
 
     def block_html(block: dict, heading: str = "") -> str:
-        content_text = block_text(block)
-        if (block.get("fields") or {}).get("url"):
-            url = str(block["fields"]["url"])
-            label = (block.get("fields") or {}).get("label") or url
-            content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
-        block_title = "" if block.get("title") and str(block.get("title")) == heading else f'<h3>{esc(block.get("title"))}</h3>'
-        return f'<article class="block">{block_title}<div class="block-meta">{block_fields(block)}</div><p>{content_text}</p></article>'
-
-    def line_block_html(block: dict, heading: str = "") -> str:
-        """经典线式：条目标题居左、时间右对齐同一行，其余字段仍在元信息行。"""
+        """条目：时间右对齐到标题行行尾（时间轴布局除外，其时间在左栏）。"""
         content_text = block_text(block)
         if (block.get("fields") or {}).get("url"):
             url = str(block["fields"]["url"])
@@ -346,7 +337,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         period = block_period(block)
         row = ""
         if block_title or period:
-            row = f'<div class="line-row">{block_title}' + (f'<span class="line-period">{esc(period)}</span>' if period else "") + "</div>"
+            row = f'<div class="entry-row">{block_title}' + (f'<span class="entry-period">{esc(period)}</span>' if period else "") + "</div>"
         return f'<article class="block">{row}<div class="block-meta">{block_fields(block, ("period",))}</div><p>{content_text}</p></article>'
 
     def timeline_block_html(block: dict) -> str:
@@ -419,9 +410,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
                 parts.append(f'<section class="section"><h2>{esc(label)}</h2>')
                 current_id = section_id
                 current_heading = heading
-            if layout_id == "line":
-                parts.append(line_block_html(block, current_heading))
-            elif layout_id == "timeline":
+            if layout_id == "timeline":
                 parts.append(timeline_block_html(block))
             else:
                 parts.append(block_html(block, current_heading))
@@ -435,16 +424,15 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     line = descriptor["layout"] == "line"
     timeline = descriptor["layout"] == "timeline"
     layout_id = descriptor["layout"]
-    head_layout = banner or grid or line  # 基本信息栏目被页头取代的布局
-    if plain or timeline:
-        main_ids = ["basics", "target", "profile", "experience", "education", "skills", "awards", "links"]
-    elif head_layout:
-        # 横幅/表格/线式布局：页头呈现姓名与联系方式，正文不再重复基本信息栏目。
+    # 页头布局：姓名与联系方式由页头呈现，正文不再重复基本信息栏目。
+    # 侧栏布局的基本信息在侧栏；其余五种布局都有页头。
+    head_layout = layout_id != "sidebar"
+    if head_layout:
         main_ids = ["target", "profile", "experience", "education", "skills", "awards", "links"]
     else:
         # 侧栏布局：技能与成果只出现在侧栏，主栏保持五个栏目。
         main_ids = ["target", "profile", "experience", "education", "links"]
-    side_ids = ["basics", "skills", "awards"] if not (head_layout or timeline) else []
+    side_ids = [] if head_layout else ["basics", "skills", "awards"]
     sidebar_pages = [] if not side_ids else stream_pages(side_ids, SIDE_PAGE_BUDGET)
     budget = BANNER_PAGE_BUDGET if banner else GRID_PAGE_BUDGET if grid else LINE_PAGE_BUDGET if line else TIMELINE_PAGE_BUDGET if timeline else MAIN_PAGE_BUDGET
     main_pages = stream_pages(main_ids, budget)
@@ -478,9 +466,12 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
             head = line_head if index == 0 else line_head_slim
             chunks.append(f'<section class="page page-line">{head}<main class="main main-plain main-line">{body}</main></section>')
         elif timeline:
-            chunks.append(f'<section class="page page-timeline"><main class="main main-plain main-timeline">{body}</main></section>')
+            # 时间轴与 plain 共用紧凑页头（姓名 + 联系方式），正文沿用时间轴节点。
+            head = line_head if index == 0 else line_head_slim
+            chunks.append(f'<section class="page page-timeline">{head}<main class="main main-plain main-timeline">{body}</main></section>')
         elif plain:
-            chunks.append(f'<section class="page page-plain"><main class="main main-plain">{body}</main></section>')
+            head = line_head if index == 0 else line_head_slim
+            chunks.append(f'<section class="page page-plain">{head}<main class="main main-plain">{body}</main></section>')
         else:
             sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
             chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{body}</main></section>')
@@ -504,23 +495,23 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .banner-slim {{ padding:3.5mm 12mm; display:flex; align-items:baseline; }}
 .banner-slim h1 {{ font-size:10pt; margin:0; letter-spacing:1px; }}
 .page:last-child {{ break-after:auto; page-break-after:auto; }}
-.sidebar {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:14mm 7mm; overflow:hidden; }}
-.sidebar h1 {{ font-family:Georgia,"Microsoft YaHei",serif; font-size:23pt; line-height:1.1; margin:0 0 5mm; }}
-    .side-meta {{ display:grid; gap:1.5mm; color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; }}
+.sidebar {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:12mm 7mm; overflow:hidden; }}
+.sidebar h1 {{ font-family:Georgia,"Microsoft YaHei",serif; font-size:23pt; line-height:1.1; margin:0 0 4mm; }}
+    .side-meta {{ display:grid; gap:1.2mm; color:{d['sidebar_muted']}; font-size:8pt; line-height:1.35; }}
     .side-meta .meta {{ display:block; }}
-    .side-copy {{ white-space:pre-wrap; color:{d['sidebar_muted']}; font-size:9pt; line-height:1.6; }}
-.sidebar .section {{ margin-top:9mm; }}
-.sidebar .section h2 {{ border:0; color:{d['sidebar_heading']}; font-size:8pt; letter-spacing:1.4px; padding:0; margin:0 0 3mm; }}
-.sidebar .block {{ margin-bottom:4mm; }}
+    .side-copy {{ white-space:pre-wrap; color:{d['sidebar_muted']}; font-size:9pt; line-height:1.5; }}
+.sidebar .section {{ margin-top:6.5mm; }}
+.sidebar .section h2 {{ border:0; color:{d['sidebar_heading']}; font-size:8pt; letter-spacing:1.4px; padding:0; margin:0 0 2.5mm; }}
+.sidebar .block {{ margin-bottom:3mm; }}
 .sidebar .block h3 {{ color:{d['sidebar_fg']}; font-size:8.5pt; margin:0 0 1mm; }}
 .sidebar .block p {{ color:{d['sidebar_muted']}; font-size:8pt; line-height:1.45; margin:0; }}
-.main {{ padding:14mm 12mm; overflow:hidden; }}
-.main-plain {{ padding:13mm 14mm; }}
+.main {{ padding:13mm 12mm; overflow:hidden; }}
+.main-plain {{ padding:12mm 14mm; }}
 .page-banner-page .main {{ flex:1; padding-top:8mm; }}
 .main > .section:first-child {{ margin-top:0; }}
-.section {{ margin-top:7mm; break-inside:avoid; }}
-.section h2 {{ border-bottom:1px solid {d['rule']}; color:{d['heading']}; font-size:12pt; margin:0 0 3mm; padding-bottom:2mm; }}
-.block {{ margin:0 0 5mm; break-inside:avoid; }}
+.section {{ margin-top:5.5mm; break-inside:avoid; }}
+.section h2 {{ border-bottom:1px solid {d['rule']}; color:{d['heading']}; font-size:12pt; margin:0 0 2.2mm; padding-bottom:1.6mm; }}
+.block {{ margin:0 0 4mm; break-inside:avoid; }}
     .block h3 {{ color:{d['title']}; font-size:10.5pt; line-height:1.35; margin:0 0 1.5mm; }}
     .block-meta {{ display:flex; flex-wrap:wrap; gap:1mm 3mm; color:{d['meta']}; font-size:7.8pt; line-height:1.4; margin:0 0 1mm; }}
     .meta b {{ color:{d['meta_label']}; font-weight:600; }}
@@ -558,9 +549,10 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .line-head.line-head-slim h1 {{ font-size:9.5pt; margin:0; letter-spacing:1px; }}
 .main-line {{ flex:1; padding:5mm 12mm 9mm; }}
 .main-line .section h2 {{ text-align:center; letter-spacing:2.5px; font-size:10.5pt; }}
-.line-row {{ display:flex; justify-content:space-between; align-items:baseline; gap:3mm; margin:0 0 1mm; }}
-.line-row h3 {{ margin:0; }}
-.line-period {{ color:{d['accent']}; font-weight:600; font-size:8.5pt; white-space:nowrap; }}
+/* 条目标题行：标题居左、时间右对齐同一行（所有非时间轴布局共用）。 */
+.entry-row {{ display:flex; justify-content:space-between; align-items:baseline; gap:3mm; margin:0 0 1mm; }}
+.entry-row h3 {{ margin:0; }}
+.entry-period {{ color:{d['accent']}; font-weight:600; font-size:8.5pt; white-space:nowrap; }}
 .main-line .block:not(:last-child) {{ border-bottom:1px solid {d['rule']}; padding-bottom:2.8mm; }}
 /* —— 时间轴版式（timeline）：左侧时间栏 + 中线圆点 —— */
 .page-timeline {{ grid-template-columns:1fr; }}

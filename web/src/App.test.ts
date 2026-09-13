@@ -16,11 +16,12 @@ describe('splitText', () => {
 
 describe('layoutMainIds / layoutBudget for new layouts', () => {
   it('mirrors the export renderer for grid/line/timeline', () => {
-    // grid/line 页头取代基本信息栏目；timeline 与 plain 一样通排全部栏目；
-    // sidebar 侧栏承载基本信息/技能/成果，主栏五栏（预算单位为 px）。
+    // 单栏布局（含 grid/line/timeline/plain）都用页头呈现姓名与联系方式，正文
+    // 从求职目标开始；sidebar 侧栏承载基本信息/技能/成果，主栏五栏（预算单位 px）。
     expect(layoutMainIds('grid')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
     expect(layoutMainIds('line')).toEqual(layoutMainIds('banner'))
-    expect(layoutMainIds('timeline')).toEqual(ALL_IDS)
+    expect(layoutMainIds('timeline')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
+    expect(layoutMainIds('plain')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
     expect(layoutMainIds('sidebar')).toEqual(MAIN_IDS)
     expect(layoutBudget('grid')).toBe(GRID_BUDGET)
     expect(layoutBudget('line')).toBe(LINE_BUDGET)
@@ -28,7 +29,6 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
     expect(layoutBudget('banner')).toBe(BANNER_BUDGET)
     expect(layoutBudget('sidebar')).toBe(MAIN_BUDGET)
     expect(layoutBudget('sidebar')).toBeGreaterThan(0)
-    expect(layoutBudget('timeline')).toBeGreaterThan(layoutBudget('banner'))
   })
 
   it('paginates long content into multiple pages for the new layouts', () => {

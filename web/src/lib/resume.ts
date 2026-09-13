@@ -43,26 +43,26 @@ export const ALL_IDS=['basics','target','profile','experience','education','skil
 // 权重即估算渲染高度，预算即页面可用高度。常数由导出 CSS 反推（正文 9pt×1.6、
 // 条目 h3 + 5mm 边距、栏目标题 12pt + 7mm 上边距、页内首栏目 margin 归零）。
 const LAYOUT_METRICS:Record<string,{header:number;header_first:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number}> = {
-  sidebar:  {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:40, meta:14, meta_chars:45},
-  side:     {header:56, header_first:56, base:33, extra:0,  content_line:15, chars_per_line:15, meta:15, meta_chars:15},
-  plain:    {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
-  banner:   {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
-  grid:     {header:44, header_first:29, base:30, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
-  line:     {header:60, header_first:34, base:54, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
-  timeline: {header:60, header_first:34, base:44, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  sidebar:  {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:40, meta:14, meta_chars:45},
+  side:     {header:46, header_first:46, base:30, extra:0,  content_line:15, chars_per_line:15, meta:14, meta_chars:15},
+  plain:    {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  banner:   {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  grid:     {header:42, header_first:29, base:30, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  line:     {header:52, header_first:31, base:52, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
+  timeline: {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65},
 }
-export const MAIN_BUDGET=1010
-export const SIDE_BUDGET=1000
-export const BANNER_BUDGET=970
-export const GRID_BUDGET=975
-export const LINE_BUDGET=995
-export const TIMELINE_BUDGET=1045
+export const MAIN_BUDGET=1015
+export const SIDE_BUDGET=1015
+export const BANNER_BUDGET=915
+export const GRID_BUDGET=950
+export const LINE_BUDGET=940
+export const TIMELINE_BUDGET=895
 const MAIN_META_CHARS_PER_LINE=60
 const SIDE_META_CHARS_PER_LINE=15
 // Section order and packing budget per template layout; mirrors render_resume_html().
-// plain/timeline 通排全部栏目；grid/line/banner 页头取代基本信息栏目；
-// sidebar 侧栏承载基本信息/技能/成果，主栏保持五个栏目。
-export const layoutMainIds=(layout:string)=>layout==='plain'||layout==='timeline'?ALL_IDS:layout==='sidebar'?MAIN_IDS:ALL_IDS.filter(id=>id!=='basics')
+// 侧栏布局：基本信息/技能/成果在侧栏，主栏五栏目；其余布局的姓名与联系方式
+// 由页头呈现，正文从求职目标开始。
+export const layoutMainIds=(layout:string)=>layout==='sidebar'?MAIN_IDS:ALL_IDS.filter(id=>id!=='basics')
 export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:layout==='grid'?GRID_BUDGET:layout==='line'?LINE_BUDGET:layout==='timeline'?TIMELINE_BUDGET:MAIN_BUDGET
 
 export type Item={section:Section;block:Block;continued:boolean}
