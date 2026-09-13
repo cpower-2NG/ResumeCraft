@@ -117,6 +117,11 @@
 .thumb-violet{background:linear-gradient(105deg,#3d2e5e 0 30%,#fff 30%)}
 .thumb-celadon{background:linear-gradient(#0e6f6b 0 26%,#fff 26%)}
 .thumb-vermilion{background:linear-gradient(#fff 0 18%,#f0dfdb 18% 100%)}
+.thumb-cobalt{background:linear-gradient(#fff 0 18%,#dbe2f4 18% 100%)}
+.thumb-forest{background:linear-gradient(#fff 0 18%,#d9e5da 18% 100%)}
+.thumb-regent{background:linear-gradient(#16283f 0 26%,#fff 26%)}
+.thumb-umber{background:linear-gradient(105deg,#4c3a2a 0 30%,#fff 30%)}
+.thumb-onyx{background:linear-gradient(105deg,#191b1f 0 30%,#fff 30%)}
 .template-card b{font-size:13px;padding:0 12px}
 .template-card small{font-size:10px;color:#71807a;padding:0 12px;line-height:1.5;min-height:30px}
 .template-card em{font-style:normal;font-size:10px;color:#8a978f;padding:0 12px}
@@ -259,6 +264,63 @@
 .resume-paper.theme-vermilion .block-meta{color:#776a64}
 .resume-paper.theme-vermilion .block-copy{color:#4a413d}
 .resume-paper.theme-vermilion .block-copy strong,.resume-paper.theme-vermilion .block-copy a{color:#b03a2e}
+
+/* 钴蓝单栏模板 */
+.resume-paper.plain,.resume-paper.theme-cobalt{grid-template-columns:1fr}
+.resume-paper.theme-cobalt .resume-sidebar{display:none}
+.resume-paper.theme-cobalt .resume-main{padding:13mm 14mm}
+.resume-paper.theme-cobalt .template-section-title b{color:#16337f}
+.resume-paper.theme-cobalt .template-section-title{border-bottom-color:#dbe2f4}
+.resume-paper.theme-cobalt .block-head>b{color:#1d2436}
+.resume-paper.theme-cobalt .block-meta{color:#5d6880}
+.resume-paper.theme-cobalt .block-copy{color:#3b4356}
+.resume-paper.theme-cobalt .block-copy strong,.resume-paper.theme-cobalt .block-copy a{color:#2050c8}
+
+/* 林野绿单栏模板 */
+.resume-paper.plain,.resume-paper.theme-forest{grid-template-columns:1fr}
+.resume-paper.theme-forest .resume-sidebar{display:none}
+.resume-paper.theme-forest .resume-main{padding:13mm 14mm}
+.resume-paper.theme-forest .template-section-title b{color:#1f4f33}
+.resume-paper.theme-forest .template-section-title{border-bottom-color:#d9e5da}
+.resume-paper.theme-forest .block-head>b{color:#24352b}
+.resume-paper.theme-forest .block-meta{color:#5f7064}
+.resume-paper.theme-forest .block-copy{color:#3e4c42}
+.resume-paper.theme-forest .block-copy strong,.resume-paper.theme-forest .block-copy a{color:#2c7a4e}
+
+/* 藏金行政横幅模板 */
+.resume-paper.theme-regent,.resume-paper.theme-regent *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif}
+.resume-paper.theme-regent .resume-banner{background:#16283f;color:#f4f1e6}
+.resume-paper.theme-regent .banner-meta{color:#bcc7d6}
+.resume-paper.theme-regent .template-section-title b{color:#1d3050}
+.resume-paper.theme-regent .template-section-title{border-bottom-color:#e0e0d2}
+.resume-paper.theme-regent .block-head>b{color:#25344c}
+.resume-paper.theme-regent .block-meta{color:#5e6b80}
+.resume-paper.theme-regent .block-copy{color:#3c495c}
+.resume-paper.theme-regent .block-copy strong,.resume-paper.theme-regent .block-copy a{color:#a07f2e}
+
+/* 赭木侧栏模板 */
+.resume-paper.theme-umber .resume-sidebar{background:#4c3a2a;color:#f8f4ec}
+.resume-paper.theme-umber .sidebar-section .template-section-title b,.resume-paper.theme-umber .sidebar-section .template-section-title span{color:#dcae7e}
+.resume-paper.theme-umber .sidebar-section .block-head>b,.resume-paper.theme-umber .sidebar-section .inline-title{color:#f8f4ec}
+.resume-paper.theme-umber .sidebar-section .block-copy,.resume-paper.theme-umber .sidebar-section .editable-copy,.resume-paper.theme-umber .sidebar-section .block-meta{color:#dbcdba}
+.resume-paper.theme-umber .template-section-title b{color:#3c2e21}
+.resume-paper.theme-umber .template-section-title{border-bottom-color:#e8dfd2}
+.resume-paper.theme-umber .block-head>b{color:#463628}
+.resume-paper.theme-umber .block-meta{color:#716355}
+.resume-paper.theme-umber .block-copy{color:#4c4034}
+.resume-paper.theme-umber .block-copy strong,.resume-paper.theme-umber .block-copy a{color:#b05c33}
+
+/* 曜黑侧栏模板 */
+.resume-paper.theme-onyx .resume-sidebar{background:#191b1f;color:#f1f3f6}
+.resume-paper.theme-onyx .sidebar-section .template-section-title b,.resume-paper.theme-onyx .sidebar-section .template-section-title span{color:#8fb0e8}
+.resume-paper.theme-onyx .sidebar-section .block-head>b,.resume-paper.theme-onyx .sidebar-section .inline-title{color:#f1f3f6}
+.resume-paper.theme-onyx .sidebar-section .block-copy,.resume-paper.theme-onyx .sidebar-section .editable-copy,.resume-paper.theme-onyx .sidebar-section .block-meta{color:#b7bec9}
+.resume-paper.theme-onyx .template-section-title b{color:#1c2026}
+.resume-paper.theme-onyx .template-section-title{border-bottom-color:#dee1e6}
+.resume-paper.theme-onyx .block-head>b{color:#232830}
+.resume-paper.theme-onyx .block-meta{color:#667080}
+.resume-paper.theme-onyx .block-copy{color:#404854}
+.resume-paper.theme-onyx .block-copy strong,.resume-paper.theme-onyx .block-copy a{color:#2e6bdc}
 
 /* Markdown subset inside resume blocks */
 .resume-paper .block-copy strong{color:#263f40;font-weight:700}
