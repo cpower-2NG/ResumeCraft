@@ -400,7 +400,7 @@ export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:MAIN_
 export const layoutLabel=(layout:string)=>layout==='plain'?'单栏通排':layout==='banner'?'横幅单栏':'侧栏双栏'
 type Item={section:Section;block:Block;continued:boolean}
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})
-const itemWeight=(it:Item,side:boolean)=>{const b=it.block;return (side?70:90)+(b.content||'').length+Object.keys(b.fields||{}).length*(side?10:20)}
+const itemWeight=(it:Item,side:boolean)=>{const b=it.block;return (side?90:130)+(b.content||'').length+Object.keys(b.fields||{}).length*(side?25:40)}
 
 // Fragments blocks, packs them into fixed-size pages, and marks headings that
 // continue from an earlier page. Mirrors render_resume_html() in app/services.py

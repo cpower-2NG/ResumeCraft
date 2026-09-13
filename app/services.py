@@ -257,8 +257,11 @@ def section_fragment_limit(section_id: str) -> int:
 
 
 def section_item_weight(section_id: str, content: str, field_count: int) -> int:
-    base = 70 if section_id in SIDE_SECTIONS else 90
-    return base + len(content) + field_count * (10 if section_id in SIDE_SECTIONS else 20)
+    # 每个条目固定承载栏目标题与页边距（主栏约 13mm、侧栏约 9mm），每个展示
+    # 字段在页面上是独立换行的 flex/grid 行（主栏约 4mm、侧栏约 3mm）。低估这
+    # 两项会让字段密集的简历在导出时溢出 A4 底边、末尾栏目被裁剪。
+    side = section_id in SIDE_SECTIONS
+    return (90 if side else 130) + len(content) + field_count * (25 if side else 40)
 
 
 def render_resume_html(content: dict, title: str, version_number: int, template_slug: str = "classic") -> str:
@@ -430,6 +433,9 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
     .block h3 {{ color:{d['title']}; font-size:10.5pt; line-height:1.35; margin:0 0 1.5mm; }}
     .block-meta {{ display:flex; flex-wrap:wrap; gap:1mm 3mm; color:{d['meta']}; font-size:7.8pt; line-height:1.4; margin:0 0 1mm; }}
     .meta b {{ color:{d['meta_label']}; font-weight:600; }}
+    /* 彩色底（侧栏/横幅）上的 meta 标签跟随底色用浅色，与 SPA 预览的继承行为一致。 */
+    .sidebar .meta b {{ color:{d['sidebar_muted']}; }}
+    .banner-meta .meta b {{ color:{d['sidebar_muted']}; }}
     .block p {{ color:{d['copy']}; font-size:9pt; line-height:1.6; margin:0; white-space:normal; }}
     .block a {{ color:{d['accent']}; }}
     .block ul {{ margin:1mm 0 0; padding-left:5mm; }}

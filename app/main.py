@@ -29,22 +29,30 @@ ALLOWED_EVIDENCE_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
 
 @app.on_event("startup")
 def ensure_builtin_templates():
-    """Create the code-rendered builtin templates once so the library is selectable."""
+    """Create the code-rendered builtin templates once so the library is selectable.
+
+    Missing slugs are seeded; existing rows have their name/description synced
+    back to the registry so databases created by earlier releases converge.
+    """
     from .workbench_database import SessionLocal
 
     with SessionLocal() as db:
         if not db.scalar(select(Workspace.id).limit(1)):
             return
-        created = False
+        changed = False
         for slug, descriptor in BUILTIN_TEMPLATES.items():
             template = db.scalar(select(ResumeTemplate).where(ResumeTemplate.workspace_id == WORKSPACE_ID, ResumeTemplate.slug == slug))
             if template:
+                if template.name != descriptor["name"] or template.description != descriptor["description"]:
+                    template.name = descriptor["name"]
+                    template.description = descriptor["description"]
+                    changed = True
                 continue
             template = ResumeTemplate(workspace_id=WORKSPACE_ID, name=descriptor["name"], slug=slug, description=descriptor["description"], active=True)
             db.add(template); db.flush()
             db.add(TemplateVersion(template_id=template.id, version_number=1, content=f"code-rendered:{slug}", checksum="code"))
-            created = True
-        if created:
+            changed = True
+        if changed:
             db.commit()
 
 

@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from app.main import app, ensure_builtin_templates
 from app.services import BUILTIN_TEMPLATES, render_resume_html
 from app.workbench_database import WorkbenchBase, get_db
-from app.workbench_models import User, Workspace
+from app.workbench_models import ResumeTemplate, User, Workspace
 
 WEB_STYLES = Path(__file__).resolve().parents[1] / "web" / "src" / "styles.css"
 
@@ -191,6 +191,21 @@ def test_startup_creates_every_builtin_template(builtin_client):
         assert row["name"] == descriptor["name"] and row["description"] == descriptor["description"]
         assert row["layout"] == descriptor["layout"]
         assert row["version"] == 1 and row["template_version_id"]
+
+
+def test_startup_syncs_stale_builtin_metadata(builtin_client):
+    """早先版本创建的模板行会被启动钩子同步回注册表文案（版本行保持不动）。"""
+    from app.workbench_database import SessionLocal
+
+    with SessionLocal() as db:
+        row = db.scalar(select(ResumeTemplate).where(ResumeTemplate.slug == "classic"))
+        row.description = "历史遗留的过期描述"
+        db.commit()
+
+    ensure_builtin_templates()
+
+    rows = {item["slug"]: item for item in builtin_client.get("/api/templates").json()}
+    assert rows["classic"]["description"] == BUILTIN_TEMPLATES["classic"]["description"]
 
 
 @pytest.mark.parametrize("slug", NEW_TEMPLATES)
