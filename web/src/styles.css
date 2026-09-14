@@ -288,5 +288,6 @@
    (app/templates.py -> /api/templates). The classic palette doubles as the
    fallback so the canvas renders even before template data arrives. */
 .resume-stage{--t-sidebar-bg:#163b43;--t-sidebar-fg:#f4f7f4;--t-sidebar-muted:#cad9d5;--t-sidebar-heading:#a7c9c2;--t-heading:#17343a;--t-title:#263f40;--t-meta:#66807b;--t-meta-label:#527875;--t-copy:#4c605d;--t-accent:#236b74;--t-rule:#d5e0dc}
-.resume-paper.plain{grid-template-columns:1fr}
+.resume-paper.plain{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+.resume-paper.timeline{grid-template-rows:auto 1fr}
 .resume-paper.serif,.resume-paper.serif *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif}

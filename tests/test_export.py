@@ -27,3 +27,17 @@ def test_export_with_link_block_renders_anchor(client):
     assert export.status_code == 200, export.text
     assert '<a href="https://example.com/portfolio">' in export.text
     assert export.text.count("链接与作品集") == 1
+
+
+def test_render_markdown_keeps_line_breaks():
+    """正文里的换行必须渲染成 <br>：此前按 “\\n” 分段后又用空串拼接，把用户
+    自己分好的行黏成了一行（预览用 <br/> 拼接，两端因此显示不一致）。"""
+    from app.services import render_markdown
+
+    html = render_markdown("GPA 3.7/4.5；专业排名 9/153\n具身智能系统概论、ROS 系统与编程")
+    assert "GPA 3.7/4.5；专业排名 9/153<br>具身智能系统概论" in html
+    # 列表项仍然成组渲染，不额外插入 <br>。
+    assert render_markdown("- 第一项\n- 第二项") == "<ul><li>第一项</li><li>第二项</li></ul>"
+    # 行尾换行不产生多余的空行。
+    assert render_markdown("单行内容\n") == "单行内容<br>"
+    assert render_markdown("**加粗**与*斜体*") == "<strong>加粗</strong>与<em>斜体</em>"

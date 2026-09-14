@@ -92,8 +92,10 @@ for (const file of files) {
     const headerFirst = Math.round(block.getBoundingClientRect().top - section.getBoundingClientRect().top)
     const header = headerFirst + px(cs(section).marginTop)
 
-    // meta_chars: how many label+value characters fit on one meta line. Measured
-    // at both full width and half (pair) width.
+    // meta_chars (declared above) is the probe's label+value character count;
+    // divided by the rows it wrapped onto it is a slight *under*-estimate of the
+    // true row capacity — the safe direction, since over-counting rows only
+    // costs page space while under-counting clips text.
     const pairMetaLines = (() => {
       const holder = document.createElement('div')
       holder.className = 'pair'
@@ -106,6 +108,13 @@ for (const file of files) {
       holder.remove()
       return n
     })()
+    // Entry-title row cost, charged only for blocks that actually render a
+    // title (a block whose title equals its section heading renders none).
+    const titleRow = meta.closest('.block').querySelector('.entry-row')
+    const titleEl = meta.closest('.block').querySelector('.t-body h3, h3')
+    const titlePx = titleRow
+      ? Math.round(titleRow.getBoundingClientRect().height + px(cs(titleRow).marginBottom))
+      : (titleEl ? Math.round(titleEl.getBoundingClientRect().height + px(cs(titleEl).marginBottom)) : 0)
 
     const sidebar = document.querySelector('.sidebar')
     let side = null
@@ -156,6 +165,7 @@ for (const file of files) {
       metaFont: px(metaStyle.fontSize), metaLine,
       metaChars: Math.round(metaChars / metaLines * 10) / 10,
       pairMetaChars: Math.round(metaChars / pairMetaLines * 10) / 10,
+      titleRow: titlePx,
       header, headerFirst, base, blockLines, blockMetaLines,
       side,
     }

@@ -22,12 +22,20 @@ CORE_SECTIONS = [
 ]
 
 SECTION_HEADINGS = [(title, key) for key, title in CORE_SECTIONS]
+# 栏目 -> 标题，供分页估算判断条目是否还需要渲染自己的标题行。
+SECTION_TITLES = {key: title for key, title in CORE_SECTIONS}
 
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 
 
 def render_markdown(text: str) -> str:
-    """Escape, then apply the controlled subset: bold, italic, links, unordered lists."""
+    """Escape, then apply the controlled subset: bold, italic, links, unordered lists.
+
+    Lines are rejoined with <br> so the author's line breaks survive: the split
+    above is only there to group "- " runs into <ul>. Joining with "" instead
+    glued every line together ("9/153具身智能系统概论…"), which both mis-rendered
+    the export and disagreed with the SPA preview, whose mdLite keeps the breaks.
+    """
     escaped = html.escape(str(text or ""), quote=False)
     escaped = MARKDOWN_LINK_RE.sub(lambda m: f'<a href="{html.escape(m.group(2), quote=True)}">{m.group(1)}</a>', escaped)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
@@ -46,7 +54,7 @@ def render_markdown(text: str) -> str:
         rendered.append(line)
     if list_items:
         rendered.append("<ul>" + "".join(list_items) + "</ul>")
-    return "".join(rendered).replace("\n", "<br>")
+    return "<br>".join(rendered)
 
 FACT_SCHEMAS = {
     "basics": [("name", "姓名", "text", True), ("phone", "电话", "text", False), ("email", "邮箱", "email", False), ("city", "所在地", "text", False), ("desired_city", "目标城市", "text", False), ("birth_date", "出生日期", "text", False), ("age", "年龄", "text", False), ("hometown", "籍贯", "text", False), ("status", "身份状态", "text", False), ("graduation", "毕业时间", "text", False), ("availability", "到岗安排", "textarea", False), ("bio", "个人简介", "textarea", False)],
@@ -237,14 +245,15 @@ LAYOUT_METRICS = {
     # header 栏目标题行成本（页内非首个栏目，含栏目上边距）；header_first 页内首个
     # 栏目（上边距归零）；base 条目固定成本；extra 布局装饰；content_line 正文行高；
     # chars_per_line 每行容纳字符数；meta 元信息行高；meta_chars 每行元信息字符数；
+    # title 条目标题行成本（标题与栏目标题同名时不渲染，需从 base 里扣掉）；
     # pair_chars_per_line / pair_meta_chars 是并排（半宽）时的同一口径。
-    "sidebar": {"header": 47, "header_first": 33, "base": 37, "extra": 0, "content_line": 18, "chars_per_line": 46, "meta": 15, "meta_chars": 35, "pair_chars_per_line": 22, "pair_meta_chars": 23},
-    "side":    {"header": 22, "header_first": 22, "base": 33, "extra": 0, "content_line": 15, "chars_per_line": 17, "meta": 15, "meta_chars": 14, "pair_chars_per_line": 17, "pair_meta_chars": 14},
-    "plain":   {"header": 47, "header_first": 33, "base": 34, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
-    "banner":  {"header": 47, "header_first": 33, "base": 34, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
-    "grid":    {"header": 49, "header_first": 39, "base": 32, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 34, "pair_meta_chars": 34},
-    "line":    {"header": 45, "header_first": 31, "base": 43, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 33, "pair_meta_chars": 34},
-    "timeline": {"header": 47, "header_first": 33, "base": 37, "extra": 0, "content_line": 18, "chars_per_line": 58, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
+    "sidebar": {"header": 47, "header_first": 33, "title": 21, "base": 37, "extra": 0, "content_line": 18, "chars_per_line": 46, "meta": 15, "meta_chars": 35, "pair_chars_per_line": 22, "pair_meta_chars": 23},
+    "side":    {"header": 22, "header_first": 22, "title": 21, "base": 33, "extra": 0, "content_line": 15, "chars_per_line": 17, "meta": 15, "meta_chars": 14, "pair_chars_per_line": 17, "pair_meta_chars": 14},
+    "plain":   {"header": 47, "header_first": 33, "title": 21, "base": 34, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
+    "banner":  {"header": 47, "header_first": 33, "title": 21, "base": 34, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
+    "grid":    {"header": 49, "header_first": 39, "title": 21, "base": 32, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 34, "pair_meta_chars": 34},
+    "line":    {"header": 45, "header_first": 31, "title": 21, "base": 43, "extra": 0, "content_line": 18, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 33, "pair_meta_chars": 34},
+    "timeline": {"header": 47, "header_first": 33, "title": 24, "base": 37, "extra": 0, "content_line": 18, "chars_per_line": 58, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
 }
 # 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列，左时间栏是它的
 # 识别特征。配对只发生在**相邻**的两个栏目之间，以保持简历的栏目顺序；并且必须
@@ -307,20 +316,35 @@ def sidebar_head_height(basic_block: dict, style: dict) -> int:
 
 
 def content_line_count(content: str, chars_per_line: int) -> int:
-    """正文行数：按 \\n 分段后逐段折行（markdown 子集的 <br> 会真实换行）。"""
-    text = str(content or "")
+    """正文行数：按 \\n 分段后逐段折行（markdown 子集的 <br> 会真实换行）。
+
+    末尾的换行要先去掉：render_markdown 会把它变成一个行尾的 <br>，而行尾 <br>
+    不产生新的行盒，按“多一行”计价会让每条内容都凭空高一整行（真实数据里的正文
+    大多以换行结尾），页数因此被高估、页面被过早切断。
+    """
+    text = str(content or "").rstrip("\n")
     if not text:
         return 0
     return sum(max(1, -(-len(seg) // chars_per_line)) for seg in text.split("\n"))
 
 
-def section_item_weight(content: str, meta_lines: int, style: dict) -> int:
+def section_item_weight(content: str, meta_lines: int, style: dict, has_title: bool = True) -> int:
     """条目高度(px) = 固定成本 + 正文行数 × 行高 + 元信息行数 × 行高 + 布局装饰。
+
+    base 含条目标题行；标题为空（正文续段）或与栏目标题同名时不会渲染 <h3>，
+    此时把标题行成本扣掉——求职目标/个人简介 这类单条目栏目正属于后者。
 
     此前按“字段个数×固定值”计价，长字段值（到岗安排、核心要求等）折行后的高度
     被低估，导致导出内容溢出 A4 底边。
     """
-    return style["base"] + style["extra"] + content_line_count(content, style["chars_per_line"]) * style["content_line"] + meta_lines * style["meta"]
+    weight = style["base"] + style["extra"] + content_line_count(content, style["chars_per_line"]) * style["content_line"] + meta_lines * style["meta"]
+    return weight - (0 if has_title else style["title"])
+
+
+def block_has_title(block: dict, section_id: str) -> bool:
+    """该条目是否渲染自己的标题行（与栏目标题同名时由栏目承载，不再重复渲染）。"""
+    title = str(block.get("title") or "")
+    return bool(title) and title != SECTION_TITLES.get(section_id, section_id)
 
 
 def meta_field_lines(block: dict, side: bool, chars_per_line: int) -> int:
@@ -369,7 +393,8 @@ def fragment_flow(sections: dict, sid: str, blocks: list[dict], layout_id: str, 
                         content=chunk, fields=block.get("fields") if index == 0 else {},
                         display_fields=block.get("display_fields") if index == 0 else [])
             meta_lines = meta_field_lines(item, in_sidebar, style["meta_chars"])
-            out.append({"kind": "flow", "sid": sid, "item": item, "weight": section_item_weight(chunk, meta_lines, style)})
+            out.append({"kind": "flow", "sid": sid, "item": item,
+                        "weight": section_item_weight(chunk, meta_lines, style, block_has_title(item, sid))})
     return out
 
 
@@ -383,6 +408,8 @@ def column_height(sections: dict, sid: str, layout_id: str, in_sidebar: bool,
         return total + style["base"]
     for block in blocks:
         total += style["base"] + style["extra"] + content_line_count(block.get("content"), chars_per_line) * style["content_line"] + meta_field_lines(block, False, meta_chars) * style["meta"]
+        if not block_has_title(block, sid):
+            total -= style["title"]
     return total
 
 
@@ -670,7 +697,7 @@ html,body {{ margin:0; padding:0; background:#e9efeb; color:#24342f; font-family
 body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 {serif_css}
 .page {{ width:210mm; height:297mm; margin:16px auto; display:grid; grid-template-columns:58mm 1fr; background:#fff; break-after:page; page-break-after:always; box-shadow:0 8px 25px #18302922; overflow:hidden; }}
-.page-plain {{ grid-template-columns:1fr; }}
+.page-plain {{ grid-template-columns:1fr; grid-template-rows:auto 1fr; }}
 .page-banner-page {{ display:flex; flex-direction:column; }}
 .page-banner {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; padding:9mm 12mm; flex:none; }}
 .page-banner h1 {{ font-size:20pt; line-height:1.15; margin:0 0 2.4mm; letter-spacing:.5px; }}
@@ -746,7 +773,7 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .entry-period {{ color:{d['accent']}; font-weight:600; font-size:8.5pt; white-space:nowrap; }}
 .main-line .block:not(:last-child) {{ border-bottom:1px solid {d['rule']}; padding-bottom:2mm; }}
 /* —— 时间轴版式（timeline）：左侧时间栏 + 中线圆点 —— */
-.page-timeline {{ grid-template-columns:1fr; }}
+.page-timeline {{ grid-template-columns:1fr; grid-template-rows:auto 1fr; }}
 .main-timeline {{ padding:11mm 13mm; }}
 .main-timeline .block {{ display:grid; grid-template-columns:15mm 3mm 1fr; }}
 .main-timeline .t-time {{ grid-column:1; color:{d['accent']}; font-size:7.6pt; font-weight:600; line-height:1.45; padding-top:.4mm; overflow-wrap:anywhere; }}

@@ -183,7 +183,10 @@ def test_spa_canvas_is_variable_driven():
     assert ".resume-banner{padding:9mm 12mm;flex:none;background:var(--t-sidebar-bg)" in css
     assert ".resume-stage{--t-sidebar-bg:#163b43" in css
     assert ".resume-paper.serif,.resume-paper.serif *" in css
-    assert ".resume-paper.plain{grid-template-columns:1fr}" in css
+    # 单栏布局只留一列；页头行固定为 auto，否则 align-content:stretch 会把富余高度
+    # 分给页头，短内容页会出现一条无意义的空白带。
+    assert ".resume-paper.plain{grid-template-columns:1fr;grid-template-rows:auto 1fr}" in css
+    assert ".resume-paper.timeline{grid-template-rows:auto 1fr}" in css
     # 新布局（grid/line/timeline）的画布规则必须存在，且与导出渲染共用同一套 token。
     assert ".resume-paper.grid .resume-section{border:1px solid var(--t-rule);overflow:hidden}" in css
     assert ".resume-paper.grid .template-section-title{background:var(--t-sidebar-bg)" in css

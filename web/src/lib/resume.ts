@@ -55,14 +55,14 @@ export const ALL_IDS=['basics','target','profile','experience','education','skil
 //
 // 衬线模板不需要单独一列：实测 Georgia/Times 对中文会落到 SimSun，中文字宽不变，
 // 每行字符数与同布局的非衬线模板一致。
-const LAYOUT_METRICS:Record<string,{header:number;header_first:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number;pair_chars_per_line:number;pair_meta_chars:number}> = {
-  sidebar:  {header:47, header_first:33, base:37, extra:0, content_line:18, chars_per_line:46, meta:15, meta_chars:35, pair_chars_per_line:22, pair_meta_chars:23},
-  side:     {header:22, header_first:22, base:33, extra:0, content_line:15, chars_per_line:17, meta:15, meta_chars:14, pair_chars_per_line:17, pair_meta_chars:14},
-  plain:    {header:47, header_first:33, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
-  banner:   {header:47, header_first:33, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
-  grid:     {header:49, header_first:39, base:32, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:34, pair_meta_chars:34},
-  line:     {header:45, header_first:31, base:43, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:33, pair_meta_chars:34},
-  timeline: {header:47, header_first:33, base:37, extra:0, content_line:18, chars_per_line:58, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+const LAYOUT_METRICS:Record<string,{header:number;header_first:number;title:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number;pair_chars_per_line:number;pair_meta_chars:number}> = {
+  sidebar:  {header:47, header_first:33, title:21, base:37, extra:0, content_line:18, chars_per_line:46, meta:15, meta_chars:35, pair_chars_per_line:22, pair_meta_chars:23},
+  side:     {header:22, header_first:22, title:21, base:33, extra:0, content_line:15, chars_per_line:17, meta:15, meta_chars:14, pair_chars_per_line:17, pair_meta_chars:14},
+  plain:    {header:47, header_first:33, title:21, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+  banner:   {header:47, header_first:33, title:21, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+  grid:     {header:49, header_first:39, title:21, base:32, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:34, pair_meta_chars:34},
+  line:     {header:45, header_first:31, title:21, base:43, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:33, pair_meta_chars:34},
+  timeline: {header:47, header_first:33, title:24, base:37, extra:0, content_line:18, chars_per_line:58, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
 }
 export const MAIN_BUDGET=1032
 export const SIDE_BUDGET=1032
@@ -124,8 +124,11 @@ export type PairUnit={kind:'pair';sectionA:Section;blocksA:Block[];sectionB:Sect
 export type Unit=FlowUnit|PairUnit
 
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})
+// 正文行数：末尾换行先去掉——render_markdown 会把它变成行尾 <br>，而行尾 <br> 不
+// 产生新的行盒；按“多一行”计价会让每条内容凭空高一整行（真实正文大多以换行结尾），
+// 页数因此被高估、页面被过早切断。与 services.py 的 content_line_count 同一口径。
 const contentLineCount=(content:string,charsPerLine:number)=>{
-  const text=String(content||'')
+  const text=String(content||'').replace(/\n+$/,'')
   if(!text)return 0
   return text.split('\n').reduce((s,seg)=>s+Math.max(1,Math.ceil(seg.length/charsPerLine)),0)
 }
@@ -139,7 +142,16 @@ const metaFieldLines=(b:Block,side:boolean,charsPerLine:number)=>{
 }
 // 与 services.py 的 section_item_weight 同一公式：固定成本 + 正文行数 × 行高
 // + 元信息行数 × 行高，否则预览分页与导出断点会错位。
-const itemWeight=(block:Block,style:Metrics)=>style.base+style.extra+contentLineCount(block.content,style.chars_per_line)*style.content_line+metaFieldLines(block,false,style.meta_chars)*style.meta
+// 该条目是否渲染自己的标题行（与栏目标题同名时由栏目承载，不再重复渲染），
+// 以及条目标题行的成本——与 services.py 的 block_has_title/section_item_weight 同口径。
+const blockHasTitle=(block:Block,sid:string)=>{
+  const title=String(block.title||'')
+  return !!title&&title!==(labels[sid]||sid)
+}
+const itemWeight=(block:Block,style:Metrics,sid:string)=>{
+  const weight=style.base+style.extra+contentLineCount(block.content,style.chars_per_line)*style.content_line+metaFieldLines(block,false,style.meta_chars)*style.meta
+  return weight-(blockHasTitle(block,sid)?0:style.title)
+}
 
 // 把栏目切成页面单元并分页：flow = 某栏目的一个条目（栏目标题行按页计一次），
 // pair = 相邻两个短栏目并排成一行两个模块。与 render_resume_html() 的
@@ -178,7 +190,10 @@ export function streamItems(content:Content,ids:string[],budget:number,inSidebar
     const blocks=blocksOf(sid)
     let total=style.header
     if(!blocks.length)return total+style.base
-    for(const block of blocks) total+=style.base+style.extra+contentLineCount(block.content,charsPerLine)*style.content_line+metaFieldLines(block,false,metaChars)*style.meta
+    for(const block of blocks){
+      total+=style.base+style.extra+contentLineCount(block.content,charsPerLine)*style.content_line+metaFieldLines(block,false,metaChars)*style.meta
+      if(!blockHasTitle(block,sid))total-=style.title
+    }
     return total
   }
   // 相邻两栏并排的估算高度；不值得配对时返回 null（保持整宽通排）。
@@ -223,7 +238,7 @@ export function streamItems(content:Content,ids:string[],budget:number,inSidebar
       continue
     }
     const style=styleFor()
-    const w=itemWeight(unit.block,style)
+    const w=itemWeight(unit.block,style,unit.section.id)
     let header=unit.section.id!==currentId?style.header:0
     if(current.length&&size+w+header>pageBudget()){pages.push(current);current=[];size=0;currentId=null;header=style.header_first}
     if(header){size+=header;currentId=unit.section.id}

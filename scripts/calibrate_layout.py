@@ -41,14 +41,20 @@ def probe_content() -> dict:
 
     The follower keeps the first block from being :last-of-type (several layouts
     trim the last block's margin, which would skew the base measurement).
+    The long block's meta carries enough fields to wrap onto several rows: one
+    row of fields only lower-bounds the row capacity, and under-measuring it
+    makes the packer charge an extra meta line for every long field row.
     """
     long_block = {
         "id": "probe-long", "type": "fact", "title": "电商中台重构与数据管道建设",
         "content": BODY,
         "fields": {"period": "2024.03 – 2025.06", "organization": "某科技有限公司", "role": "后端负责人",
-                   "team_size": "12 人", "tools": "Python, Kafka, MySQL, Docker, Kubernetes"},
+                   "team_size": "12 人", "tools": "Python, Kafka, MySQL, Docker, Kubernetes",
+                   "duty_a": "跨团队协作与交付质量提升，沉淀可复用组件与工程规范",
+                   "duty_b": "负责线上值班与故障复盘，输出改进项并跟踪到落地",
+                   "duty_c": "参与招聘与面试，负责新人培养、代码评审与技术分享"},
         "field_labels": {},
-        "display_fields": ["period", "organization", "role", "team_size", "tools"],
+        "display_fields": ["period", "organization", "role", "team_size", "tools", "duty_a", "duty_b", "duty_c"],
         "source_refs": [], "origin": "fact",
     }
     short_block = {
