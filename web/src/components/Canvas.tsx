@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
-import type { Block, Content, Section } from '../lib/resume'
+import type { Block, Content, FlowUnit, Section, Unit } from '../lib/resume'
 import { fieldLabels, factCategories, labels, layoutBudget, layoutMainIds, mdLite, section, SIDE_IDS, SIDE_BUDGET, sourceIdOf, streamItems } from '../lib/resume'
 import { templateVars, type TemplateInfo } from '../lib/templates'
 
@@ -22,17 +22,53 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   const headClass=banner?'resume-banner':grid?'grid-head':'line-head'
   const headSlimClass=banner?'banner-slim':grid?'grid-head-slim':'line-head-slim'
   return <section className={`resume-stage ${mode==='edit'?'edit-mode':'select-mode'}`} style={templateVars(template)} data-template={template?.slug||'classic'}>
-    {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} layout={layout} serif={template?.serif} sidebar={!single&&(sidePages[i]?.length?<Sidebar items={sidePages[i]} {...shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>)}>
+    {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} layout={layout} serif={template?.serif} sidebar={!single&&(sidePages[i]?.length?<Sidebar items={sidePages[i]||[]} shared={shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>)}>
       {single?(i===0
         ?<header className={headClass}><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></header>
         :<header className={`${headClass} ${headSlimClass}`}><h1>{bannerName}</h1></header>)
         :null}
-      <main className="resume-main"><div className="main-sections">{renderGroups(mainPages[i]||[],shared)}</div></main>
+      <main className="resume-main"><div className="main-sections">{renderPageUnits(mainPages[i]||[],shared)}</div></main>
     </Paper>)}
   </section>
 }
 
 function bannerFields(b:Block|undefined){if(!b)return null;const fields=b.fields||{};const keys=(b.display_fields||Object.keys(fields)).filter(k=>fields[k]);const labelsFor={...fieldLabels,...(b.field_labels||{})};return <>{keys.map(k=><span key={k}><b>{labelsFor[k]||k}</b> {fields[k]}</span>)}</>}
+
+// 页面单元渲染：flow 单元按连续栏目聚合，pair 单元渲染为一行两栏。
+function renderPageUnits(units:Unit[],shared:CanvasShared):ReactNode{
+  const out:ReactNode[]=[]
+  let flow:FlowUnit[]=[]
+  const flush=(key:string)=>{
+    if(flow.length){
+      out.push(<FlowGroups key={`f${key}`} items={flow} shared={shared}/>)
+      flow=[]
+    }
+  }
+  units.forEach((unit,i)=>{
+    if(unit.kind==='pair'){
+      flush(String(i))
+      out.push(<div className="pair" key={`p${i}`}>
+        <SectionGroup section={unit.sectionA} blocks={unit.blocksA} continued={false} {...shared}/>
+        <SectionGroup section={unit.sectionB} blocks={unit.blocksB} continued={false} {...shared}/>
+      </div>)
+    }else{
+      flow.push(unit)
+    }
+  })
+  flush('end')
+  return <>{out}</>
+}
+
+function FlowGroups({items,shared}:{items:FlowUnit[];shared:CanvasShared}){
+  const groups:{section:Section;blocks:Block[];continued?:boolean}[]=[]
+  for(const it of items){
+    const last=groups[groups.length-1]
+    if(last&&last.section.id===it.section.id){if(!it.block.id.endsWith('--empty'))last.blocks.push(it.block)}
+    else groups.push({section:it.section,blocks:it.block.id.endsWith('--empty')?[]:[it.block],continued:it.continued})
+  }
+  if(!groups.length)groups.push({section:emptySection('target'),blocks:[],continued:false})
+  return <>{groups.map((g,index)=><SectionGroup key={`${g.section.id}-${index}`} section={g.section} blocks={g.blocks} continued={g.continued} {...shared}/>)}</>
+}
 
 function Paper({number,layout,serif,sidebar,children}:{number:number;layout:string;serif?:boolean;sidebar:ReactNode;children:ReactNode}){
   const single=layout!=='sidebar'
@@ -40,22 +76,13 @@ function Paper({number,layout,serif,sidebar,children}:{number:number;layout:stri
   return <article className={`resume-paper${single?' plain':''}${layout==='banner'?' banner':''}${variant}${serif?' serif':''}`} id={`resume-page-${number}`} data-page={number}>{single?children:<><aside className="resume-sidebar">{sidebar}</aside>{children}</>}</article>
 }
 
-function Sidebar({items,...shared}:{items:{section:Section;block:Block;continued:boolean}[]}&CanvasShared){return <div className="sidebar-content">{renderGroups(items,shared)}</div>}
-
-function renderGroups(items:{section:Section;block:Block;continued:boolean}[],shared:CanvasShared){return <>{items.length?renderGroupList(items,shared):<SectionGroup section={emptySection('target')} blocks={[]} continued={false} {...shared}/>}</>}
+function Sidebar({items,shared}:{items:Unit[];shared:CanvasShared}){
+  // 侧栏流永远只有 flow 单元（侧栏不参与双栏配对）。
+  return <div className="sidebar-content"><FlowGroups items={items.filter((u):u is FlowUnit=>u.kind==='flow')} shared={shared}/></div>
+}
 
 function emptySection(id:string):Section{return {id,title:labels[id],visibility:true,blocks:[]}}
 
-function renderGroupList(items:{section:Section;block:Block;continued:boolean}[],shared:CanvasShared){
-  const groups:{section:Section;blocks:Block[];continued:boolean}[]=[]
-  for(const it of items){
-    const last=groups[groups.length-1]
-    if(last&&last.section.id===it.section.id){if(!it.block.id.endsWith('--empty'))last.blocks.push(it.block)}
-    else groups.push({section:it.section,blocks:it.block.id.endsWith('--empty')?[]:[it.block],continued:it.continued})
-  }
-  if(!groups.length)groups.push({section:emptySection('target'),blocks:[],continued:false})
-  return groups.map((g,index)=><SectionGroup key={`${g.section.id}-${index}`} section={g.section} blocks={g.blocks} continued={g.continued} {...shared}/>)
-}
 
 function SectionGroup({section:s,blocks,continued=false,mode,select,changed,addFact,sidebar=false,layout,onEdit,onContext}:{section:Section;blocks:Block[];continued?:boolean}&CanvasShared&{sidebar?:boolean}){
   if(!s.visibility)return null

@@ -126,6 +126,12 @@ def test_export_html_is_valid_for_every_template(slug):
     else:
         assert "基本信息" in html
 
+    # 双栏收尾：除时间轴外，短栏目两两并排（样本四个尾栏目高度均衡，必成对）。
+    if descriptor["layout"] == "timeline":
+        assert 'class="pair"' not in html
+    else:
+        assert 'class="pair"' in html, f"模板 {slug} 的双栏收尾未生效"
+
 
 @pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
 def test_export_escapes_user_content(slug):

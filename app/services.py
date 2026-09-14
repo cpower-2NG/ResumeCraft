@@ -229,15 +229,22 @@ SIDE_SECTIONS = ("basics", "skills", "awards")
 # 与 web/src/lib/resume.ts）必须保持同一公式与预算。
 LAYOUT_METRICS = {
     # header 栏目标题行（页内非首个栏目）；header_first 页内首个栏目；base 条目
-    # 固定成本；extra 布局装饰；content_line 正文行高；chars_per_line 每行字数；meta 元信息行高。
-    "sidebar":  {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45},
-    "side":     {"header": 46, "header_first": 46, "base": 30, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 14, "meta_chars": 15},
-    "plain":    {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "banner":   {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "grid":     {"header": 42, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "line":     {"header": 52, "header_first": 31, "base": 52, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
-    "timeline": {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65},
+    # 固定成本；extra 布局装饰；content_line 正文行高；chars_per_line 每行字数；meta 元信息行高；
+    # pair_chars_per_line / pair_meta_chars 为双栏收尾（半宽）时的折行口径。
+    "sidebar":  {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45, "pair_chars_per_line": 19, "pair_meta_chars": 23},
+    "side":     {"header": 46, "header_first": 46, "base": 30, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 14, "meta_chars": 15, "pair_chars_per_line": 15, "pair_meta_chars": 15},
+    "plain":    {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
+    "banner":   {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
+    "grid":     {"header": 42, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
+    "line":     {"header": 52, "header_first": 31, "base": 52, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
+    "timeline": {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
 }
+# 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列（左时间栏是其识别
+# 特征）。pair 只在两栏估算高度均衡时成立，悬殊的栏目保持整行（避免半宽折行
+# 反而更高）；pair 是原子单元，不跨页拆分。
+PAIRING_BY_LAYOUT = {"sidebar": True, "plain": True, "banner": True, "grid": True, "line": True, "timeline": False}
+PAIR_MAX_RATIO = 1.7
+PAIR_FIT = 0.96
 # 每页可用高度（px）= A4 高 − 页头 − 上下页边距；页头较高的布局取首页口径，
 # 避免首页溢出（后续页的细页头只会更宽松）。
 PAGE_BUDGET_PX = {
@@ -272,15 +279,13 @@ def section_item_weight(section_id: str, content: str, meta_lines: int, layout: 
     return style["base"] + style["extra"] + content_line_count(content, style["chars_per_line"]) * style["content_line"] + meta_lines * style["meta"]
 
 
-def meta_field_lines(block: dict, side: bool, layout: str = "plain") -> int:
+def meta_field_lines(block: dict, side: bool, chars_per_line: int) -> int:
     fields = block.get("fields") or {}
     displayed = block.get("display_fields") or list(fields)
     if side:
-        chars = LAYOUT_METRICS["side"]["meta_chars"]
-        return sum(max(1, -(-(len(str(FIELD_LABELS.get(key, "")) + str(fields.get(key, "")))) // chars)) for key in displayed if fields.get(key))
-    chars = LAYOUT_METRICS[layout]["meta_chars"]
+        return sum(max(1, -(-(len(str(FIELD_LABELS.get(key, "")) + str(fields.get(key, "")))) // chars_per_line)) for key in displayed if fields.get(key))
     total = sum(len(str(FIELD_LABELS.get(key, "")) + str(fields.get(key, ""))) for key in displayed if fields.get(key))
-    return max(1, -(-total // chars)) if displayed else 0
+    return max(1, -(-total // chars_per_line)) if displayed else 0
 
 
 FIELD_LABELS = {
@@ -350,63 +355,111 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         body = f'<h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block, ("period",))}</div><p>{content_text}</p>'
         return f'<article class="block"><span class="t-time">{esc(block_period(block))}</span><div class="t-body">{body}</div></article>'
 
-    def stream_pages(section_ids: list[str], budget: int) -> list[list[tuple[dict, str]]]:
-        """Fragment blocks, pack them into pages, and mark heading continuations.
+    def stream_pages(section_ids: list[str], budget: int, pairable: bool = False) -> list[list[dict]]:
+        """把栏目切成页面单元：flow = 逐条目条目（栏目标题行按页计一次），
+        pair = 两个短栏目并排的原子单元（不跨页）。
 
-        Each section costs one heading per page it appears on (标题行 + 间距)，
-        so section-heavy resumes no longer get their headers' height silently
-        dropped from the packing estimate.
+        pair 只在两栏高度均衡时成立（PAIR_MAX_RATIO），且必须整体放进一页
+        （PAIR_FIT × 预算）；空栏目视为可配对（保留点击入口）。
         """
-        items: list[tuple[str, dict, int]] = []
-        for section_id in section_ids:
-            section = sections.get(section_id, {})
-            side = section_id in SIDE_SECTIONS
-            style = LAYOUT_METRICS["side" if side else layout_id]
-            limit = section_fragment_limit(section_id)
-            for block in section.get("blocks", []):
+        def fragment_flow(sid: str, blocks: list[dict]) -> list[dict]:
+            style = LAYOUT_METRICS["side" if sid in SIDE_SECTIONS else layout_id]
+            limit = section_fragment_limit(sid)
+            out = []
+            if not blocks:
+                # 空栏目保留标题行（选择/添加来源的点击入口）。
+                empty = {"id": f"{sid}--empty", "title": "", "content": "", "fields": {}, "display_fields": [], "source_refs": [], "origin": "empty"}
+                out.append({"kind": "flow", "sid": sid, "item": empty, "weight": style["base"]})
+                return out
+            for block in blocks:
                 text_value = str(block.get("content", "") or "")
                 chunks = [text_value[index:index + limit] for index in range(0, len(text_value), limit)] or [""]
                 for index, chunk in enumerate(chunks):
                     item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
-                    weight = section_item_weight(section_id, chunk, meta_field_lines(item, side, layout_id), layout_id)
-                    items.append((section_id, item, weight))
-        pages: list[list[tuple[str, dict, int]]] = []
-        current: list[tuple[str, dict, int]] = []
+                    out.append({"kind": "flow", "sid": sid, "item": item, "weight": section_item_weight(sid, chunk, meta_field_lines(item, sid in SIDE_SECTIONS, style["meta_chars"]), layout_id)})
+            return out
+
+        def pair_column_height(sid: str) -> int:
+            style = LAYOUT_METRICS[layout_id]
+            total = style["header"]
+            for block in sections.get(sid, {}).get("blocks", []):
+                total += style["base"] + content_line_count(block.get("content"), style["pair_chars_per_line"]) * style["content_line"] + meta_field_lines(block, False, style["pair_meta_chars"]) * style["meta"]
+            return total
+
+        units: list[dict] = []
+        remaining = list(section_ids)
+        if pairable:
+            compact_ids = [sid for sid in ("education", "skills", "awards", "links") if sid in remaining]
+            if compact_ids:
+                for sid in compact_ids:
+                    remaining.remove(sid)
+                height = {sid: pair_column_height(sid) for sid in compact_ids}
+                i = 0
+                while i < len(compact_ids):
+                    sid = compact_ids[i]
+                    if i + 1 < len(compact_ids):
+                        sid2 = compact_ids[i + 1]
+                        ha, hb = height[sid], height[sid2]
+                        taller = max(ha, hb)
+                        one_empty = not sections.get(sid, {}).get("blocks") or not sections.get(sid2, {}).get("blocks")
+                        if taller <= budget * PAIR_FIT and (one_empty or taller <= PAIR_MAX_RATIO * min(ha, hb)):
+                            units.append({"kind": "pair", "sid": sid, "blocks": sections.get(sid, {}).get("blocks", []), "sid2": sid2, "blocks2": sections.get(sid2, {}).get("blocks", []), "weight": taller})
+                            i += 2
+                            continue
+                    units.extend(fragment_flow(sid, sections.get(sid, {}).get("blocks", [])))
+                    i += 1
+        for sid in remaining:
+            units.extend(fragment_flow(sid, sections.get(sid, {}).get("blocks", [])))
+
+        pages: list[list[dict]] = []
+        current: list[dict] = []
         size = 0
         current_id: str | None = None
-        for section_id, item, weight in items:
-            style = LAYOUT_METRICS["side" if section_id in SIDE_SECTIONS else layout_id]
-            header = style["header"] if section_id != current_id else 0
-            if current and size + weight + header > budget:
+        for unit in units:
+            if unit["kind"] == "pair":
+                if current and size + unit["weight"] > budget:
+                    pages.append(current)
+                    current, size, current_id = [], 0, None
+                current.append(unit)
+                size += unit["weight"]
+                continue
+            sid = unit["sid"]
+            style = LAYOUT_METRICS["side" if sid in SIDE_SECTIONS else layout_id]
+            header = style["header"] if sid != current_id else 0
+            if current and size + unit["weight"] + header > budget:
                 pages.append(current)
                 current, size, current_id = [], 0, None
                 header = style["header_first"]
             if header:
                 size += header
-                current_id = section_id
-            current.append((section_id, item, weight + header))
-            size += weight
+                current_id = sid
+            unit["continued"] = 0
+            current.append(unit)
+            size += unit["weight"]
         if current or not pages:
             pages.append(current)
         seen: set[str] = set()
         for page in pages:
             local: set[str] = set()
-            for index, (section_id, _, _) in enumerate(page):
-                page[index] = (section_id, page[index][1], 1 if section_id in seen else 0)
-                local.add(section_id)
+            for unit in page:
+                if unit["kind"] == "flow":
+                    unit["continued"] = 1 if unit["sid"] in seen else 0
+                    local.add(unit["sid"])
             seen.update(local)
         return pages
 
-    def render_page(items: list[tuple[str, dict, int]]) -> str:
+    def render_flow(items: list[dict]) -> str:
         parts: list[str] = []
         current_id: str | None = None
         current_heading = ""
-        for section_id, block, continued in items:
+        for unit in items:
+            section_id = unit["sid"]
+            block = unit["item"]
             heading = next((section_title for section_title, section_key in SECTION_HEADINGS if section_key == section_id), section_id)
             if section_id != current_id:
                 if current_id is not None:
                     parts.append("</section>")
-                label = f"{heading}（续）" if continued else heading
+                label = f"{heading}（续）" if unit["continued"] else heading
                 parts.append(f'<section class="section"><h2>{esc(label)}</h2>')
                 current_id = section_id
                 current_heading = heading
@@ -416,6 +469,32 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
                 parts.append(block_html(block, current_heading))
         if current_id is not None:
             parts.append("</section>")
+        return "".join(parts)
+
+    def render_units(page_units: list[dict]) -> str:
+        parts: list[str] = []
+        flow: list[dict] = []
+
+        def flush_flow():
+            nonlocal flow
+            if flow:
+                parts.append(render_flow(flow))
+                flow = []
+
+        def heading_of(section_id: str) -> str:
+            return next((section_title for section_title, section_key in SECTION_HEADINGS if section_key == section_id), section_id)
+
+        for unit in page_units:
+            if unit["kind"] == "pair":
+                flush_flow()
+                def col(sid: str, blocks: list[dict]) -> str:
+                    head = heading_of(sid)
+                    inner = "".join(block_html(block, head) for block in blocks)
+                    return f'<section class="section"><h2>{esc(head)}</h2>{inner}</section>'
+                parts.append(f'<div class="pair">{col(unit["sid"], unit["blocks"])}{col(unit["sid2"], unit["blocks2"])}</div>')
+            else:
+                flow.append(unit)
+        flush_flow()
         return "".join(parts)
 
     plain = descriptor["layout"] == "plain"
@@ -435,7 +514,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     side_ids = [] if head_layout else ["basics", "skills", "awards"]
     sidebar_pages = [] if not side_ids else stream_pages(side_ids, SIDE_PAGE_BUDGET)
     budget = BANNER_PAGE_BUDGET if banner else GRID_PAGE_BUDGET if grid else LINE_PAGE_BUDGET if line else TIMELINE_PAGE_BUDGET if timeline else MAIN_PAGE_BUDGET
-    main_pages = stream_pages(main_ids, budget)
+    main_pages = stream_pages(main_ids, budget, pairable=PAIRING_BY_LAYOUT.get(layout_id, False))
     page_count = max(len(main_pages), 1)
 
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
@@ -455,7 +534,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
 
     chunks: list[str] = []
     for index in range(page_count):
-        body = render_page(main_pages[index] if index < len(main_pages) else [])
+        body = render_units(main_pages[index] if index < len(main_pages) else [])
         if banner:
             head = banner_head if index == 0 else banner_head_slim
             chunks.append(f'<section class="page page-banner-page">{head}<main class="main main-plain">{body}</main></section>')
@@ -473,7 +552,7 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
             head = line_head if index == 0 else line_head_slim
             chunks.append(f'<section class="page page-plain">{head}<main class="main main-plain">{body}</main></section>')
         else:
-            sidebar_html = sidebar_head + render_page(sidebar_items(index)) if index == 0 else render_page(sidebar_items(index))
+            sidebar_html = sidebar_head + render_units(sidebar_items(index)) if index == 0 else render_units(sidebar_items(index))
             chunks.append(f'<section class="page"><aside class="sidebar">{sidebar_html}</aside><main class="main">{body}</main></section>')
     d = descriptor
     serif_css = '.page,.page *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif;}' if d.get("serif") else ""
@@ -509,7 +588,11 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .main-plain {{ padding:12mm 14mm; }}
 .page-banner-page .main {{ flex:1; padding-top:8mm; }}
 .main > .section:first-child {{ margin-top:0; }}
+.main > .pair:first-child {{ margin-top:0; }}
 .section {{ margin-top:5.5mm; break-inside:avoid; }}
+.pair {{ margin-top:5.5mm; display:grid; grid-template-columns:1fr 1fr; gap:0 6mm; break-inside:avoid; align-items:start; }}
+.pair .section {{ margin-top:0; }}
+.pair + .pair {{ margin-top:4mm; }}
 .section h2 {{ border-bottom:1px solid {d['rule']}; color:{d['heading']}; font-size:12pt; margin:0 0 2.2mm; padding-bottom:1.6mm; }}
 .block {{ margin:0 0 4mm; break-inside:avoid; }}
     .block h3 {{ color:{d['title']}; font-size:10.5pt; line-height:1.35; margin:0 0 1.5mm; }}
@@ -533,6 +616,9 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .grid-head.grid-head-slim {{ padding:2.2mm 5mm; border-bottom:1px solid {d['rule']}; }}
 .grid-head.grid-head-slim h1 {{ font-size:9.5pt; margin:0; letter-spacing:1px; }}
 .main-grid {{ flex:1; padding:5mm 10mm 9mm; }}
+.main-grid .pair {{ margin-top:4mm; }}
+.main-grid .pair + .pair {{ margin-top:4mm; }}
+.main-grid .pair .section {{ margin-top:0; }}
 .main-grid .section {{ border:1px solid {d['rule']}; margin-top:4mm; overflow:hidden; }}
 .main-grid .section h2 {{ background:{d['sidebar_bg']}; color:{d['sidebar_fg']}; border:0; padding:1.8mm 3mm; margin:0; font-size:10pt; letter-spacing:1.2px; }}
 .main-grid .block {{ margin:0 3mm 3mm; }}
