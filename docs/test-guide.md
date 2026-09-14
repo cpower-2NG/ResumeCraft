@@ -8,11 +8,12 @@
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-前端当前只有构建检查，没有 Vitest 测试：
+前端单元测试（Vitest，覆盖 SPA 分页模型 `lib/resume.ts`）：
 
 ```powershell
 cd web
-pnpm build
+npx vitest run
+npx tsc -b --noEmit
 ```
 
 浏览器交互冒烟测试：
@@ -25,6 +26,28 @@ npm run test:ui
 ```
 
 脚本位于 `web/scripts/interaction-smoke.mjs`，会真实点击资料库、岗位画像、ResumeCraft、回收站和返回按钮，填写并保存资料与岗位画像，并把浏览器控制台错误作为失败条件。
+
+### 版式与分页的实测验收
+
+分页估算（`LAYOUT_METRICS`/`PAGE_BUDGET_PX`）是纯计算，既可能低估（导出正文越过 A4 底边被裁掉）也可能高估（页面过早切断）。改动版式、列宽、字号或估算常数后，必须按下面的闭环复测：
+
+```powershell
+# 1) 生成 26 个模板 × 3 种密度样本的导出 HTML 到 output/tmp
+.\.venv\Scripts\python.exe scripts\gen_samples.py
+# 2) 无头浏览器逐页测量填充率与裁切像素
+cd web; node scripts\measure_pages.mjs ..\output\tmp > ..\output\tmp\metrics.json; cd ..
+# 3) 汇总并过验收门槛（任何一页不得裁切，非末页填充不得低于 80%）
+.\.venv\Scripts\python.exe scripts\summarize_metrics.py
+```
+
+需要按实测重标估算常数时：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\calibrate_layout.py   # 用真实渲染器产出校准探针
+cd web; node scripts\measure_calib.mjs ..\output\tmp\calib  # 在浏览器里读真实几何
+```
+
+定位“估算与渲染对不上”时，`node web/scripts/dump_page.mjs <导出 HTML>` 会打印单个页面里每个栏目/条目的真实高度与裁切量。
 
 测试夹具位于 `tests/conftest.py`。每个测试使用内存 SQLite、独立工作区和一个可用模板，不依赖真实数据库资料。
 
@@ -56,6 +79,19 @@ npm run test:ui
 ### `tests/test_export.py`
 
 - `test_export_is_fixed_a4_and_paginates_long_formal_content`：写入超长正文，导出正式 HTML，确认包含固定 A4 尺寸、分页页面和完整长文本。
+- `test_export_with_link_block_renders_anchor`：链接类条目渲染为可点击的 `<a>`。
+- `test_render_markdown_keeps_line_breaks`：正文里的换行渲染成 `<br>`（曾经按换行分段后又用空串拼接，把作者分好的行黏成一行），列表成组渲染、行尾换行不产生多余空行、加粗/斜体仍生效。
+
+### `tests/test_template_compatibility.py`
+
+覆盖 26 个内置模板的四层契约（描述符完整、导出可用、前端同步、接口可用）：
+
+- 描述符：slug/色板/布局合法且名称唯一，六种布局都有模板覆盖。
+- 导出结构：每种布局的页面骨架、色板注入、无未渲染占位符；**姓名只出现在页头/侧栏页头，基本信息不再重复成栏目**；**短栏目成对并排（时间轴除外）**。
+- 排版常数一致：逐项比对导出样式表与 `web/src/styles.css` 里真正影响分页的数值（正文行高、元信息字号、栏目/条目间距、侧栏间距、时间轴时间栏宽度）。
+- 分页行为：长内容分页并带“（续）”标记；**被切片的条目只渲染一次标题**（续段不再重复标题）。
+- 前端同步：`/api/templates` 下发 layout/serif/tokens，画布消费 CSS 变量，无逐模板硬编码主题类。
+- 接口全链路：启动建库 → 模板列表 → 选择模板 → 转为正式 → 导出。
 
 ### `tests/test_workflow.py`
 
@@ -97,10 +133,20 @@ npm run test:ui
 本次修改后已运行：
 
 ```text
-27 passed
+.venv\Scripts\python.exe -m pytest -q           143 passed
+cd web; npx vitest run                          7 passed
+cd web; npx tsc -b --noEmit                     通过
 ```
 
-全量运行覆盖资料、证据、岗位画像、临时简历、正式简历生命周期、求职目标、来源提示、危险操作和 HTML 导出。运行时有 FastAPI/httpx 弃用警告，以及 `.pytest_cache` 无写权限警告；它们不影响测试结果。
+版式密度验收（26 个模板 × 3 种密度样本 = 78 份导出 HTML）：
+
+```text
+renders 78  pages 84  single-page 72
+clipped renders: 0
+under-filled non-final pages: 0
+```
+
+即：没有任何一页把内容裁在 A4 底边之外，也没有“只有一两行的尾页”。全量运行覆盖资料、证据、岗位画像、临时简历、正式简历生命周期、求职目标、来源提示、危险操作、HTML 导出与模板兼容性。运行时有 FastAPI/httpx 弃用警告，以及 `.pytest_cache` 无写权限警告；它们不影响测试结果。
 
 ## 4. 仍需新增的测试
 
@@ -109,7 +155,7 @@ npm run test:ui
 3. **接口错误状态测试**：覆盖活跃正式简历重复转换返回 409、回收后可重新转换、转换后列表和概览计数同步变化。
 4. **回收站边界测试**：验证删除后正式列表不显示、回收站显示；恢复后只回到正式列表，不产生重复身份或重复版本。
 5. **数据隔离测试**：创建第二个工作区，确认资料、岗位画像、临时简历和正式简历不会跨工作区出现。当前实现固定使用 `WORKSPACE_ID = 1`，这是上线前必须补的风险测试。
-6. **导出视觉回归测试**：在桌面和移动视口检查正式简历编辑器、输入框、提示框和 A4 预览的布局；当前仓库没有浏览器自动化截图测试。
+6. **导出视觉回归测试**：编辑器/A4 预览在多视口下的布局截图对比仍缺自动化。导出侧的“留白与裁切”已由上面的实测闭环覆盖（逐页填充率 + 裁切像素），但**像素级截图对比**尚未纳入 CI，模板改版后仍需人工看图确认观感。
 7. **浏览器按钮与跳转测试**：安装并配置 Playwright，逐个点击首页三个模块、顶部品牌、来源提示、返回按钮、资料分类、岗位画像编辑/创建、正式简历打开/回收站、事实编辑/证据、临时简历选择/生成、正式简历保存/导出/恢复/删除，断言 URL 或页面标题和接口请求一致。
 8. **字段焦点与可编辑性测试**：在 Playwright 中遍历所有输入框、文本框、选择框、复选框和正式编辑卡片字段，确认可聚焦、可输入、值变化可见、保存刷新后仍保留；检查回收状态下编辑控件不可写。
 9. **危险操作确认测试**：拦截并确认删除资料、删除正式简历、回收证据等操作的确认对话框；点击取消后数据不变，点击确认后状态改变，回收站恢复后页面列表和顶部提示正确刷新。
