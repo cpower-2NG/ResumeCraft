@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from app.main import app, ensure_builtin_templates
-from app.services import render_resume_html
+from app.services import PAIRING_BY_LAYOUT, render_resume_html
 from app.templates import BUILTIN_TEMPLATES, COLOUR_TOKENS
 from app.workbench_database import WorkbenchBase, get_db
 from app.workbench_models import ResumeTemplate, User, Workspace
@@ -125,11 +125,12 @@ def test_export_html_is_valid_for_every_template(slug):
     # 栏目标题的高度。
     assert "基本信息" not in html, f"模板 {slug} 重复渲染了基本信息栏目"
 
-    # 双栏收尾：除时间轴外，短栏目两两并排（样本四个尾栏目高度均衡，必成对）。
-    if descriptor["layout"] == "timeline":
-        assert 'class="pair"' not in html
-    else:
+    # 双栏收尾：短栏目两两并排成一行两个模块。时间轴保持整宽通排——左时间栏是它的
+    # 识别特征，没有时间栏就不是时间轴了。
+    if PAIRING_BY_LAYOUT[descriptor["layout"]]:
         assert 'class="pair"' in html, f"模板 {slug} 的双栏收尾未生效"
+    else:
+        assert 'class="pair"' not in html, f"模板 {slug} 不应并排"
 
 
 @pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
@@ -148,6 +149,13 @@ def test_new_templates_paginate_long_content_and_mark_continuation(slug):
     assert html.count('class="page') >= 2, f"模板 {slug} 未对长内容分页"
     assert "（续）" in html, f"模板 {slug} 跨页栏目缺少（续）标记"
     assert "297mm" in html and "data-page" not in html  # 导出走 section.page，不携带 SPA 的 data-page 属性
+
+
+@pytest.mark.parametrize("slug", ["minimal", "classic", "azure", "lumen"])
+def test_fragmented_entry_renders_its_title_once(slug):
+    """续段只带正文：重复渲染标题会让同一个条目在页面上看起来出现了两次。"""
+    html = render_resume_html(sample_content(long=True), "续段", 1, slug)
+    assert html.count("<h3>电商中台重构</h3>") == 1, f"模板 {slug} 的续段重复了条目标题"
 
 
 def test_unknown_slug_falls_back_to_classic():
@@ -172,7 +180,7 @@ def test_spa_canvas_is_variable_driven():
     css = WEB_STYLES.read_text(encoding="utf-8")
     # 画布与横幅直接消费 API 色板变量；classic 色板作为 CSS 回退值保留。
     assert ".resume-sidebar{background:var(--t-sidebar-bg)" in css
-    assert ".resume-banner{padding:9mm 11mm;flex:none;background:var(--t-sidebar-bg)" in css
+    assert ".resume-banner{padding:9mm 12mm;flex:none;background:var(--t-sidebar-bg)" in css
     assert ".resume-stage{--t-sidebar-bg:#163b43" in css
     assert ".resume-paper.serif,.resume-paper.serif *" in css
     assert ".resume-paper.plain{grid-template-columns:1fr}" in css
@@ -183,12 +191,49 @@ def test_spa_canvas_is_variable_driven():
     assert ".resume-paper .entry-period{margin-left:auto;color:var(--t-accent)" in css
     assert ".resume-paper.plain .line-head" in css, "plain 布局缺少紧凑页头样式"
     assert ".resume-paper.timeline .line-head" in css, "timeline 布局缺少紧凑页头样式"
-    assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:18mm 3mm 1fr}" in css
+    assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:15mm 3mm 1fr}" in css
     assert ".resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent)" in css
     # 不允许出现逐模板的硬编码主题/缩略图类——新增模板不应再改前端样式。
     for slug in BUILTIN_TEMPLATES:
         assert f"theme-{slug}" not in css, f"styles.css 仍残留 {slug} 的 theme-* 类"
         assert f"thumb-{slug}" not in css, f"styles.css 仍残留 {slug} 的 thumb-* 类"
+
+
+# ---------------------------------------------------- 预览与导出的排版常数一致
+# 预览画布（web/src/styles.css）与导出样式表（render_resume_html 内嵌 CSS）必须共用
+# 同一套排版常数：分页估算是按导出 CSS 实测标定的，预览一旦自行变松/变紧，两端的
+# 断点就会错位（预览与导出页数不一致）。这里逐项比对两边真正影响分页的几个数值。
+
+def export_css() -> str:
+    html = render_resume_html(sample_content(), "样式", 1, "classic")
+    return re.search(r"<style>(.*?)</style>", html, re.S).group(1)
+
+
+SHARED_RHYTHM = [
+    ("正文行高", r"^\s*\.block p \{[^}]*line-height:(?P<v>[\d.]+)",
+     r"\.resume-paper \.block-copy\{font-size:[\d.]+pt;line-height:(?P<v>[\d.]+)"),
+    ("元信息字号", r"^\s*\.block-meta \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-paper \.block-meta\{font-size:(?P<v>[\d.]+)pt"),
+    ("栏目间距", r"^\.section \{ margin-top:(?P<v>[\d.]+)mm",
+     r"\.main-sections\{display:grid;gap:(?P<v>[\d.]+)mm"),
+    ("条目间距", r"^\.block \{ margin:0 0 (?P<v>[\d.]+)mm",
+     r"\.main-sections \.resume-block\{margin-bottom:(?P<v>[\d.]+)mm"),
+    ("侧栏栏目间距", r"^\.sidebar \.section \{ margin-top:(?P<v>[\d.]+)mm",
+     r"\.sidebar-content\{display:grid;align-content:start;gap:(?P<v>[\d.]+)mm"),
+    ("侧栏条目间距", r"^\.sidebar \.block \{ margin-bottom:(?P<v>[\d.]+)mm",
+     r"\.sidebar-section \.resume-block\{margin-bottom:(?P<v>[\d.]+)mm"),
+    ("时间轴时间栏宽度", r"^\.main-timeline \.block \{ display:grid; grid-template-columns:(?P<v>[\d.]+)mm",
+     r"\.resume-paper\.timeline \.resume-block\{display:grid;grid-template-columns:(?P<v>[\d.]+)mm"),
+]
+
+
+@pytest.mark.parametrize("label,export_re,spa_re", SHARED_RHYTHM, ids=[item[0] for item in SHARED_RHYTHM])
+def test_preview_matches_export_rhythm(label, export_re, spa_re):
+    export = re.search(export_re, export_css(), re.MULTILINE)
+    spa = re.search(spa_re, WEB_STYLES.read_text(encoding="utf-8"))
+    assert export, f"{label}：导出样式表未匹配到"
+    assert spa, f"{label}：预览样式表未匹配到"
+    assert export.group("v") == spa.group("v"), f"{label} 不一致：导出 {export.group('v')} vs 预览 {spa.group('v')}"
 
 
 # ---------------------------------------------------------------- API 全链路

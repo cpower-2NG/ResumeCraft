@@ -72,6 +72,7 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
       // 主栏内容（项目与实践）不参与并排，保持整宽通排。
       expect(pairsOf(units).some(p => p.sectionA.id === 'experience' || p.sectionB.id === 'experience'), layout).toBe(false)
     }
+    // 时间轴保持整宽通排——左时间栏是它的识别特征。
     const timelineUnits = streamItems(content, layoutMainIds('timeline'), layoutBudget('timeline'), false, 'timeline').flat()
     expect(pairsOf(timelineUnits).length).toBe(0)
   })

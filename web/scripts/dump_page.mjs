@@ -1,5 +1,8 @@
-// Throwaway: dump the real DOM structure of every page of one export HTML with
-// element heights, so estimate-vs-render drift can be located exactly.
+// Dump the real DOM structure of every page of one export HTML with element
+// heights and clipped overflow, so estimate-vs-render drift in the pagination
+// model can be located exactly. Complements measure_pages.mjs, which only
+// reports per-page fill/overflow totals.
+// Usage: node scripts/dump_page.mjs <export.html>
 import { chromium } from 'playwright'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'

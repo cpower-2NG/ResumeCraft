@@ -56,38 +56,45 @@ export const ALL_IDS=['basics','target','profile','experience','education','skil
 // 衬线模板不需要单独一列：实测 Georgia/Times 对中文会落到 SimSun，中文字宽不变，
 // 每行字符数与同布局的非衬线模板一致。
 const LAYOUT_METRICS:Record<string,{header:number;header_first:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number;pair_chars_per_line:number;pair_meta_chars:number}> = {
-  sidebar:  {header:57, header_first:37, base:46, extra:0, content_line:20, chars_per_line:46, meta:15, meta_chars:34, pair_chars_per_line:21, pair_meta_chars:22},
-  side:     {header:24, header_first:24, base:39, extra:0, content_line:16, chars_per_line:17, meta:15, meta_chars:14, pair_chars_per_line:17, pair_meta_chars:14},
-  plain:    {header:57, header_first:37, base:42, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
-  banner:   {header:57, header_first:37, base:42, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
-  grid:     {header:57, header_first:42, base:39, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:33, pair_meta_chars:34},
-  line:     {header:55, header_first:35, base:54, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
-  timeline: {header:57, header_first:37, base:44, extra:0, content_line:20, chars_per_line:58, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
+  sidebar:  {header:47, header_first:33, base:37, extra:0, content_line:18, chars_per_line:46, meta:15, meta_chars:35, pair_chars_per_line:22, pair_meta_chars:23},
+  side:     {header:22, header_first:22, base:33, extra:0, content_line:15, chars_per_line:17, meta:15, meta_chars:14, pair_chars_per_line:17, pair_meta_chars:14},
+  plain:    {header:47, header_first:33, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+  banner:   {header:47, header_first:33, base:34, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+  grid:     {header:49, header_first:39, base:32, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:34, pair_meta_chars:34},
+  line:     {header:45, header_first:31, base:43, extra:0, content_line:18, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:33, pair_meta_chars:34},
+  timeline: {header:47, header_first:33, base:37, extra:0, content_line:18, chars_per_line:58, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
 }
-export const MAIN_BUDGET=1024
+export const MAIN_BUDGET=1032
 export const SIDE_BUDGET=1032
-export const BANNER_BUDGET=906
-export const GRID_BUDGET=982
-export const LINE_BUDGET=986
-export const TIMELINE_BUDGET=941
-const BUDGETS:Record<string,number>={sidebar:MAIN_BUDGET,side:SIDE_BUDGET,plain:948,banner:BANNER_BUDGET,grid:GRID_BUDGET,line:LINE_BUDGET,timeline:TIMELINE_BUDGET}
+export const BANNER_BUDGET=927
+export const GRID_BUDGET=999
+export const LINE_BUDGET=1002
+export const TIMELINE_BUDGET=961
+const BUDGETS:Record<string,number>={sidebar:MAIN_BUDGET,side:SIDE_BUDGET,plain:961,banner:BANNER_BUDGET,grid:GRID_BUDGET,line:LINE_BUDGET,timeline:TIMELINE_BUDGET}
 // 侧栏首页除了栏目，还要放侧栏页头（姓名 + 联系方式 + 简介），这部分高度必须从第一页
 // 的侧栏预算里扣掉，否则侧栏首页会溢出 A4 底边被裁掉。与 services.py 的
 // SIDEBAR_* 常数同一口径。
-const SIDEBAR_NAME_PX=50
-const SIDEBAR_FIELD_PX=21
-const SIDEBAR_BIO_LINE_PX=19
-const SIDEBAR_HEAD_BASE_PX=24
+const SIDEBAR_NAME_PX=51
+const SIDEBAR_FIELD_PX=19
+const SIDEBAR_BIO_LINE_PX=18
+const SIDEBAR_HEAD_BASE_PX=20
 // 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列，左时间栏是它的
 // 识别特征。配对只发生在相邻栏目之间以保持栏目顺序，且必须真正省下纵向空间才
-// 配对——半宽折行会让正文变高，落差悬殊的栏目并排反而更费版面。PAIR_MAX_SHARE
-// 把并排限制在“短栏目收尾”场景：并排单元至多占一页的约四成，更长的栏目（项目
-// 与实践等主栏内容）保持整宽通排。常数与 app/services.py 的
-// PAIRING_BY_LAYOUT/PAIR_MAX_SHARE/PAIR_MIN_SAVING 保持一致。
+// 配对——半宽折行会让正文变高，落差悬殊的栏目并排反而更费版面。
+// 并排上限 = 页预算 × PAIR_MAX_SHARE，再按半栏宽度等比收紧（PAIR_REF_CHARS 为最宽
+// 的半栏口径）：半栏越窄，能并排的单元就该越矮。侧栏布局的主栏只有 128mm，半栏
+// 58mm，上限收到约 275px，只有短栏目会并排。常数与 app/services.py 的
+// PAIRING_BY_LAYOUT/PAIR_MAX_SHARE/PAIR_REF_CHARS/PAIR_MIN_SAVING 保持一致。
 const PAIRING_BY_LAYOUT:Record<string,boolean>={sidebar:true,plain:true,banner:true,grid:true,line:true,timeline:false}
 const PAIR_MAX_SHARE=0.4
+const PAIR_REF_CHARS=33
 const PAIR_MIN_SAVING=20
 type Metrics=typeof LAYOUT_METRICS[string]
+// 当前布局允许的并排单元高度上限（半栏越窄上限越低）。
+const pairHeightCap=(layout:string,budget:number)=>{
+  const style=LAYOUT_METRICS[layout]||LAYOUT_METRICS.sidebar
+  return Math.min(style.pair_chars_per_line/PAIR_REF_CHARS,1)*budget*PAIR_MAX_SHARE
+}
 // 侧栏页头（姓名 + 联系方式 + 简介）的估算高度，与 services.py 的
 // sidebar_head_height 同一公式：姓名行 + 每个联系字段一行 + 简介行数。
 export const sidebarHeadHeight=(basic:Block|undefined):number=>{
@@ -160,7 +167,8 @@ export function streamItems(content:Content,ids:string[],budget:number,inSidebar
     }
     for(const block of blocks){
       const chunks=splitText(block.content||'',limit)
-      chunks.forEach((chunk,index)=>out.push({kind:'flow',section:sectionOf(sid),block:{...block,id:index?`${block.id}--fragment-${index}`:block.id,content:chunk,fields:index===0?block.fields:{},display_fields:index===0?block.display_fields:[],fragment_index:index,continuation:index>0}}))
+      // 续段只带正文：重复标题与元信息会让同一个条目看起来出现两次。
+      chunks.forEach((chunk,index)=>out.push({kind:'flow',section:sectionOf(sid),block:{...block,title:index?'':block.title,id:index?`${block.id}--fragment-${index}`:block.id,content:chunk,fields:index===0?block.fields:{},display_fields:index===0?block.display_fields:[],fragment_index:index,continuation:index>0}}))
     }
     return out
   }
@@ -181,7 +189,7 @@ export function streamItems(content:Content,ids:string[],budget:number,inSidebar
       columnHeight(sid,style.pair_chars_per_line,style.pair_meta_chars),
       columnHeight(sid2,style.pair_chars_per_line,style.pair_meta_chars),
     )
-    if(paired>budget*PAIR_MAX_SHARE||stacked-paired<PAIR_MIN_SAVING)return null
+    if(paired>pairHeightCap(layout,budget)||stacked-paired<PAIR_MIN_SAVING)return null
     return paired
   }
 
