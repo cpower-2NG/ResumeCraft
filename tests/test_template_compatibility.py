@@ -29,8 +29,6 @@ WEB_STYLES = Path(__file__).resolve().parents[1] / "web" / "src" / "styles.css"
 REQUIRED_TOKENS = {"name", "description", "layout", "sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
 COLOUR_TOKENS = {"sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
 LAYOUTS = {"sidebar", "plain", "banner", "grid", "line", "timeline"}
-# 基本信息栏目被页头取代的布局（姓名/联系方式直接呈现为页头）。
-HEADER_LAYOUTS = {"banner", "grid", "line", "plain", "timeline"}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
@@ -119,12 +117,13 @@ def test_export_html_is_valid_for_every_template(slug):
         assert "<aside class=\"sidebar\">" not in html
         assert 'class="page page-plain"' not in html
 
-    # 正文块完整渲染；页头布局用页头取代基本信息栏目。
+    # 正文块完整渲染；姓名一律出现在页头/侧栏页头。
     assert "电商中台重构" in html and "技能" in html
-    if descriptor["layout"] in HEADER_LAYOUTS:
-        assert "陈晓" in html
-    else:
-        assert "基本信息" in html
+    assert "陈晓" in html
+    # 基本信息不再重复成栏目：侧栏布局的姓名与联系方式已由侧栏页头（姓名 +
+    # 联系方式 + 简介）呈现，重复会让同一段内容在侧栏出现两次，并白占一行
+    # 栏目标题的高度。
+    assert "基本信息" not in html, f"模板 {slug} 重复渲染了基本信息栏目"
 
     # 双栏收尾：除时间轴外，短栏目两两并排（样本四个尾栏目高度均衡，必成对）。
     if descriptor["layout"] == "timeline":

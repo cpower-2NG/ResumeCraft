@@ -219,37 +219,48 @@ def evidence_count(db: Session, fact_id: int) -> int:
     return db.query(FactEvidence).filter(FactEvidence.fact_id == fact_id).count()
 
 
-SIDE_SECTIONS = ("basics", "skills", "awards")
+# 侧栏布局里由侧栏承载的栏目。基本信息不在此列——它已经由侧栏页头（姓名 +
+# 联系方式 + 简介）呈现，重复成栏目会让同一段内容在侧栏出现两次。
+SIDE_SECTION_IDS = ("skills", "awards")
 
-# —— 分页权重模型（单位：px，96dpi 下的 A4 = 1122px 高）——
-# 权重即估算的渲染高度，数值由导出 CSS 反推：正文 9pt×1.6 行高、元信息
-# 7.8pt×1.4、条目 h3 10.5pt + 5mm 下边距、栏目标题 12pt + 7mm 上边距；
-# 侧栏 8pt 行高、4mm 条目边距、9mm 栏目上边距。header/header_first 是栏目
-# 标题行成本（页内首个栏目 margin-top 归零，故更低）。两端（app/services.py
-# 与 web/src/lib/resume.ts）必须保持同一公式与预算。
+# —— 分页权重模型（单位：px，96dpi 下的 A4 = 1123px 高）——
+# 权重即估算的渲染高度，预算即版心可用高度。全部数值由
+# `python scripts/calibrate_layout.py && node web/scripts/measure_calib.mjs` 从
+# 真实导出 CSS 的浏览器布局中实测得出，并按“安全一侧”取整：行高与固定成本向上取，
+# 每行字符数向下取。这样估算高度不会低于实际渲染高度——低估会让导出正文越过 A4
+# 底边被 overflow:hidden 裁掉（此前的正文丢失就是这样来的）。
+# 两端（app/services.py 与 web/src/lib/resume.ts）必须保持同一张表与同一预算。
+#
+# 衬线模板（academic/quill/regent）不需要单独一列：实测 Georgia/Times 对中文会落到
+# SimSun，中文字宽不变，每行字符数与同布局的非衬线模板一致。
 LAYOUT_METRICS = {
-    # header 栏目标题行（页内非首个栏目）；header_first 页内首个栏目；base 条目
-    # 固定成本；extra 布局装饰；content_line 正文行高；chars_per_line 每行字数；meta 元信息行高；
-    # pair_chars_per_line / pair_meta_chars 为双栏收尾（半宽）时的折行口径。
-    "sidebar":  {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 40, "meta": 14, "meta_chars": 45, "pair_chars_per_line": 19, "pair_meta_chars": 23},
-    "side":     {"header": 46, "header_first": 46, "base": 30, "extra": 0,  "content_line": 15, "chars_per_line": 15, "meta": 14, "meta_chars": 15, "pair_chars_per_line": 15, "pair_meta_chars": 15},
-    "plain":    {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
-    "banner":   {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
-    "grid":     {"header": 42, "header_first": 29, "base": 30, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
-    "line":     {"header": 52, "header_first": 31, "base": 52, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
-    "timeline": {"header": 52, "header_first": 31, "base": 38, "extra": 0,  "content_line": 19, "chars_per_line": 56, "meta": 14, "meta_chars": 65, "pair_chars_per_line": 27, "pair_meta_chars": 33},
+    # header 栏目标题行成本（页内非首个栏目，含栏目上边距）；header_first 页内首个
+    # 栏目（上边距归零）；base 条目固定成本；extra 布局装饰；content_line 正文行高；
+    # chars_per_line 每行容纳字符数；meta 元信息行高；meta_chars 每行元信息字符数；
+    # pair_chars_per_line / pair_meta_chars 是并排（半宽）时的同一口径。
+    "sidebar":  {"header": 57, "header_first": 37, "base": 46, "extra": 0, "content_line": 20, "chars_per_line": 46, "meta": 15, "meta_chars": 34, "pair_chars_per_line": 21, "pair_meta_chars": 22},
+    "side":     {"header": 24, "header_first": 24, "base": 39, "extra": 0, "content_line": 16, "chars_per_line": 17, "meta": 15, "meta_chars": 14, "pair_chars_per_line": 17, "pair_meta_chars": 14},
+    "plain":    {"header": 57, "header_first": 37, "base": 42, "extra": 0, "content_line": 20, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 31, "pair_meta_chars": 34},
+    "banner":   {"header": 57, "header_first": 37, "base": 42, "extra": 0, "content_line": 20, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 31, "pair_meta_chars": 34},
+    "grid":     {"header": 57, "header_first": 42, "base": 39, "extra": 0, "content_line": 20, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 33, "pair_meta_chars": 34},
+    "line":     {"header": 55, "header_first": 35, "base": 54, "extra": 0, "content_line": 20, "chars_per_line": 68, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 32, "pair_meta_chars": 34},
+    "timeline": {"header": 57, "header_first": 37, "base": 44, "extra": 0, "content_line": 20, "chars_per_line": 58, "meta": 15, "meta_chars": 70, "pair_chars_per_line": 31, "pair_meta_chars": 34},
 }
-# 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列（左时间栏是其识别
-# 特征）。pair 只在两栏估算高度均衡时成立，悬殊的栏目保持整行（避免半宽折行
-# 反而更高）；pair 是原子单元，不跨页拆分。
+# 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列，左时间栏是它的
+# 识别特征。配对只发生在**相邻**的两个栏目之间，以保持简历的栏目顺序；并且必须
+# 真正省下纵向空间才配对——半宽折行会让正文变高，落差悬殊的栏目并排反而更费版面。
+# PAIR_MAX_SHARE 把并排限制在“短栏目收尾”场景：并排单元至多占一页的约四成，
+# 更长的栏目（项目与实践等主栏内容）保持整宽通排，既好读也不会被压成窄栏。
 PAIRING_BY_LAYOUT = {"sidebar": True, "plain": True, "banner": True, "grid": True, "line": True, "timeline": False}
-PAIR_MAX_RATIO = 1.7
-PAIR_FIT = 0.96
-# 每页可用高度（px）= A4 高 − 页头 − 上下页边距；页头较高的布局取首页口径，
-# 避免首页溢出（后续页的细页头只会更宽松）。
+PAIR_MAX_SHARE = 0.4
+PAIR_MIN_SAVING = 20
+# 每页可用高度（px）= A4 高 − 页内首个栏目的页头 − 正文上下内边距，实测得出。
+# 取首页（内容页头最高）口径，后续页的细页头只会更宽松，因此不会溢出。
+# 这里按布局直接查表：此前用一串条件挑预算，plain 没有分支而落到了 sidebar 的
+# 预算上，凭空多出近百像素，导出正文因此越过 A4 底边被裁掉。
 PAGE_BUDGET_PX = {
-    "sidebar": 1015, "side": 1015, "plain": 930, "banner": 915,
-    "grid": 950, "line": 940, "timeline": 895,
+    "sidebar": 1024, "side": 1032, "plain": 948, "banner": 906,
+    "grid": 982, "line": 986, "timeline": 941,
 }
 MAIN_PAGE_BUDGET = PAGE_BUDGET_PX["sidebar"]
 SIDE_PAGE_BUDGET = PAGE_BUDGET_PX["side"]
@@ -257,10 +268,33 @@ BANNER_PAGE_BUDGET = PAGE_BUDGET_PX["banner"]
 GRID_PAGE_BUDGET = PAGE_BUDGET_PX["grid"]
 LINE_PAGE_BUDGET = PAGE_BUDGET_PX["line"]
 TIMELINE_PAGE_BUDGET = PAGE_BUDGET_PX["timeline"]
+PLAIN_PAGE_BUDGET = PAGE_BUDGET_PX["plain"]
+# 侧栏首页除了栏目，还要放侧栏页头（姓名 + 联系方式 + 简介），这部分高度必须从第一
+# 页的侧栏预算里扣掉，否则侧栏首页会溢出 A4 底边被裁掉。页头高度按同一套度量推算
+# （姓名行 + 每个联系字段一行 + 简介行数），字段多或简介长的简历也能算准。
+SIDEBAR_NAME_PX = 50
+SIDEBAR_FIELD_PX = 21
+SIDEBAR_BIO_LINE_PX = 19
+SIDEBAR_HEAD_BASE_PX = 24
 
 
-def section_fragment_limit(section_id: str) -> int:
-    return 520 if section_id in SIDE_SECTIONS else 900
+def section_fragment_limit(in_sidebar: bool) -> int:
+    """正文切片上限：侧栏版心只有约 44mm，切片要更短。"""
+    return 520 if in_sidebar else 900
+
+
+def sidebar_head_height(basic_block: dict, style: dict) -> int:
+    """侧栏页头（姓名 + 联系方式 + 简介）的估算高度。"""
+    fields = basic_block.get("fields") or {}
+    displayed = basic_block.get("display_fields") or list(fields)
+    rows = 0
+    for key in displayed:
+        value = fields.get(key)
+        if not value:
+            continue
+        rows += max(1, -(-(len(str(FIELD_LABELS.get(key, ""))) + len(str(value))) // style["meta_chars"]))
+    bio_lines = content_line_count(basic_block.get("content"), style["chars_per_line"])
+    return SIDEBAR_HEAD_BASE_PX + SIDEBAR_NAME_PX + rows * SIDEBAR_FIELD_PX + bio_lines * SIDEBAR_BIO_LINE_PX
 
 
 def content_line_count(content: str, chars_per_line: int) -> int:
@@ -271,11 +305,12 @@ def content_line_count(content: str, chars_per_line: int) -> int:
     return sum(max(1, -(-len(seg) // chars_per_line)) for seg in text.split("\n"))
 
 
-def section_item_weight(section_id: str, content: str, meta_lines: int, layout: str) -> int:
-    # 条目高度(px) = 固定成本 + 正文行数 × 行高 + 元信息行数 × 行高 + 布局装饰。
-    # 此前按“字段个数×固定值”计价，长字段值（到岗安排、核心要求等）折行后的
-    # 高度被低估，导致导出内容溢出 A4 底边。
-    style = LAYOUT_METRICS["side" if section_id in SIDE_SECTIONS else layout]
+def section_item_weight(content: str, meta_lines: int, style: dict) -> int:
+    """条目高度(px) = 固定成本 + 正文行数 × 行高 + 元信息行数 × 行高 + 布局装饰。
+
+    此前按“字段个数×固定值”计价，长字段值（到岗安排、核心要求等）折行后的高度
+    被低估，导致导出内容溢出 A4 底边。
+    """
     return style["base"] + style["extra"] + content_line_count(content, style["chars_per_line"]) * style["content_line"] + meta_lines * style["meta"]
 
 
@@ -299,6 +334,146 @@ FIELD_LABELS = {
     "age": "年龄", "start_date": "入学时间", "end_date": "毕业时间",
 }
 
+
+
+def _page_style(layout_id: str, in_sidebar: bool) -> dict:
+    """侧栏列（约 44mm 版心）与主栏列的度量口径完全不同，按列取用。"""
+    return LAYOUT_METRICS["side" if in_sidebar else layout_id]
+
+
+def fragment_flow(sections: dict, sid: str, blocks: list[dict], layout_id: str, in_sidebar: bool) -> list[dict]:
+    """把一个栏目的条目切成 flow 单元（超长正文按 section_fragment_limit 切片）。"""
+    style = _page_style(layout_id, in_sidebar)
+    limit = section_fragment_limit(in_sidebar)
+    out = []
+    if not blocks:
+        # 空栏目保留标题行（选择/添加来源的点击入口）。
+        empty = {"id": f"{sid}--empty", "title": "", "content": "", "fields": {}, "display_fields": [], "source_refs": [], "origin": "empty"}
+        out.append({"kind": "flow", "sid": sid, "item": empty, "weight": style["base"]})
+        return out
+    for block in blocks:
+        text_value = str(block.get("content", "") or "")
+        chunks = [text_value[index:index + limit] for index in range(0, len(text_value), limit)] or [""]
+        for index, chunk in enumerate(chunks):
+            item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
+            meta_lines = meta_field_lines(item, in_sidebar, style["meta_chars"])
+            out.append({"kind": "flow", "sid": sid, "item": item, "weight": section_item_weight(chunk, meta_lines, style)})
+    return out
+
+
+def column_height(sections: dict, sid: str, layout_id: str, in_sidebar: bool,
+                  chars_per_line: int, meta_chars: int) -> int:
+    """整栏估算高度：栏目标题行 + 各条目（固定成本 + 正文行 + 元信息行）。"""
+    style = _page_style(layout_id, in_sidebar)
+    blocks = sections.get(sid, {}).get("blocks", [])
+    total = style["header"]
+    if not blocks:
+        return total + style["base"]
+    for block in blocks:
+        total += style["base"] + style["extra"] + content_line_count(block.get("content"), chars_per_line) * style["content_line"] + meta_field_lines(block, False, meta_chars) * style["meta"]
+    return total
+
+
+def pair_height(sections: dict, layout_id: str, sid: str, sid2: str, budget: int) -> int | None:
+    """相邻两栏并排的估算高度；不值得配对时返回 None（保持整宽通排）。
+
+    并排高度取两栏较大者；只有并排明显矮于顺排（PAIR_MIN_SAVING）才配对，否则
+    半宽折行会让正文变高、配对反而更费版面。
+    """
+    style = LAYOUT_METRICS[layout_id]
+    stacked = column_height(sections, sid, layout_id, False, style["chars_per_line"], style["meta_chars"]) + \
+        column_height(sections, sid2, layout_id, False, style["chars_per_line"], style["meta_chars"])
+    paired = max(
+        column_height(sections, sid, layout_id, False, style["pair_chars_per_line"], style["pair_meta_chars"]),
+        column_height(sections, sid2, layout_id, False, style["pair_chars_per_line"], style["pair_meta_chars"]),
+    )
+    if paired > budget * PAIR_MAX_SHARE or stacked - paired < PAIR_MIN_SAVING:
+        return None
+    return paired
+
+
+def paginate(sections: dict, section_ids: list[str], layout_id: str, budget: int,
+             in_sidebar: bool = False, pairable: bool = False,
+             first_page_head: int = 0) -> list[list[dict]]:
+    """把栏目切成页面单元并分页。
+
+    单元有两种：
+    - ``flow``：某个栏目的一个条目（栏目标题行按页计一次，超长正文按
+      section_fragment_limit 切片成多个条目）；
+    - ``pair``：**相邻**两个短栏目并排成一行两个模块（仅该布局允许配对时）。
+
+    配对以栏目顺序为准，只并排相邻栏目，因此不会打乱简历的栏目次序；并且只在
+    真正省下纵向空间时成立。pair 是原子单元，放不下当前页剩余空间时会在打包阶段
+    退化回两个 flow 单元，避免为等一整对而空出大半页、形成只有一两行的尾页。
+
+    ``in_sidebar`` 决定用哪一列的口径计价。``first_page_head`` 是首页额外的固定
+    占用（侧栏页头），只从第一页扣。
+    """
+    def blocks_of(sid: str) -> list[dict]:
+        return sections.get(sid, {}).get("blocks", [])
+
+    units: list[dict] = []
+    index = 0
+    while index < len(section_ids):
+        sid = section_ids[index]
+        if pairable and index + 1 < len(section_ids):
+            sid2 = section_ids[index + 1]
+            weight = pair_height(sections, layout_id, sid, sid2, budget)
+            if weight is not None:
+                units.append({"kind": "pair", "sid": sid, "blocks": blocks_of(sid), "sid2": sid2, "blocks2": blocks_of(sid2), "weight": weight})
+                index += 2
+                continue
+        units.extend(fragment_flow(sections, sid, blocks_of(sid), layout_id, in_sidebar))
+        index += 1
+
+    pages: list[list[dict]] = []
+    current: list[dict] = []
+    size = 0
+    current_id: str | None = None
+    cursor = 0
+
+    def page_budget() -> int:
+        """当前页的可用高度：首页要额外让出固定的页头占用。"""
+        return budget - (first_page_head if not pages else 0)
+
+    while cursor < len(units):
+        unit = units[cursor]
+        if unit["kind"] == "pair":
+            if not current or size + unit["weight"] <= page_budget():
+                current.append(unit)
+                size += unit["weight"]
+                cursor += 1
+                continue
+            # 放不下当前页剩余的这一点空间：退化成两个整宽栏目接着排，把本页填满，
+            # 只把真正放不下的条目推到下一页。否则会为等一整对而空出大半页。
+            units[cursor:cursor + 1] = fragment_flow(sections, unit["sid"], unit["blocks"], layout_id, in_sidebar) + \
+                fragment_flow(sections, unit["sid2"], unit["blocks2"], layout_id, in_sidebar)
+            continue
+        sid = unit["sid"]
+        style = _page_style(layout_id, in_sidebar)
+        header = style["header"] if sid != current_id else 0
+        if current and size + unit["weight"] + header > page_budget():
+            pages.append(current)
+            current, size, current_id = [], 0, None
+            header = style["header_first"]
+        if header:
+            size += header
+            current_id = sid
+        unit["continued"] = 0
+        current.append(unit)
+        size += unit["weight"]
+        cursor += 1
+    if current or not pages:
+        pages.append(current)
+    seen: set[str] = set()
+    for page in pages:
+        local: set[str] = set()
+        for unit in page:
+            if unit["kind"] == "flow":
+                unit["continued"] = 1 if unit["sid"] in seen else 0
+                local.add(unit["sid"])
+        seen.update(local)
+    return pages
 
 def render_resume_html(content: dict, title: str, version_number: int, template_slug: str = "classic") -> str:
     """Render a self-contained, print-ready HTML snapshot from a saved version.
@@ -354,99 +529,6 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
             content_text = f'<a href="{esc(url)}">{esc(label)}</a>' + (f'<br>{content_text}' if content_text else "")
         body = f'<h3>{esc(block.get("title"))}</h3><div class="block-meta">{block_fields(block, ("period",))}</div><p>{content_text}</p>'
         return f'<article class="block"><span class="t-time">{esc(block_period(block))}</span><div class="t-body">{body}</div></article>'
-
-    def stream_pages(section_ids: list[str], budget: int, pairable: bool = False) -> list[list[dict]]:
-        """把栏目切成页面单元：flow = 逐条目条目（栏目标题行按页计一次），
-        pair = 两个短栏目并排的原子单元（不跨页）。
-
-        pair 只在两栏高度均衡时成立（PAIR_MAX_RATIO），且必须整体放进一页
-        （PAIR_FIT × 预算）；空栏目视为可配对（保留点击入口）。
-        """
-        def fragment_flow(sid: str, blocks: list[dict]) -> list[dict]:
-            style = LAYOUT_METRICS["side" if sid in SIDE_SECTIONS else layout_id]
-            limit = section_fragment_limit(sid)
-            out = []
-            if not blocks:
-                # 空栏目保留标题行（选择/添加来源的点击入口）。
-                empty = {"id": f"{sid}--empty", "title": "", "content": "", "fields": {}, "display_fields": [], "source_refs": [], "origin": "empty"}
-                out.append({"kind": "flow", "sid": sid, "item": empty, "weight": style["base"]})
-                return out
-            for block in blocks:
-                text_value = str(block.get("content", "") or "")
-                chunks = [text_value[index:index + limit] for index in range(0, len(text_value), limit)] or [""]
-                for index, chunk in enumerate(chunks):
-                    item = dict(block, content=chunk, fields=block.get("fields") if index == 0 else {}, display_fields=block.get("display_fields") if index == 0 else [])
-                    out.append({"kind": "flow", "sid": sid, "item": item, "weight": section_item_weight(sid, chunk, meta_field_lines(item, sid in SIDE_SECTIONS, style["meta_chars"]), layout_id)})
-            return out
-
-        def pair_column_height(sid: str) -> int:
-            style = LAYOUT_METRICS[layout_id]
-            total = style["header"]
-            for block in sections.get(sid, {}).get("blocks", []):
-                total += style["base"] + content_line_count(block.get("content"), style["pair_chars_per_line"]) * style["content_line"] + meta_field_lines(block, False, style["pair_meta_chars"]) * style["meta"]
-            return total
-
-        units: list[dict] = []
-        remaining = list(section_ids)
-        if pairable:
-            compact_ids = [sid for sid in ("education", "skills", "awards", "links") if sid in remaining]
-            if compact_ids:
-                for sid in compact_ids:
-                    remaining.remove(sid)
-                height = {sid: pair_column_height(sid) for sid in compact_ids}
-                i = 0
-                while i < len(compact_ids):
-                    sid = compact_ids[i]
-                    if i + 1 < len(compact_ids):
-                        sid2 = compact_ids[i + 1]
-                        ha, hb = height[sid], height[sid2]
-                        taller = max(ha, hb)
-                        one_empty = not sections.get(sid, {}).get("blocks") or not sections.get(sid2, {}).get("blocks")
-                        if taller <= budget * PAIR_FIT and (one_empty or taller <= PAIR_MAX_RATIO * min(ha, hb)):
-                            units.append({"kind": "pair", "sid": sid, "blocks": sections.get(sid, {}).get("blocks", []), "sid2": sid2, "blocks2": sections.get(sid2, {}).get("blocks", []), "weight": taller})
-                            i += 2
-                            continue
-                    units.extend(fragment_flow(sid, sections.get(sid, {}).get("blocks", [])))
-                    i += 1
-        for sid in remaining:
-            units.extend(fragment_flow(sid, sections.get(sid, {}).get("blocks", [])))
-
-        pages: list[list[dict]] = []
-        current: list[dict] = []
-        size = 0
-        current_id: str | None = None
-        for unit in units:
-            if unit["kind"] == "pair":
-                if current and size + unit["weight"] > budget:
-                    pages.append(current)
-                    current, size, current_id = [], 0, None
-                current.append(unit)
-                size += unit["weight"]
-                continue
-            sid = unit["sid"]
-            style = LAYOUT_METRICS["side" if sid in SIDE_SECTIONS else layout_id]
-            header = style["header"] if sid != current_id else 0
-            if current and size + unit["weight"] + header > budget:
-                pages.append(current)
-                current, size, current_id = [], 0, None
-                header = style["header_first"]
-            if header:
-                size += header
-                current_id = sid
-            unit["continued"] = 0
-            current.append(unit)
-            size += unit["weight"]
-        if current or not pages:
-            pages.append(current)
-        seen: set[str] = set()
-        for page in pages:
-            local: set[str] = set()
-            for unit in page:
-                if unit["kind"] == "flow":
-                    unit["continued"] = 1 if unit["sid"] in seen else 0
-                    local.add(unit["sid"])
-            seen.update(local)
-        return pages
 
     def render_flow(items: list[dict]) -> str:
         parts: list[str] = []
@@ -511,17 +593,23 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     else:
         # 侧栏布局：技能与成果只出现在侧栏，主栏保持五个栏目。
         main_ids = ["target", "profile", "experience", "education", "links"]
-    side_ids = [] if head_layout else ["basics", "skills", "awards"]
-    sidebar_pages = [] if not side_ids else stream_pages(side_ids, SIDE_PAGE_BUDGET)
-    budget = BANNER_PAGE_BUDGET if banner else GRID_PAGE_BUDGET if grid else LINE_PAGE_BUDGET if line else TIMELINE_PAGE_BUDGET if timeline else MAIN_PAGE_BUDGET
-    main_pages = stream_pages(main_ids, budget, pairable=PAIRING_BY_LAYOUT.get(layout_id, False))
+    # 侧栏布局：基本信息由侧栏页头（姓名 + 联系方式 + 简介）呈现，不再重复成栏目；
+    # 技能与成果在侧栏，主栏承载其余五栏。侧栏首页还要放页头，先按同一套度量扣掉
+    # 它的高度，否则侧栏首页会把内容裁在 A4 底边之外。
+    basics = sections.get("basics", {}).get("blocks", [])
+    basic_block = basics[0] if basics else {}
+    side_ids = [] if head_layout else list(SIDE_SECTION_IDS)
+    sidebar_pages = [] if not side_ids else paginate(
+        sections, side_ids, layout_id, SIDE_PAGE_BUDGET, in_sidebar=True,
+        first_page_head=sidebar_head_height(basic_block, LAYOUT_METRICS["side"]),
+    )
+    budget = PAGE_BUDGET_PX[layout_id]
+    main_pages = paginate(sections, main_ids, layout_id, budget, pairable=PAIRING_BY_LAYOUT.get(layout_id, False))
     page_count = max(len(main_pages), 1)
 
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
         return sidebar_pages[page_index] if page_index < len(sidebar_pages) else []
 
-    basics = sections.get("basics", {}).get("blocks", [])
-    basic_block = basics[0] if basics else {}
     sidebar_head = f'<h1>{esc(basic_block.get("title") if basics else title)}</h1><div class="side-meta">{block_fields(basic_block)}</div><p class="side-copy">{block_text(basic_block)}</p>'
     head_name = esc(basic_block.get("title") if basics else title)
     head_fields = block_fields(basic_block)

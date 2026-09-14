@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import type { Block, Content, FlowUnit, Section, Unit } from '../lib/resume'
-import { fieldLabels, factCategories, labels, layoutBudget, layoutMainIds, mdLite, section, SIDE_IDS, SIDE_BUDGET, sourceIdOf, streamItems } from '../lib/resume'
+import { fieldLabels, factCategories, labels, layoutBudget, layoutMainIds, mdLite, section, SIDE_IDS, SIDE_BUDGET, sidebarHeadHeight, sourceIdOf, streamItems } from '../lib/resume'
 import { templateVars, type TemplateInfo } from '../lib/templates'
 
 type CanvasShared={mode:'select'|'edit';select?:(s:string)=>void;changed?:string[];addFact?:(s:string)=>void;onEdit?:(target:{sectionId:string;blockId:string;fragmentIndex:number})=>void;onContext?:(target:{sectionId:string;blockId:string;fragmentIndex:number},x:number,y:number)=>void;layout?:string}
@@ -13,7 +13,7 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   const grid=layout==='grid'
   const single=layout!=='sidebar'
   const mainPages=streamItems(content,layoutMainIds(layout),layoutBudget(layout),false,layout)
-  const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true,'sidebar')
+  const sidePages=single?[]:streamItems(content,SIDE_IDS,SIDE_BUDGET,true,'sidebar',sidebarHeadHeight(section(content,'basics').blocks[0]))
   const count=Math.max(mainPages.length,sidePages.length,1)
   const shared:CanvasShared={mode,select,changed,addFact,onEdit,onContext,layout}
   const basicBlock=section(content,'basics').blocks[0]

@@ -36,7 +36,7 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
   it('paginates long content into multiple pages for the new layouts', () => {
     for (const layout of ['grid', 'line', 'timeline']) {
       const pages = streamItems(
-        makeContent([{ id: 'experience', blocks: [makeBlock('long', '很'.repeat(2000))] }]),
+        makeContent([{ id: 'experience', blocks: [makeBlock('long', '很'.repeat(6000))] }]),
         layoutMainIds(layout), layoutBudget(layout), false, layout,
       )
       expect(pages.length).toBeGreaterThan(1)
@@ -47,9 +47,13 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
     }
   })
 
-  it('pairs the compact tail sections of single-column layouts', () => {
-    // 教育/技能高度接近时两两并排（一行两个模块）；时间轴不参与配对。
+  it('pairs short adjacent sections without reordering the resume', () => {
+    // 相邻短栏目两两并排（一行两个模块）；配对不得打乱栏目顺序——此前把
+    // education/skills/awards/links 整体提前到 target/profile/experience 之前。
     const content = makeContent([
+      { id: 'target', blocks: [makeBlock('t', '求职目标内容')] },
+      { id: 'profile', blocks: [makeBlock('p', '个人简介内容')] },
+      { id: 'experience', blocks: [makeBlock('e', '很长的经历正文'.repeat(60))] },
       { id: 'education', blocks: [makeBlock('edu', '教育内容')] },
       { id: 'skills', blocks: [makeBlock('skill', '技能内容')] },
       { id: 'awards', blocks: [makeBlock('award', '成果内容')] },
@@ -58,9 +62,15 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
     for (const layout of ['plain', 'grid', 'line', 'banner', 'sidebar']) {
       const ids = layout === 'sidebar' ? MAIN_IDS : ALL_IDS.filter(id => id !== 'basics')
       const units = streamItems(content, ids, layoutBudget(layout), false, layout).flat()
-      const pairs = pairsOf(units)
-      expect(pairs.length, layout).toBeGreaterThan(0)
-      expect(pairs[0].sectionA.id, layout).toBe('education')
+      const appeared: string[] = []
+      for (const unit of units) {
+        const group = unit.kind === 'pair' ? [unit.sectionA.id, unit.sectionB.id] : [unit.section.id]
+        for (const id of group) if (!appeared.includes(id)) appeared.push(id)
+      }
+      expect(appeared, layout).toEqual(ids)
+      expect(pairsOf(units).length, layout).toBeGreaterThan(0)
+      // 主栏内容（项目与实践）不参与并排，保持整宽通排。
+      expect(pairsOf(units).some(p => p.sectionA.id === 'experience' || p.sectionB.id === 'experience'), layout).toBe(false)
     }
     const timelineUnits = streamItems(content, layoutMainIds('timeline'), layoutBudget('timeline'), false, 'timeline').flat()
     expect(pairsOf(timelineUnits).length).toBe(0)

@@ -7,7 +7,7 @@ import { Picker } from '../components/Picker'
 import { StageToolbar } from '../components/StageToolbar'
 import { TemplateModal } from '../components/TemplateModal'
 import { Field, Loading, Modal, useLoad } from '../components/ui'
-import { brief, date, factBlock, factCategories, fieldLabels, fragmentLimit, labels, layoutBudget, layoutMainIds, splitText, streamItems, type Block, type Content, type Fact, type Pending, type UpdateBlock } from '../lib/resume'
+import { brief, date, factBlock, factCategories, fieldLabels, fragmentLimit, inSidebarStream, labels, layoutBudget, layoutMainIds, SIDE_IDS, splitText, streamItems, type Block, type Content, type Fact, type Pending, type UpdateBlock } from '../lib/resume'
 import type { TemplateDescriptor } from '../lib/templates'
 
 type BlockMenu={sectionId:string;blockId:string;fragmentIndex:number;x:number;y:number}
@@ -61,7 +61,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
         if(key==='field'&&fieldKey){next.fields={...b.fields,[fieldKey]:value};return next}
         if(key==='title'){next.title=value;return next}
         if(fragmentIndex===undefined){next.content=value;return next}
-        const chunks=splitText(b.content||'',fragmentLimit(sid))
+        const chunks=splitText(b.content||'',fragmentLimit(inSidebarStream(resume.data?.template?.layout,sid)))
         chunks[fragmentIndex]=value
         // splitText slices by position, so reassembly must be a plain concat;
         // joining with '\n' would inject newlines at every fragment boundary.
@@ -133,12 +133,12 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
     {!readOnly&&confirmLeave&&<Modal title="有未保存的修改" close={()=>setConfirmLeave(false)}><p className="modal-note">当前工作副本存在未保存修改。可以选择正式保存、保留草稿离开，或放弃这些修改。</p><div className="modal-actions"><button className="button primary" onClick={async()=>{setConfirmLeave(false);await save();back()}}>保存正式版本</button><button className="button" onClick={()=>{setConfirmLeave(false);back()}}>保留工作副本并离开</button><button className="button danger" onClick={async()=>{setConfirmLeave(false);await discard();back()}}>放弃未保存修改</button></div></Modal>}
     {diffWith!==null&&<DiffModal id={id} from={diffWith} to={resume.data.current_version} close={()=>setDiffWith(null)}/>}
     {templateOpen&&<TemplateModal current={resume.data.template?.template_version_id} templates={templates.data} loading={templates.loading} onChoose={async(tvId)=>{try{await patch(`/api/resumes/${id}/template`,{template_version_id:tvId});setTemplateOpen(false);resume.reload()}catch(e){error((e as Error).message)}}} close={()=>setTemplateOpen(false)}/>}
-    {!readOnly&&editing&&<BlockEditor content={content} target={editing} changed={changed.includes(`${editing.sectionId}:${editing.blockId}`)} update={update} removeBlock={removeBlock} close={()=>setEditing(null)}/>}
+    {!readOnly&&editing&&<BlockEditor content={content} target={editing} layout={layout} changed={changed.includes(`${editing.sectionId}:${editing.blockId}`)} update={update} removeBlock={removeBlock} close={()=>setEditing(null)}/>}
     {!readOnly&&menu&&<BlockContextMenu menu={menu} block={menuBlock} canMoveUp={menuBlock!==null&&menuIndex>0} canMoveDown={menuBlock!==null&&menuSection!==null&&menuIndex>-1&&menuIndex<menuSection.blocks.length-1} onEdit={openEdit} onAddSource={addSource} onRemove={sid=>{if(!menu)return;removeBlock(sid,menu.blockId);setMenu(null)}} onMove={(sid,dir)=>{if(!menu)return;moveBlock(sid,menu.blockId,dir);setMenu(null)}} onClose={()=>setMenu(null)}/>}
   </main>
 }
 
-function BlockEditor({content,target,changed,update,removeBlock,close}:{content:Content;target:{sectionId:string;blockId:string;fragmentIndex:number};changed:boolean;update:UpdateBlock;removeBlock:(sid:string,bid:string)=>void;close:()=>void}){
+function BlockEditor({content,target,changed,update,removeBlock,close,layout}:{content:Content;target:{sectionId:string;blockId:string;fragmentIndex:number};changed:boolean;update:UpdateBlock;removeBlock:(sid:string,bid:string)=>void;close:()=>void;layout:string}){
   const s=content.sections.find(x=>x.id===target.sectionId)
   const block=s?.blocks.find(x=>x.id===target.blockId)
   const factId=block&&block.source_refs.length?block.source_refs[0]:0
@@ -148,7 +148,7 @@ function BlockEditor({content,target,changed,update,removeBlock,close}:{content:
   const fields=block.fields||{}
   const fieldKeys=(block.display_fields||Object.keys(fields)).filter(k=>fields[k])
   const labelsFor={...fieldLabels,...(block.field_labels||{})}
-  const chunks=splitText(block.content||'',fragmentLimit(target.sectionId))
+  const chunks=splitText(block.content||'',fragmentLimit(layout==='sidebar'&&SIDE_IDS.includes(target.sectionId)))
   const copy=chunks[target.fragmentIndex]||''
   const fragmentLabel=target.fragmentIndex>0?`正文 · 续段 ${target.fragmentIndex+1}`:'正文'
   const canRemove=block.source_refs.length>0

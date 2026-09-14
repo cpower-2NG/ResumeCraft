@@ -32,46 +32,88 @@ export { mdLite }
 export function factBlock(f:Fact,sid:string):Block{const d=f.details||f.content||{};const fields=Object.fromEntries(Object.entries(d).filter(([,v])=>v));if(sid==='profile')delete fields.bio;const extra=(f.custom_fields||[]).filter(x=>x.value);const field_labels=Object.fromEntries(extra.map(x=>[x.key,x.label||x.key]));extra.forEach(x=>{fields[x.key]=x.value});const standard=sid==='profile'?(d.bio?['bio']:['summary']):sid==='basics'?['phone','email','city','desired_city','hometown','status','graduation','availability']:sid==='education'?['period','major','degree','gpa','ranking']:sid==='experience'?['period','organization','role','team_size','tools']:sid==='skills'?['skill_category','proficiency']:sid==='awards'?['period','issuer','result']:['link_type','label','url'];const display_fields=standard.filter(k=>fields[k]).concat(extra.filter(x=>x.displayable).map(x=>x.key));const content=sid==='profile'?(d.bio||d.summary||''):sid==='education'?[d.achievement,d.courses].filter(Boolean).join('\n'):sid==='experience'?['context','work','outcome','challenge','solution','public_note'].map(k=>d[k]).filter(Boolean).join('\n'):sid==='skills'?(d.context||''):sid==='awards'?(d.note||''):sid==='links'?(d.note||''):'';return {id:`fact-${f.id}-${Date.now()}`,type:'fact',title:f.title,content:content||brief(f),fields,field_labels,display_fields,source_refs:[f.id],origin:'fact'} as Block}
 
 export function splitText(value:string,max=900){if(!value)return [''];const chunks:string[]=[];for(let start=0;start<value.length;start+=max)chunks.push(value.slice(start,start+max));return chunks}
-export const fragmentLimit=(sid:string)=>['basics','skills','awards'].includes(sid)?520:900
+// 正文切片上限：侧栏版心只有约 44mm，切片要更短。与 services.py 的
+// section_fragment_limit 保持一致。
+export const fragmentLimit=(inSidebar:boolean)=>inSidebar?520:900
+// 该栏目是否由侧栏承载，决定正文的切片口径。编辑续段时要按同一口径重新切片，
+// 否则会切在与预览不同的位置上。
+export const inSidebarStream=(layout:string|undefined,sectionId:string)=>layout==='sidebar'&&SIDE_IDS.includes(sectionId)
 
 export const MAIN_IDS=['target','profile','experience','education','links']
-export const SIDE_IDS=['basics','skills','awards']
+// 侧栏布局里由侧栏承载的栏目。基本信息不在此列——它已经由侧栏页头（姓名 +
+// 联系方式 + 简介）呈现，重复成栏目会让同一段内容在侧栏出现两次。
+export const SIDE_IDS=['skills','awards']
 export const ALL_IDS=['basics','target','profile','experience','education','skills','awards','links']
 
-// —— 分页权重模型（单位：px，96dpi 下 A4 = 1122px 高）——
-// 与 app/services.py 的 LAYOUT_METRICS / PAGE_BUDGET_PX 保持同一公式与数值：
-// 权重即估算渲染高度，预算即页面可用高度。常数由导出 CSS 反推（正文 9pt×1.6、
-// 条目 h3 + 5mm 边距、栏目标题 12pt + 7mm 上边距、页内首栏目 margin 归零）。
+// —— 分页权重模型（单位：px，96dpi 下的 A4 = 1123px 高）——
+// 权重即估算的渲染高度，预算即版心可用高度。与 app/services.py 的
+// LAYOUT_METRICS / PAGE_BUDGET_PX 是同一张表：数值由
+// `python scripts/calibrate_layout.py && node web/scripts/measure_calib.mjs`
+// 从真实导出 CSS 的浏览器布局中实测得出，并按“安全一侧”取整（行高与固定成本向上
+// 取、每行字符数向下取），保证估算不低于实际渲染——低估会让导出正文越过 A4 底边
+// 被 overflow:hidden 裁掉。
+//
+// 衬线模板不需要单独一列：实测 Georgia/Times 对中文会落到 SimSun，中文字宽不变，
+// 每行字符数与同布局的非衬线模板一致。
 const LAYOUT_METRICS:Record<string,{header:number;header_first:number;base:number;extra:number;content_line:number;chars_per_line:number;meta:number;meta_chars:number;pair_chars_per_line:number;pair_meta_chars:number}> = {
-  sidebar:  {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:40, meta:14, meta_chars:45, pair_chars_per_line:19, pair_meta_chars:23},
-  side:     {header:46, header_first:46, base:30, extra:0,  content_line:15, chars_per_line:15, meta:14, meta_chars:15, pair_chars_per_line:15, pair_meta_chars:15},
-  plain:    {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65, pair_chars_per_line:27, pair_meta_chars:33},
-  banner:   {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65, pair_chars_per_line:27, pair_meta_chars:33},
-  grid:     {header:42, header_first:29, base:30, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65, pair_chars_per_line:27, pair_meta_chars:33},
-  line:     {header:52, header_first:31, base:52, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65, pair_chars_per_line:27, pair_meta_chars:33},
-  timeline: {header:52, header_first:31, base:38, extra:0,  content_line:19, chars_per_line:56, meta:14, meta_chars:65, pair_chars_per_line:27, pair_meta_chars:33},
+  sidebar:  {header:57, header_first:37, base:46, extra:0, content_line:20, chars_per_line:46, meta:15, meta_chars:34, pair_chars_per_line:21, pair_meta_chars:22},
+  side:     {header:24, header_first:24, base:39, extra:0, content_line:16, chars_per_line:17, meta:15, meta_chars:14, pair_chars_per_line:17, pair_meta_chars:14},
+  plain:    {header:57, header_first:37, base:42, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
+  banner:   {header:57, header_first:37, base:42, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
+  grid:     {header:57, header_first:42, base:39, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:33, pair_meta_chars:34},
+  line:     {header:55, header_first:35, base:54, extra:0, content_line:20, chars_per_line:68, meta:15, meta_chars:70, pair_chars_per_line:32, pair_meta_chars:34},
+  timeline: {header:57, header_first:37, base:44, extra:0, content_line:20, chars_per_line:58, meta:15, meta_chars:70, pair_chars_per_line:31, pair_meta_chars:34},
 }
-export const MAIN_BUDGET=1015
-export const SIDE_BUDGET=1015
-export const BANNER_BUDGET=915
-export const GRID_BUDGET=950
-export const LINE_BUDGET=940
-export const TIMELINE_BUDGET=895
-// 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列（左时间栏是其识别
-// 特征）。pair 只在两栏估算高度均衡时成立，悬殊的栏目保持整行；pair 是原子
-// 单元，不跨页拆分。常数与 app/services.py 的 PAIRING_BY_LAYOUT/PAIR_MAX_RATIO/
-// PAIR_FIT 保持一致。
+export const MAIN_BUDGET=1024
+export const SIDE_BUDGET=1032
+export const BANNER_BUDGET=906
+export const GRID_BUDGET=982
+export const LINE_BUDGET=986
+export const TIMELINE_BUDGET=941
+const BUDGETS:Record<string,number>={sidebar:MAIN_BUDGET,side:SIDE_BUDGET,plain:948,banner:BANNER_BUDGET,grid:GRID_BUDGET,line:LINE_BUDGET,timeline:TIMELINE_BUDGET}
+// 侧栏首页除了栏目，还要放侧栏页头（姓名 + 联系方式 + 简介），这部分高度必须从第一页
+// 的侧栏预算里扣掉，否则侧栏首页会溢出 A4 底边被裁掉。与 services.py 的
+// SIDEBAR_* 常数同一口径。
+const SIDEBAR_NAME_PX=50
+const SIDEBAR_FIELD_PX=21
+const SIDEBAR_BIO_LINE_PX=19
+const SIDEBAR_HEAD_BASE_PX=24
+// 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列，左时间栏是它的
+// 识别特征。配对只发生在相邻栏目之间以保持栏目顺序，且必须真正省下纵向空间才
+// 配对——半宽折行会让正文变高，落差悬殊的栏目并排反而更费版面。PAIR_MAX_SHARE
+// 把并排限制在“短栏目收尾”场景：并排单元至多占一页的约四成，更长的栏目（项目
+// 与实践等主栏内容）保持整宽通排。常数与 app/services.py 的
+// PAIRING_BY_LAYOUT/PAIR_MAX_SHARE/PAIR_MIN_SAVING 保持一致。
 const PAIRING_BY_LAYOUT:Record<string,boolean>={sidebar:true,plain:true,banner:true,grid:true,line:true,timeline:false}
-const PAIR_MAX_RATIO=1.7
-const PAIR_FIT=0.96
+const PAIR_MAX_SHARE=0.4
+const PAIR_MIN_SAVING=20
+type Metrics=typeof LAYOUT_METRICS[string]
+// 侧栏页头（姓名 + 联系方式 + 简介）的估算高度，与 services.py 的
+// sidebar_head_height 同一公式：姓名行 + 每个联系字段一行 + 简介行数。
+export const sidebarHeadHeight=(basic:Block|undefined):number=>{
+  const style=LAYOUT_METRICS.side
+  const fields=basic?.fields||{}
+  const displayed=basic?.display_fields||Object.keys(fields)
+  let rows=0
+  for(const key of displayed){
+    const value=fields[key]
+    if(!value)continue
+    rows+=Math.max(1,Math.ceil((String(fieldLabels[key]??key)+String(value)).length/style.meta_chars))
+  }
+  const bioLines=contentLineCount(basic?.content||'',style.chars_per_line)
+  return SIDEBAR_HEAD_BASE_PX+SIDEBAR_NAME_PX+rows*SIDEBAR_FIELD_PX+bioLines*SIDEBAR_BIO_LINE_PX
+}
 // Section order and packing budget per template layout; mirrors render_resume_html().
-// 侧栏布局：基本信息/技能/成果在侧栏，主栏五栏目；其余布局的姓名与联系方式
-// 由页头呈现，正文从求职目标开始。
+// 侧栏布局：基本信息由侧栏页头（姓名 + 联系方式 + 简介）呈现，不再重复成栏目；
+// 技能与成果在侧栏，主栏承载其余五栏。其余布局的姓名与联系方式由页头呈现。
 export const layoutMainIds=(layout:string)=>layout==='sidebar'?MAIN_IDS:ALL_IDS.filter(id=>id!=='basics')
-export const layoutBudget=(layout:string)=>layout==='banner'?BANNER_BUDGET:layout==='grid'?GRID_BUDGET:layout==='line'?LINE_BUDGET:layout==='timeline'?TIMELINE_BUDGET:MAIN_BUDGET
+// 按布局直接查表：曾用一串条件挑预算，plain 没有分支而落到 sidebar 的预算上，
+// 凭空多出近百像素，导出正文因此越过 A4 底边被裁掉。
+export const layoutBudget=(layout:string)=>BUDGETS[layout]??MAIN_BUDGET
+
 
 export type FlowUnit={kind:'flow';section:Section;block:Block;continued?:boolean}
-export type PairUnit={kind:'pair';sectionA:Section;blocksA:Block[];sectionB:Section;blocksB:Block[]}
+export type PairUnit={kind:'pair';sectionA:Section;blocksA:Block[];sectionB:Section;blocksB:Block[];weight:number}
 export type Unit=FlowUnit|PairUnit
 
 const emptyBlock=(sid:string):Block=>({id:`${sid}--empty`,title:'',content:'',source_refs:[],origin:'empty'})
@@ -88,22 +130,28 @@ const metaFieldLines=(b:Block,side:boolean,charsPerLine:number)=>{
   const total=displayed.reduce((s,k)=>s+(String(fieldLabels[k]??k)+String(fields[k])).length,0)
   return Math.max(1,Math.ceil(total/charsPerLine))
 }
-const itemWeight=(it:FlowUnit,side:boolean,layout:string)=>{
-  const style=LAYOUT_METRICS[side?'side':layout]||LAYOUT_METRICS.sidebar
-  // 与 services.py 的 section_item_weight 同一公式：固定成本 + 正文行数 × 行高
-  // + 元信息行数 × 行高，否则预览分页与导出断点会错位。
-  return style.base+style.extra+contentLineCount(it.block.content,style.chars_per_line)*style.content_line+metaFieldLines(it.block,side,style.meta_chars)*style.meta
-}
+// 与 services.py 的 section_item_weight 同一公式：固定成本 + 正文行数 × 行高
+// + 元信息行数 × 行高，否则预览分页与导出断点会错位。
+const itemWeight=(block:Block,style:Metrics)=>style.base+style.extra+contentLineCount(block.content,style.chars_per_line)*style.content_line+metaFieldLines(block,false,style.meta_chars)*style.meta
 
-// 把栏目切成页面单元：flow = 逐条目（栏目标题行按页计一次），pair = 两个短
-// 栏目并排的原子单元。与 render_resume_html() 的 stream_pages 逐项镜像，
-// 预览分页与导出断点保持一致。
-export function streamItems(content:Content,ids:string[],budget:number,side:boolean,layout:string=''):Unit[][]{
+// 把栏目切成页面单元并分页：flow = 某栏目的一个条目（栏目标题行按页计一次），
+// pair = 相邻两个短栏目并排成一行两个模块。与 render_resume_html() 的
+// stream_pages 逐项镜像，预览分页与导出断点保持一致。
+//
+// 配对以栏目顺序为准，只并排相邻栏目，因此不会打乱栏目次序；并且只在真正省下
+// 纵向空间时成立。pair 是原子单元，放不下当前页剩余空间时退化回两个 flow 单元，
+// 避免为等一整对而空出大半页、形成只有一两行的尾页。
+//
+// inSidebar 决定用哪一列的口径计价——侧栏版心只有约 44mm，每行字数与条目固定成本
+// 都和主栏差一个量级，用错口径会让整页的估算失真。firstPageHead 是首页额外的固定
+// 占用（侧栏页头），只从第一页扣。
+export function streamItems(content:Content,ids:string[],budget:number,inSidebar:boolean,layout:string='',firstPageHead=0):Unit[][]{
+  const styleFor=()=>LAYOUT_METRICS[inSidebar?'side':layout]||LAYOUT_METRICS.side
   const sectionOf=(id:string)=>section(content,id)
-  const styleOf=(sid:string)=>LAYOUT_METRICS[side?'side':layout]||LAYOUT_METRICS.sidebar
+  const blocksOf=(sid:string)=>sectionOf(sid).blocks
   const fragmentFlow=(sid:string,blocks:Block[]):Unit[]=>{
-    const style=styleOf(sid)
-    const limit=fragmentLimit(sid)
+    const style=styleFor()
+    const limit=fragmentLimit(inSidebar)
     const out:Unit[]=[]
     if(!blocks.length){
       // 空栏目保留标题行（选择/添加来源的点击入口）。
@@ -116,55 +164,64 @@ export function streamItems(content:Content,ids:string[],budget:number,side:bool
     }
     return out
   }
-  const pairColumnHeight=(blocks:Block[])=>{
-    const style=LAYOUT_METRICS[layout]||LAYOUT_METRICS.sidebar
+  // 整栏估算高度：栏目标题行 + 各条目（固定成本 + 正文行 + 元信息行）。
+  const columnHeight=(sid:string,charsPerLine:number,metaChars:number)=>{
+    const style=styleFor()
+    const blocks=blocksOf(sid)
     let total=style.header
-    for(const block of blocks) total+=style.base+contentLineCount(block.content,style.pair_chars_per_line)*style.content_line+metaFieldLines(block,false,style.pair_meta_chars)*style.meta
+    if(!blocks.length)return total+style.base
+    for(const block of blocks) total+=style.base+style.extra+contentLineCount(block.content,charsPerLine)*style.content_line+metaFieldLines(block,false,metaChars)*style.meta
     return total
+  }
+  // 相邻两栏并排的估算高度；不值得配对时返回 null（保持整宽通排）。
+  const pairHeight=(sid:string,sid2:string):number|null=>{
+    const style=LAYOUT_METRICS[layout]||LAYOUT_METRICS.sidebar
+    const stacked=columnHeight(sid,style.chars_per_line,style.meta_chars)+columnHeight(sid2,style.chars_per_line,style.meta_chars)
+    const paired=Math.max(
+      columnHeight(sid,style.pair_chars_per_line,style.pair_meta_chars),
+      columnHeight(sid2,style.pair_chars_per_line,style.pair_meta_chars),
+    )
+    if(paired>budget*PAIR_MAX_SHARE||stacked-paired<PAIR_MIN_SAVING)return null
+    return paired
   }
 
   const units:Unit[]=[]
-  const remaining=[...ids]
-  if(!side&&(PAIRING_BY_LAYOUT[layout]??false)){
-    const compactIds=(['education','skills','awards','links'] as const).filter(id=>remaining.includes(id))
-    for(const id of compactIds) remaining.splice(remaining.indexOf(id),1)
-    let i=0
-    while(i<compactIds.length){
-      const sid=compactIds[i]
-      const blocksA=sectionOf(sid).blocks
-      if(i+1<compactIds.length){
-        const sid2=compactIds[i+1]
-        const blocksB=sectionOf(sid2).blocks
-        const taller=Math.max(pairColumnHeight(blocksA),pairColumnHeight(blocksB))
-        const oneEmpty=!blocksA.length||!blocksB.length
-        if(taller<=budget*PAIR_FIT&&(oneEmpty||taller<=PAIR_MAX_RATIO*Math.min(pairColumnHeight(blocksA),pairColumnHeight(blocksB)))){
-          units.push({kind:'pair',sectionA:sectionOf(sid),blocksA,sectionB:sectionOf(sid2),blocksB})
-          i+=2
-          continue
-        }
+  const pairable=!inSidebar&&(PAIRING_BY_LAYOUT[layout]??false)
+  let index=0
+  while(index<ids.length){
+    const sid=ids[index]
+    if(pairable&&index+1<ids.length){
+      const sid2=ids[index+1]
+      const weight=pairHeight(sid,sid2)
+      if(weight!==null){
+        units.push({kind:'pair',sectionA:sectionOf(sid),blocksA:blocksOf(sid),sectionB:sectionOf(sid2),blocksB:blocksOf(sid2),weight})
+        index+=2
+        continue
       }
-      units.push(...fragmentFlow(sid,blocksA))
-      i+=1
     }
+    units.push(...fragmentFlow(sid,blocksOf(sid)))
+    index+=1
   }
-  for(const sid of remaining) units.push(...fragmentFlow(sid,sectionOf(sid).blocks))
 
   const pages:Unit[][]=[];let current:Unit[]=[];let size=0;let currentId:string|null=null
-  for(const unit of units){
+  const pageBudget=()=>budget-(pages.length?0:firstPageHead)
+  let cursor=0
+  while(cursor<units.length){
+    const unit=units[cursor]
     if(unit.kind==='pair'){
-      // pair 是原子单元：估算高度取两栏较大者，放不下就整组换页。
-      const taller=Math.max(pairColumnHeight(unit.blocksA),pairColumnHeight(unit.blocksB))
-      if(current.length&&size+taller>budget){pages.push(current);current=[];size=0;currentId=null}
-      current.push(unit);size+=taller
+      if(!current.length||size+unit.weight<=pageBudget()){current.push(unit);size+=unit.weight;cursor+=1;continue}
+      // 放不下当前页剩余的这一点空间：退化成两个整宽栏目接着排，把本页填满。
+      units.splice(cursor,1,...fragmentFlow(unit.sectionA.id,unit.blocksA),...fragmentFlow(unit.sectionB.id,unit.blocksB))
       continue
     }
-    const style=styleOf(unit.section.id)
-    const w=itemWeight(unit,side,layout)
+    const style=styleFor()
+    const w=itemWeight(unit.block,style)
     let header=unit.section.id!==currentId?style.header:0
-    if(current.length&&size+w+header>budget){pages.push(current);current=[];size=0;currentId=null;header=style.header_first}
+    if(current.length&&size+w+header>pageBudget()){pages.push(current);current=[];size=0;currentId=null;header=style.header_first}
     if(header){size+=header;currentId=unit.section.id}
     unit.continued=false
     current.push(unit);size+=w
+    cursor+=1
   }
   if(current.length||!pages.length)pages.push(current)
   const seen=new Set<string>()
