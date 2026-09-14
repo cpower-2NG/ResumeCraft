@@ -7,6 +7,7 @@ data/*.db
 data/*.db-*
 data/attachments/
 web/node_modules/
+node_modules/
 web/.pnpm-store/
 .pnpm-store/
 web/dist/
