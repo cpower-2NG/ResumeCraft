@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_IDS, BANNER_BUDGET, GRID_BUDGET, LINE_BUDGET, MAIN_BUDGET, MAIN_IDS, SIDE_BUDGET, SIDE_IDS, TIMELINE_BUDGET, layoutBudget, layoutMainIds, splitText, streamItems } from './lib/resume'
+import { ALL_IDS, BANNER_BUDGET, GRID_BUDGET, LINE_BUDGET, MAIN_BUDGET, MAIN_IDS, RAIL_BUDGET, SIDE_BUDGET, SIDE_IDS, TIMELINE_BUDGET, layoutBudget, layoutMainIds, splitText, streamItems } from './lib/resume'
 import type { Block, Content, Unit } from './lib/resume'
 
 const makeBlock = (id: string, content: string): Block => ({ id, title: `标题${id}`, content, source_refs: [], origin: 'fact' })
@@ -18,17 +18,19 @@ describe('splitText', () => {
 
 describe('layoutMainIds / layoutBudget for new layouts', () => {
   it('mirrors the export renderer for grid/line/timeline', () => {
-    // 单栏布局（含 grid/line/timeline/plain）都用页头呈现姓名与联系方式，正文
-    // 从求职目标开始；sidebar 侧栏承载基本信息/技能/成果，主栏五栏（预算 px）。
-    expect(layoutMainIds('grid')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
+    // 单栏布局（含 grid/line/timeline/plain）都用页头呈现姓名与联系方式；求职目标
+    // 变成页头下的意向横带，不再是栏目；sidebar 侧栏承载基本信息/技能/成果（预算 px）。
+    expect(layoutMainIds('grid')).toEqual(ALL_IDS.filter(id => id !== 'basics' && id !== 'target'))
     expect(layoutMainIds('line')).toEqual(layoutMainIds('banner'))
-    expect(layoutMainIds('timeline')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
-    expect(layoutMainIds('plain')).toEqual(ALL_IDS.filter(id => id !== 'basics'))
+    expect(layoutMainIds('timeline')).toEqual(ALL_IDS.filter(id => id !== 'basics' && id !== 'target'))
+    expect(layoutMainIds('plain')).toEqual(ALL_IDS.filter(id => id !== 'basics' && id !== 'target'))
+    expect(layoutMainIds('rail')).toEqual(layoutMainIds('plain'))
     expect(layoutMainIds('sidebar')).toEqual(MAIN_IDS)
     expect(layoutBudget('grid')).toBe(GRID_BUDGET)
     expect(layoutBudget('line')).toBe(LINE_BUDGET)
     expect(layoutBudget('timeline')).toBe(TIMELINE_BUDGET)
     expect(layoutBudget('banner')).toBe(BANNER_BUDGET)
+    expect(layoutBudget('rail')).toBe(RAIL_BUDGET)
     expect(layoutBudget('sidebar')).toBe(MAIN_BUDGET)
     expect(layoutBudget('sidebar')).toBeGreaterThan(0)
   })
@@ -47,9 +49,9 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
     }
   })
 
-  it('pairs short adjacent sections without reordering the resume', () => {
-    // 相邻短栏目两两并排（一行两个模块）；配对不得打乱栏目顺序——此前把
-    // education/skills/awards/links 整体提前到 target/profile/experience 之前。
+  it('pairs short adjacent sections only in the table layout, without reordering the resume', () => {
+    // 相邻短栏目并排成表格行 belong to 表格表单 only；其余版式一律整宽通排（依据见
+    // app/services.py 的 PAIR_BUDGET_BY_LAYOUT 注释）。配对也不得打乱栏目顺序。
     const content = makeContent([
       { id: 'target', blocks: [makeBlock('t', '求职目标内容')] },
       { id: 'profile', blocks: [makeBlock('p', '个人简介内容')] },
@@ -59,22 +61,22 @@ describe('layoutMainIds / layoutBudget for new layouts', () => {
       { id: 'awards', blocks: [makeBlock('award', '成果内容')] },
       { id: 'links', blocks: [makeBlock('link', '链接内容')] },
     ])
-    for (const layout of ['plain', 'grid', 'line', 'banner', 'sidebar']) {
-      const ids = layout === 'sidebar' ? MAIN_IDS : ALL_IDS.filter(id => id !== 'basics')
-      const units = streamItems(content, ids, layoutBudget(layout), false, layout).flat()
-      const appeared: string[] = []
-      for (const unit of units) {
-        const group = unit.kind === 'pair' ? [unit.sectionA.id, unit.sectionB.id] : [unit.section.id]
-        for (const id of group) if (!appeared.includes(id)) appeared.push(id)
-      }
-      expect(appeared, layout).toEqual(ids)
-      expect(pairsOf(units).length, layout).toBeGreaterThan(0)
-      // 主栏内容（项目与实践）不参与并排，保持整宽通排。
-      expect(pairsOf(units).some(p => p.sectionA.id === 'experience' || p.sectionB.id === 'experience'), layout).toBe(false)
+    const gridUnits = streamItems(content, ALL_IDS.filter(id => id !== 'basics'), layoutBudget('grid'), false, 'grid').flat()
+    const appeared: string[] = []
+    for (const unit of gridUnits) {
+      const group = unit.kind === 'pair' ? [unit.sectionA.id, unit.sectionB.id] : [unit.section.id]
+      for (const id of group) if (!appeared.includes(id)) appeared.push(id)
     }
-    // 时间轴保持整宽通排——左时间栏是它的识别特征。
-    const timelineUnits = streamItems(content, layoutMainIds('timeline'), layoutBudget('timeline'), false, 'timeline').flat()
-    expect(pairsOf(timelineUnits).length).toBe(0)
+    expect(appeared).toEqual(ALL_IDS.filter(id => id !== 'basics'))
+    expect(pairsOf(gridUnits).length).toBeGreaterThan(0)
+    // 主栏内容（项目与实践）不参与并排，保持整宽通排。
+    expect(pairsOf(gridUnits).some(p => p.sectionA.id === 'experience' || p.sectionB.id === 'experience')).toBe(false)
+    // 其余版式一处都不并排：单栏（兼容性优先）、侧栏（页级两栏）、时间轴（左时间栏是识别特征）。
+    for (const layout of ['plain', 'banner', 'line', 'sidebar', 'timeline']) {
+      const ids = layout === 'sidebar' ? MAIN_IDS : layoutMainIds(layout)
+      const units = streamItems(content, ids, layoutBudget(layout), false, layout).flat()
+      expect(pairsOf(units).length, layout).toBe(0)
+    }
   })
 })
 
@@ -103,7 +105,7 @@ describe('streamItems section aggregation', () => {
 
   it('keeps empty sections renderable and packs the sidebar stream independently', () => {
     const empty = streamItems(makeContent([{ id: 'links', blocks: [] }]), MAIN_IDS, MAIN_BUDGET, false)
-    // Every main section renders (empty ones show their title only).
+    // Every main section renders (empty ones become a "pick content" placeholder).
     const firstPageFlow = flowOf(empty[0])
     expect(firstPageFlow.length).toBe(MAIN_IDS.length)
     expect(flowOf(empty[0]).at(-1)?.section.id).toBe('links')
@@ -111,5 +113,22 @@ describe('streamItems section aggregation', () => {
     const sideFlow = flowOf(side[0])
     expect(sideFlow.length).toBe(SIDE_IDS.length)
     expect(sideFlow.find(it => it.section.id === 'skills')?.continued).toBe(false)
+  })
+
+  it('charges empty sections no budget so preview breaks match the export', () => {    // 导出端（app/services.py）把这些栏目整个剔掉，画布则保留它们作为可点选入口。
+    // 只有占位行不计版面，预览与导出的断页才会落在同一处——回归过：占位行一旦计价，
+    // 它会替后面的第一个栏目占掉 header_first 的便宜，预览比导出更早断页。
+    const blocks = [makeBlock('long', '很'.repeat(3000))]
+    const withEmpty = streamItems(
+      makeContent([{ id: 'profile', blocks: [] }, { id: 'experience', blocks }]),
+      ['profile', 'experience'], MAIN_BUDGET, false,
+    )
+    const withoutEmpty = streamItems(makeContent([{ id: 'experience', blocks }]), ['experience'], MAIN_BUDGET, false)
+    expect(withEmpty.length).toBe(withoutEmpty.length)
+    const placeholders = flowOf(withEmpty.flat()).filter(it => it.block.origin === 'empty')
+    expect(placeholders.map(it => it.section.id)).toEqual(['profile'])
+    // 每一页上的真实条目（不含占位行）与没有空栏目时完全一致。
+    const realIds = (pages: typeof withEmpty) => pages.map(page => flowOf(page).filter(it => it.block.origin !== 'empty').map(it => it.block.id))
+    expect(realIds(withEmpty)).toEqual(realIds(withoutEmpty))
   })
 })

@@ -1,12 +1,67 @@
-:root{font-family:Inter,"Microsoft YaHei",Arial,sans-serif;color:#24342f;background:#edf0eb;font-synthesis:none}*{box-sizing:border-box}body{margin:0}.topbar{height:62px;background:#fff;border-bottom:1px solid #d9e0d9;display:flex;align-items:center;justify-content:space-between;padding:0 max(26px,calc((100vw - 1240px)/2));position:sticky;top:0;z-index:20}.brand,.button,.icon-btn,.back-btn{border:0;background:none;color:#264137;cursor:pointer;font:inherit}.brand{font-weight:800;font-size:16.5px;letter-spacing:.4px;color:#15211d;display:flex;gap:9px;align-items:center}.brand span{width:27px;height:27px;display:grid;place-items:center;background:#12262b;color:#fff;font-family:Georgia,serif;font-weight:700}.icon-btn{padding:7px;display:grid;place-items:center}.badge{position:relative}.badge i{position:absolute;right:0;top:0;min-width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:#bb523f;color:#fff;font-size:9px;font-style:normal}.page{max-width:1120px;width:calc(100% - 56px);margin:0 auto;padding:54px 0 100px}.home{padding-top:76px}.eyebrow{margin:0 0 9px;font-size:10px;letter-spacing:1.6px;color:#65867b}.home h1,.page-title h1,.workbench-head h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:45px;line-height:1.14;font-weight:500;margin:0;color:#163b43}.home h1 em{font-style:normal;color:#287d87}.lead{margin:17px 0 42px;color:#667871;font-size:14px}.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.module-card{min-height:190px;border:1px solid #d9e2dc;background:#fff;padding:23px;text-align:left;color:#263b34;position:relative;cursor:pointer}.module-card svg:last-child{position:absolute;right:18px;bottom:18px;color:#5a8574}.module-card h2{font-size:20px;margin:20px 0 7px}.module-card p{font-size:12px;line-height:1.6;color:#6d7c74;margin:0}.module-card{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease}.module-card.dark{background:linear-gradient(140deg,#10262b 0%,#1b4249 72%,#22565e 100%);border-color:#0e2126;color:#eef6f4;box-shadow:0 10px 26px #10262b38}.module-card.dark h2{color:#fff}.module-card.dark p{color:#a3c2bc}.module-card.dark>svg:first-child{color:#7fc4b8}.module-card.dark svg:last-child{color:#54948a}.module-card.dark:hover{border-color:#0c1e22;box-shadow:0 14px 32px #10262b4d;transform:translateY(-2px)}.stat-row{display:grid;grid-template-columns:repeat(4,1fr);margin:25px 0;background:#d5e5d8}.stat-row div{padding:17px 20px;border-right:1px solid #bbd2bf}.stat-row div:last-child{border:0}.stat-row b{display:block;font-family:Georgia,serif;font-size:28px;font-weight:500}.stat-row span{font-size:11px;color:#56705d}.breadcrumb{font-size:12px;color:#809087;display:flex;gap:8px;align-items:center}.back-btn{display:flex;gap:5px;align-items:center;font-size:12px}.page-title{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin:24px 0 30px}.page-title h1{font-size:36px}.page-title p{font-size:13px;color:#687970;line-height:1.7;max-width:540px;margin:12px 0 0}.header-actions,.card-actions,.modal-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.button{border:1px solid #b9cbc0;background:#fff;padding:9px 12px;min-height:37px;font-size:12px;font-weight:650;display:inline-flex;gap:6px;align-items:center;justify-content:center}.button.primary{background:#1d5c69;border-color:#1d5c69;color:#fff}.button.danger{color:#a34838;border-color:#dbb0a7}.filterbar{background:#fff;border:1px solid #dce4de;padding:8px 11px;display:flex;gap:9px;align-items:center}.filterbar input{border:0;outline:0;min-width:0;flex:1;font:inherit;font-size:13px}.library-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:15px}.library-card{border:1px solid #d6e0d9;background:#fff;min-height:106px;padding:17px;display:flex;align-items:center;text-align:left;gap:12px;color:#2d4a3b;cursor:pointer}.library-card svg:last-child{margin-left:auto}.library-card>span{display:grid;gap:4px}.library-card small,.table-row small,.resume-row small,.version-row small{font-size:11px;color:#718077}.category-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:15px 0 10px}.category-tabs button{border:1px solid #cddbd0;background:#fff;color:#557164;padding:7px 9px;font-size:11px;cursor:pointer}.category-tabs .active{background:#225f63;color:#fff;border-color:#225f63}.data-table,.list-panel,.version-panel{background:#fff;border:1px solid #dbe3dd}.table-head,.table-row{display:grid;grid-template-columns:1.05fr 1.55fr .45fr .55fr;gap:14px;align-items:center;text-align:left}.table-head{padding:11px 18px;background:#f5f8f5;color:#738078;font-size:10px}.table-row{width:100%;border:0;border-top:1px solid #edf0ed;background:#fff;padding:13px 18px;color:#30463b;cursor:pointer;font:inherit;font-size:12px}.table-row:hover{background:#f7faf7}.table-row>span:first-child{display:grid;gap:3px}.table-row b{font-size:13px}.table-row>span:nth-child(2){color:#6d7b73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.table-row time{color:#748279;font-size:11px}.profile-list{display:grid;gap:11px}.profile-card{background:#fff;border:1px solid #dbe3dd;padding:21px;display:flex;justify-content:space-between;gap:24px;align-items:center}.profile-card h2{font-family:Georgia,"Microsoft YaHei",serif;font-size:22px;font-weight:500;margin:0 0 10px}.profile-card p:not(.eyebrow){font-size:12px;color:#6c7a72;margin:12px 0 0}.chips{display:flex;gap:5px;flex-wrap:wrap}.chips span{font-size:10px;color:#2e695c;background:#eef5ef;padding:4px 6px}.resume-row{width:100%;background:#fff;border:0;border-bottom:1px solid #e8eeea;padding:16px 20px;display:flex;align-items:center;gap:12px;text-align:left;color:#30463b;cursor:pointer}.resume-row>span{display:grid;gap:4px}.resume-row em{margin-left:auto;display:flex;gap:4px;align-items:center;color:#608070;font-size:11px;font-style:normal}.warning-banner{border:1px solid #e2b8a6;background:#fff5ee;color:#794633;display:flex;gap:9px;padding:12px 14px;margin-bottom:13px}.warning-banner b,.warning-banner span{display:block}.warning-banner b{font-size:13px}.warning-banner span{font-size:11px;margin-top:3px;color:#936352}.compact{max-width:940px;margin:0 auto 13px}.field{display:grid;gap:6px;font-size:12px;color:#42574e}.field small{font-size:11px;color:#7a8980;line-height:1.4}.field input,.field textarea,.field select,details textarea{width:100%;border:1px solid #cfdbd3;padding:9px;font:inherit;font-size:13px;color:#283b31;background:#fff}.field textarea,details textarea{min-height:84px;resize:vertical}.selection-modal,.modal{background:#fff;width:min(650px,100%);max-height:calc(100vh - 44px);overflow:auto;box-shadow:0 20px 55px #10232350}.modal-backdrop,.selection-backdrop{position:fixed;inset:0;background:#142a2a80;z-index:50;display:grid;place-items:center;padding:22px}.modal>header,.selection-modal>header{display:flex;justify-content:space-between;align-items:center;padding:16px 19px;border-bottom:1px solid #e3ebe4}.modal h2,.selection-modal h2{font-size:17px;margin:0}.modal-body{display:grid;gap:14px;padding:19px}.modal-note{margin:0;color:#687971;font-size:12px;line-height:1.55}.evidence-link{background:#f1f7f3;border:1px solid #d8e7da;color:#396454;padding:11px;display:flex;align-items:center;gap:8px;cursor:pointer;font:inherit;font-size:12px}.evidence-link span{margin-left:auto}.evidence-row{border-bottom:1px solid #edf1ed;display:flex;gap:8px;padding:8px 0}.evidence-row span{display:grid;gap:2px;font-size:12px}.evidence-row small{font-size:10px;color:#738079}.selection-modal{width:min(620px,100%)}.selection-modal .filterbar{border-width:0 0 1px}.selection-list{max-height:50vh;overflow:auto;padding:5px 20px}.selection-list label{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ed;cursor:pointer}.selection-list input{margin-top:3px;accent-color:#1d5c69}.selection-list span{display:grid;gap:3px}.selection-list b{font-size:13px}.selection-list small{font-size:11px;color:#728077}.selection-modal footer{padding:13px 20px;display:flex;align-items:center;justify-content:space-between;background:#f5f8f5;font-size:12px}.workbench{padding:27px 20px 95px;max-width:1390px;margin:0 auto}.workbench-head{max-width:1050px;margin:0 auto 18px;display:flex;align-items:center;gap:14px}.workbench-head>div{flex:1}.workbench-head h1{font-size:24px}.a4-state{font-size:11px;background:#d8ece3;color:#24634e;padding:7px 9px}.canvas-hint{text-align:center;color:#677a70;font-size:12px;margin:0 0 14px}.resume-stage{display:grid;gap:24px;justify-content:center;padding:20px 35px 40px;background:#d5dbd7;border:1px solid #c8d2cc;overflow:auto}.resume-paper{width:210mm;height:297mm;min-height:297mm;background:#fff;display:grid;grid-template-columns:58mm 1fr;box-shadow:0 7px 25px #1830292e;overflow:hidden;flex:none}.resume-sidebar{background:var(--t-sidebar-bg);color:var(--t-sidebar-fg);padding:12mm 7mm;overflow:hidden}.resume-main{padding:12mm 12mm;overflow:hidden}.sidebar-content{display:grid;align-content:start;gap:4.5mm}.resume-section{margin:0;min-width:0}.resume-section .template-section-title{margin:0 0 1.6mm;padding-bottom:1.1mm;position:relative}.resume-section .template-section-title b{font-size:10.5pt}.resume-paper .template-section-title b{color:var(--t-heading)}.resume-paper .block-head>b{color:var(--t-title)}.resume-section .template-section-title span{font-size:7pt}.sidebar-section .template-section-title{border:0;padding:0;margin-bottom:1.8mm}.sidebar-section .template-section-title b{color:var(--t-sidebar-heading);font-size:8pt;letter-spacing:1.3px}.sidebar-section .template-section-title span{color:var(--t-sidebar-heading)}.sidebar-section .resume-block{margin-bottom:2.2mm}.sidebar-section .block-head>b,.sidebar-section .inline-title{color:var(--t-sidebar-fg);font-size:8.5pt}.sidebar-section .block-copy,.sidebar-section .editable-copy,.sidebar-section .block-meta{color:var(--t-sidebar-muted);font-size:8pt;line-height:1.38}.main-sections{display:grid;gap:3.8mm}.main-sections .resume-section:first-child{margin-top:0}.main-sections .resume-block{margin-bottom:2.6mm}
-.main-sections .pair{display:grid;grid-template-columns:1fr 1fr;gap:0 6mm;align-items:start}
-.resume-paper.grid .pair{gap:0 4mm}.block-meta{display:flex;flex-wrap:wrap;gap:2mm 4mm;color:var(--t-meta);font-size:7.7pt;line-height:1.45;margin:1mm 0}.block-meta span{display:inline-flex;gap:1mm;align-items:baseline}.block-meta label{color:var(--t-meta-label)}.block-meta input{width:26mm;border:0;border-bottom:1px solid #b9ccc5;background:transparent;color:#405652;font:inherit;font-size:7.7pt;padding:1px}.inline-title{border:0;border-bottom:1px solid #b9ccc5;background:transparent;color:var(--t-title);font:inherit;font-weight:700;font-size:9.6pt;min-width:0;max-width:70%;padding:1px}.editable-copy{width:100%;min-height:28px;border:1px solid transparent;background:#fbfdfb;color:var(--t-copy);font:inherit;font-size:8.8pt;line-height:1.58;padding:2px;resize:vertical}.editable-copy:focus,.inline-title:focus,.block-meta input:focus{outline:1px solid #3b9ba1;background:#effafa}.mini-button{margin-left:auto;border:1px solid #b9cbc0;background:#fff;color:#35645e;font-size:10px;padding:3px 6px;cursor:pointer}.resume-section .template-section-title .mini-button{position:absolute;right:0;top:50%;transform:translateY(-50%)}.continuation-mark{font-size:7.5pt;color:var(--t-sidebar-heading);letter-spacing:1.4px}.fact-fields{display:grid;gap:10px}.short-field{min-height:38px!important}.actionbar{height:65px;background:#fff;border-top:1px solid #d6dfda;position:fixed;z-index:25;bottom:0;left:0;right:0;display:flex;justify-content:flex-end;gap:8px;align-items:center;padding:0 max(24px,calc((100vw - 1330px)/2))}.version-panel{max-width:1050px;margin:20px auto 0}.version-panel header{padding:12px 15px;border-bottom:1px solid #e5ece6;display:flex;align-items:center;gap:8px}.version-panel h2{font-size:13px;margin:0}.version-row{padding:11px 15px;border-bottom:1px solid #edf1ed;display:flex;justify-content:space-between;align-items:center;gap:10px}.version-row>span{display:grid;gap:3px;font-size:12px}.loading,.empty{padding:48px 18px;display:flex;gap:7px;align-items:center;justify-content:center;color:#77867e;font-size:12px}.empty{display:block;text-align:center}.empty h3{font-size:15px;color:#40534b;margin:10px 0 5px}.empty p{margin:0;font-size:12px}details{font-size:12px;color:#52645c}details summary{cursor:pointer;font-weight:650;margin-bottom:8px}@media(max-width:850px){.page{width:calc(100% - 32px);padding-top:32px}.module-grid,.library-grid{grid-template-columns:1fr}.stat-row{grid-template-columns:1fr 1fr}.page-title,.profile-card{align-items:flex-start;flex-direction:column}.table-head{display:none}.table-row{grid-template-columns:1fr auto;gap:8px}.table-row>span:nth-child(2),.table-row>span:nth-child(3){display:none}.workbench{padding:20px 0 84px}.workbench-head{padding:0 16px}.resume-stage{padding:12px;justify-content:start}.resume-paper{transform-origin:top left;transform:scale(.46);margin-bottom:calc(-297mm*.54);margin-right:calc(-210mm*.54)}.actionbar{padding:0 16px}.version-panel{margin-left:16px;margin-right:16px}.topbar{padding:0 16px}.home h1{font-size:36px}}
-.resume-paper,.resume-paper *{font-family:Arial,"Microsoft YaHei",sans-serif;font-synthesis:none;letter-spacing:0}.resume-paper input,.resume-paper textarea,.resume-paper button{font-style:normal}.resume-paper .block-copy,.resume-paper .editable-copy{white-space:pre-wrap;overflow-wrap:anywhere}.resume-paper .resume-block{min-width:0;break-inside:avoid}.continuation-label{color:var(--t-sidebar-muted);font-size:7.5pt;margin-left:2mm}.button:disabled{opacity:.55;cursor:not-allowed}.flash{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;max-width:min(680px,calc(100% - 32px));padding:10px 14px;background:#fff5ee;border:1px solid #e2b8a6;color:#794633;box-shadow:0 8px 25px #18302926;font-size:12px}.flash button{border:0;background:transparent;color:inherit;cursor:pointer;display:grid;place-items:center}.custom-fields{display:grid;gap:8px}.custom-fields-head{display:flex;align-items:center;justify-content:space-between;color:#42574e;font-size:12px}.custom-field-row{display:grid;grid-template-columns:1fr 1.4fr auto;gap:6px;align-items:center}.custom-field-row input{min-width:0;border:1px solid #cfdbd3;padding:8px;font:inherit;font-size:12px}.custom-field-row .icon-btn{padding:5px}
+:root{font-family:Inter,"Microsoft YaHei",Arial,sans-serif;color:#24342f;background:#edf0eb;font-synthesis:none}*{box-sizing:border-box}body{margin:0}.topbar{height:62px;background:#fff;border-bottom:1px solid #d9e0d9;display:flex;align-items:center;justify-content:space-between;padding:0 max(26px,calc((100vw - 1240px)/2));position:sticky;top:0;z-index:20}.brand,.button,.icon-btn,.back-btn{border:0;background:none;color:#264137;cursor:pointer;font:inherit}.brand{font-weight:800;font-size:16.5px;letter-spacing:.4px;color:#15211d;display:flex;gap:9px;align-items:center}.brand span{width:27px;height:27px;display:grid;place-items:center;background:#12262b;color:#fff;font-family:Georgia,serif;font-weight:700}.icon-btn{padding:7px;display:grid;place-items:center}.badge{position:relative}.badge i{position:absolute;right:0;top:0;min-width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:#bb523f;color:#fff;font-size:9px;font-style:normal}.page{max-width:1120px;width:calc(100% - 56px);margin:0 auto;padding:54px 0 100px}.home{padding-top:76px}.eyebrow{margin:0 0 9px;font-size:10px;letter-spacing:1.6px;color:#65867b}.home h1,.page-title h1,.workbench-head h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:45px;line-height:1.14;font-weight:500;margin:0;color:#163b43}.home h1 em{font-style:normal;color:#287d87}.lead{margin:17px 0 42px;color:#667871;font-size:14px}.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.module-card{min-height:190px;border:1px solid #d9e2dc;background:#fff;padding:23px;text-align:left;color:#263b34;position:relative;cursor:pointer}.module-card svg:last-child{position:absolute;right:18px;bottom:18px;color:#5a8574}.module-card h2{font-size:20px;margin:20px 0 7px}.module-card p{font-size:12px;line-height:1.6;color:#6d7c74;margin:0}.module-card{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease}.module-card.dark{background:linear-gradient(140deg,#10262b 0%,#1b4249 72%,#22565e 100%);border-color:#0e2126;color:#eef6f4;box-shadow:0 10px 26px #10262b38}.module-card.dark h2{color:#fff}.module-card.dark p{color:#a3c2bc}.module-card.dark>svg:first-child{color:#7fc4b8}.module-card.dark svg:last-child{color:#54948a}.module-card.dark:hover{border-color:#0c1e22;box-shadow:0 14px 32px #10262b4d;transform:translateY(-2px)}.stat-row{display:grid;grid-template-columns:repeat(4,1fr);margin:25px 0;background:#d5e5d8}.stat-row div{padding:17px 20px;border-right:1px solid #bbd2bf}.stat-row div:last-child{border:0}.stat-row b{display:block;font-family:Georgia,serif;font-size:28px;font-weight:500}.stat-row span{font-size:11px;color:#56705d}.breadcrumb{font-size:12px;color:#809087;display:flex;gap:8px;align-items:center}.back-btn{display:flex;gap:5px;align-items:center;font-size:12px}.page-title{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin:24px 0 30px}.page-title h1{font-size:36px}.page-title p{font-size:13px;color:#687970;line-height:1.7;max-width:540px;margin:12px 0 0}.header-actions,.card-actions,.modal-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.button{border:1px solid #b9cbc0;background:#fff;padding:9px 12px;min-height:37px;font-size:12px;font-weight:650;display:inline-flex;gap:6px;align-items:center;justify-content:center}.button.primary{background:#1d5c69;border-color:#1d5c69;color:#fff}.button.danger{color:#a34838;border-color:#dbb0a7}.filterbar{background:#fff;border:1px solid #dce4de;padding:8px 11px;display:flex;gap:9px;align-items:center}.filterbar input{border:0;outline:0;min-width:0;flex:1;font:inherit;font-size:13px}.library-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:15px}.library-card{border:1px solid #d6e0d9;background:#fff;min-height:106px;padding:17px;display:flex;align-items:center;text-align:left;gap:12px;color:#2d4a3b;cursor:pointer}.library-card svg:last-child{margin-left:auto}.library-card>span{display:grid;gap:4px}.library-card small,.table-row small,.resume-row small,.version-row small{font-size:11px;color:#718077}.category-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:15px 0 10px}.category-tabs button{border:1px solid #cddbd0;background:#fff;color:#557164;padding:7px 9px;font-size:11px;cursor:pointer}.category-tabs .active{background:#225f63;color:#fff;border-color:#225f63}.data-table,.list-panel,.version-panel{background:#fff;border:1px solid #dbe3dd}.table-head,.table-row{display:grid;grid-template-columns:1.05fr 1.55fr .45fr .55fr;gap:14px;align-items:center;text-align:left}.table-head{padding:11px 18px;background:#f5f8f5;color:#738078;font-size:10px}.table-row{width:100%;border:0;border-top:1px solid #edf0ed;background:#fff;padding:13px 18px;color:#30463b;cursor:pointer;font:inherit;font-size:12px}.table-row:hover{background:#f7faf7}.table-row>span:first-child{display:grid;gap:3px}.table-row b{font-size:13px}.table-row>span:nth-child(2){color:#6d7b73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.table-row time{color:#748279;font-size:11px}.profile-list{display:grid;gap:11px}.profile-card{background:#fff;border:1px solid #dbe3dd;padding:21px;display:flex;justify-content:space-between;gap:24px;align-items:center}.profile-card h2{font-family:Georgia,"Microsoft YaHei",serif;font-size:22px;font-weight:500;margin:0 0 10px}.profile-card p:not(.eyebrow){font-size:12px;color:#6c7a72;margin:12px 0 0}.chips{display:flex;gap:5px;flex-wrap:wrap}.chips span{font-size:10px;color:#2e695c;background:#eef5ef;padding:4px 6px}.resume-row{width:100%;background:#fff;border:0;border-bottom:1px solid #e8eeea;padding:16px 20px;display:flex;align-items:center;gap:12px;text-align:left;color:#30463b;cursor:pointer}.resume-row>span{display:grid;gap:4px}.resume-row em{margin-left:auto;display:flex;gap:4px;align-items:center;color:#608070;font-size:11px;font-style:normal}.warning-banner{border:1px solid #e2b8a6;background:#fff5ee;color:#794633;display:flex;gap:9px;padding:12px 14px;margin-bottom:13px}.warning-banner b,.warning-banner span{display:block}.warning-banner b{font-size:13px}.warning-banner span{font-size:11px;margin-top:3px;color:#936352}
+/* 导出体检告警条：问题可点击定位到画布条目；判定规则与导出 HTML 的告警条同源。 */
+.lint-banner{border:1px solid #e2b8a6;background:#fff8f0;color:#794633;display:flex;gap:9px;padding:12px 14px;margin-bottom:13px}.lint-banner b{display:block;font-size:13px}.lint-banner span{display:flex;flex-direction:column;gap:2px;margin-top:4px}.lint-item{border:0;background:none;padding:0;text-align:left;font:inherit;font-size:11px;cursor:pointer;color:#936352}.lint-item:hover{text-decoration:underline}.lint-item.lint-error{color:#a34838;font-weight:650}.contact-hint{margin:0;font-size:11px;color:#a34838;background:#fdf1ec;border:1px solid #eed6cc;padding:8px 10px}.compact{max-width:940px;margin:0 auto 13px}.field{display:grid;gap:6px;font-size:12px;color:#42574e}.field small{font-size:11px;color:#7a8980;line-height:1.4}.field input,.field textarea,.field select,details textarea{width:100%;border:1px solid #cfdbd3;padding:9px;font:inherit;font-size:13px;color:#283b31;background:#fff}.field textarea,details textarea{min-height:84px;resize:vertical}.selection-modal,.modal{background:#fff;width:min(650px,100%);max-height:calc(100vh - 44px);overflow:auto;box-shadow:0 20px 55px #10232350}.modal-backdrop,.selection-backdrop{position:fixed;inset:0;background:#142a2a80;z-index:50;display:grid;place-items:center;padding:22px}.modal>header,.selection-modal>header{display:flex;justify-content:space-between;align-items:center;padding:16px 19px;border-bottom:1px solid #e3ebe4}.modal h2,.selection-modal h2{font-size:17px;margin:0}.modal-body{display:grid;gap:14px;padding:19px}.modal-note{margin:0;color:#687971;font-size:12px;line-height:1.55}.evidence-link{background:#f1f7f3;border:1px solid #d8e7da;color:#396454;padding:11px;display:flex;align-items:center;gap:8px;cursor:pointer;font:inherit;font-size:12px}.evidence-link span{margin-left:auto}.evidence-row{border-bottom:1px solid #edf1ed;display:flex;gap:8px;padding:8px 0}.evidence-row span{display:grid;gap:2px;font-size:12px}.evidence-row small{font-size:10px;color:#738079}.selection-modal{width:min(620px,100%)}.selection-modal .filterbar{border-width:0 0 1px}.selection-list{max-height:50vh;overflow:auto;padding:5px 20px}.selection-list label{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #edf0ed;cursor:pointer}.selection-list input{margin-top:3px;accent-color:#1d5c69}.selection-list span{display:grid;gap:3px}.selection-list b{font-size:13px}.selection-list small{font-size:11px;color:#728077}.selection-modal footer{padding:13px 20px;display:flex;align-items:center;justify-content:space-between;background:#f5f8f5;font-size:12px}.workbench{padding:27px 20px 95px;max-width:1390px;margin:0 auto}.workbench-head{max-width:1050px;margin:0 auto 18px;display:flex;align-items:center;gap:14px}.workbench-head>div{flex:1}.workbench-head h1{font-size:24px}.a4-state{font-size:11px;background:#d8ece3;color:#24634e;padding:7px 9px}.canvas-hint{text-align:center;color:#677a70;font-size:12px;margin:0 0 14px}.resume-stage{display:grid;gap:24px;justify-content:center;padding:20px 35px 40px;background:#d5dbd7;border:1px solid #c8d2cc;overflow:auto}.resume-paper{width:210mm;height:297mm;min-height:297mm;background:#fff;display:grid;grid-template-columns:58mm 1fr;box-shadow:0 7px 25px #1830292e;overflow:hidden;flex:none}.resume-sidebar{background:var(--t-sidebar-bg);color:var(--t-sidebar-fg);padding:10mm 6.5mm;overflow:hidden}
+/* 侧栏页头（姓名 + 联系方式 + 简介）：与导出样式表的 .sidebar h1/.side-meta/.side-copy
+   同一口径，字色一律走深色面角色。 */
+.resume-sidebar h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:22pt;line-height:1.1;margin:0 0 3mm}
+.resume-sidebar .side-meta{display:grid;gap:1mm;color:var(--t-sidebar-muted);font-size:8pt;line-height:1.3}
+.resume-sidebar .side-meta span{display:block}
+.resume-sidebar .side-meta b{color:var(--t-sidebar-muted);font-weight:600}
+.resume-sidebar .side-copy{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--t-sidebar-muted);font-size:9pt;line-height:1.4;margin:3mm 0 0}.resume-main{padding:10mm 11mm;overflow:hidden}.sidebar-content{display:grid;align-content:start;gap:3.6mm}.resume-section{margin:0;min-width:0}
+/* 空栏目只是"点击选择资料"的入口：虚线框 + 一行提示，读起来是一个可操作的空位，
+   而不是一条坏掉的空标题。它不占版面预算（见 lib/resume.ts 的 isPlaceholder），
+   导出端则完全不渲染这些栏目。 */
+.resume-section.empty-section{border-left:2.4pt dashed var(--t-rule);padding-left:3mm}
+.resume-paper .sidebar-section.empty-section{border-left:2pt dashed var(--t-on-dark-accent)}
+.resume-section.empty-section .template-section-title{background:none;border-bottom:1px dashed var(--t-rule);opacity:.72}
+.resume-paper .sidebar-section.empty-section .template-section-title{border-bottom:1px dashed #ffffff40}
+.empty-hint{margin:0;font-size:7.5pt;line-height:1.5;color:var(--t-meta);opacity:.9}
+.resume-paper .sidebar-section .empty-hint{color:var(--t-sidebar-muted);font-size:7pt}
+/* 栏目 = 左侧色条 + 标题条，与导出样式表同构。只给主栏加框：侧栏有自己的深色面框，
+   表格版式自带边框与实底表头。标题条底色走 --t-tint（强调色淡化）。 */
+.main-sections>.resume-section,.pair>.resume-section{border-left:2.4pt solid var(--t-accent);padding-left:3mm}
+.resume-section .template-section-title{margin:0 0 1.5mm;padding:1.2mm 2.4mm 1mm;background:var(--t-tint);border-bottom:1px solid var(--t-rule);position:relative}.resume-section .template-section-title b{font-size:11pt}.resume-paper .template-section-title b{color:var(--t-heading)}.resume-paper .block-head>b{color:var(--t-title);font-size:10.5pt;line-height:1.3}
+/* 元信息行 = 值 · 值 · 值：标签只在编辑器里出现，纸面上同色淡点分隔（与导出一致）。 */
+.resume-paper .block-meta span.meta+.meta::before{content:'·';opacity:.45;margin-right:1.2mm}.resume-section .template-section-title span{font-size:7pt}/* 深色侧栏里的文字一律走深色面角色。选择器统一写成 .resume-paper .sidebar-section X
+   （三层），而不是 .sidebar-section X（两层）：下面还有 .resume-paper .block-copy /
+   .entry-period / .block-copy a 这类同权重、位置更靠后的白纸规则，两层写法会输给它们，
+   于是深色底上照样排白纸色——栏目名、条目标题、正文、时间全读不出来。 */
+.resume-paper .sidebar-section{border-left:2pt solid var(--t-on-dark-accent);padding-left:2.4mm}
+.resume-paper .sidebar-section .template-section-title{border:0;border-bottom:1px solid #ffffff38;background:none;padding:0 0 1mm;margin-bottom:1.6mm}
+.resume-paper .sidebar-section .template-section-title b{color:var(--t-sidebar-heading);font-size:8pt;font-weight:700;letter-spacing:.4px}
+.resume-paper .sidebar-section .template-section-title span{color:var(--t-sidebar-heading)}
+.resume-paper .sidebar-section .resume-block{margin-bottom:1.8mm}
+.resume-paper .sidebar-section .block-head>b,.resume-paper .sidebar-section .inline-title{color:var(--t-sidebar-fg);font-size:8.5pt}
+.resume-paper .sidebar-section .block-copy,.resume-paper .sidebar-section .editable-copy,.resume-paper .sidebar-section .block-meta{color:var(--t-sidebar-muted);font-size:8pt;line-height:1.38}
+.resume-paper .sidebar-section .entry-period{color:var(--t-on-dark-accent)}
+.resume-paper .sidebar-section .block-copy a{color:var(--t-on-dark-accent)}
+.resume-paper .sidebar-section .block-copy strong{color:var(--t-sidebar-fg)}
+.resume-paper .sidebar-section .block-meta input{color:var(--t-sidebar-fg);border-bottom-color:var(--t-sidebar-muted)}
+.resume-paper .sidebar-section .continued-mark{color:var(--t-sidebar-muted)}
+.resume-paper .sidebar-section .source-tag{color:var(--t-sidebar-muted);border-color:var(--t-sidebar-muted)}
+.resume-paper .sidebar-section .continuation-label{color:var(--t-sidebar-muted)}
+/* 深色面上的文字一律走深色面角色：时间与链接用派生的浅强调色，字段标签/值、来源徽标
+   与编辑态输入用浅色。沿用白纸 token（accent/meta/meta_label）会得到深色底上的深色字。 */
+.sidebar-section .entry-period{color:var(--t-on-dark-accent)}.sidebar-section .block-copy a{color:var(--t-on-dark-accent)}.sidebar-section .block-meta input{color:var(--t-sidebar-fg);border-bottom-color:var(--t-sidebar-muted)}.sidebar-section .continued-mark{color:var(--t-sidebar-muted)}.sidebar-section .source-tag{color:var(--t-sidebar-muted);border-color:var(--t-sidebar-muted)}.sidebar-section .continuation-label{color:var(--t-sidebar-muted)}.main-sections{display:grid;gap:3.2mm}
+/* 表格版式的栏目自带边框，行距收紧到与导出样式表一致。 */
+.resume-paper.grid .main-sections{gap:2.4mm}.main-sections .resume-section:first-child{margin-top:0}.main-sections .resume-block{margin-bottom:2mm}
+.main-sections .pair{display:grid;grid-template-columns:1fr 1fr;gap:0 7mm;align-items:stretch}
+/* 表格版式：并排两栏共用一行外框、中间竖线分隔，短栏的空白是"空单元格"而不是空卡片。 */
+.resume-paper.grid .pair{border:1px solid var(--t-rule);overflow:hidden}
+.resume-paper.grid .pair>.resume-section{border:0}
+.resume-paper.grid .pair>.resume-section+.resume-section{border-left:1px solid var(--t-rule)}
+.resume-paper.grid .pair{gap:0 4mm}.block-meta{display:flex;flex-wrap:wrap;gap:.6mm 3.4mm;color:var(--t-meta-label);font-size:7.7pt;line-height:1.35;margin:.5mm 0}.block-meta span{display:inline-flex;gap:1mm;align-items:baseline}.block-meta label{color:var(--t-meta-label)}.block-meta input{width:26mm;border:0;border-bottom:1px solid #b9ccc5;background:transparent;color:#405652;font:inherit;font-size:7.7pt;padding:1px}.inline-title{border:0;border-bottom:1px solid #b9ccc5;background:transparent;color:var(--t-title);font:inherit;font-weight:700;font-size:9.6pt;min-width:0;max-width:70%;padding:1px}.editable-copy{width:100%;min-height:28px;border:1px solid transparent;background:#fbfdfb;color:var(--t-copy);font:inherit;font-size:8.8pt;line-height:1.58;padding:2px;resize:vertical}.editable-copy:focus,.inline-title:focus,.block-meta input:focus{outline:1px solid #3b9ba1;background:#effafa}.mini-button{margin-left:auto;border:1px solid #b9cbc0;background:#fff;color:#35645e;font-size:10px;padding:3px 6px;cursor:pointer}
+/* 标题行右侧的动作按钮收进一个绝对定位的容器里并横排。旧写法对标题行里**每个**
+   .mini-button 都做 right:0 绝对定位，加到第二个按钮（隐藏本栏）时两个按钮完全重叠，
+   后一个把前一个的点击挡住。所以只对容器的直接子按钮定位。 */
+.resume-section .template-section-title .title-actions{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;gap:1.6mm;align-items:center}
+.resume-section .template-section-title .title-actions>.mini-button{margin-left:0;white-space:nowrap}.continuation-mark{font-size:7.5pt;color:var(--t-sidebar-heading);letter-spacing:1.4px}.fact-fields{display:grid;gap:10px}.short-field{min-height:38px!important}.actionbar{height:65px;background:#fff;border-top:1px solid #d6dfda;position:fixed;z-index:25;bottom:0;left:0;right:0;display:flex;justify-content:flex-end;gap:8px;align-items:center;padding:0 max(24px,calc((100vw - 1330px)/2))}.version-panel{max-width:1050px;margin:20px auto 0}.version-panel header{padding:12px 15px;border-bottom:1px solid #e5ece6;display:flex;align-items:center;gap:8px}.version-panel h2{font-size:13px;margin:0}.version-row{padding:11px 15px;border-bottom:1px solid #edf1ed;display:flex;justify-content:space-between;align-items:center;gap:10px}.version-row>span{display:grid;gap:3px;font-size:12px}.loading,.empty{padding:48px 18px;display:flex;gap:7px;align-items:center;justify-content:center;color:#77867e;font-size:12px}.empty{display:block;text-align:center}.empty h3{font-size:15px;color:#40534b;margin:10px 0 5px}.empty p{margin:0;font-size:12px}details{font-size:12px;color:#52645c}details summary{cursor:pointer;font-weight:650;margin-bottom:8px}@media(max-width:850px){.page{width:calc(100% - 32px);padding-top:32px}.module-grid,.library-grid{grid-template-columns:1fr}.stat-row{grid-template-columns:1fr 1fr}.page-title,.profile-card{align-items:flex-start;flex-direction:column}.table-head{display:none}.table-row{grid-template-columns:1fr auto;gap:8px}.table-row>span:nth-child(2),.table-row>span:nth-child(3){display:none}.workbench{padding:20px 0 84px}.workbench-head{padding:0 16px}.resume-stage{padding:12px;justify-content:start}.resume-paper{transform-origin:top left;transform:scale(.46);margin-bottom:calc(-297mm*.54);margin-right:calc(-210mm*.54)}.actionbar{padding:0 16px}.version-panel{margin-left:16px;margin-right:16px}.topbar{padding:0 16px}.home h1{font-size:36px}}
+.resume-paper,.resume-paper *{font-family:Arial,"Microsoft YaHei",sans-serif;font-synthesis:none;letter-spacing:0}.resume-paper input,.resume-paper textarea,.resume-paper button{font-style:normal}.resume-paper .block-copy,.resume-paper .editable-copy{white-space:pre-wrap;overflow-wrap:anywhere}.resume-paper .resume-block{min-width:0;break-inside:avoid}.continuation-label{color:var(--t-meta);font-size:7.5pt;margin-left:2mm}.button:disabled{opacity:.55;cursor:not-allowed}.flash{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;max-width:min(680px,calc(100% - 32px));padding:10px 14px;background:#fff5ee;border:1px solid #e2b8a6;color:#794633;box-shadow:0 8px 25px #18302926;font-size:12px}.flash button{border:0;background:transparent;color:inherit;cursor:pointer;display:grid;place-items:center}.custom-fields{display:grid;gap:8px}.custom-fields-head{display:flex;align-items:center;justify-content:space-between;color:#42574e;font-size:12px}.custom-field-row{display:grid;grid-template-columns:1fr 1.4fr auto;gap:6px;align-items:center}.custom-field-row input{min-width:0;border:1px solid #cfdbd3;padding:8px;font:inherit;font-size:12px}.custom-field-row .icon-btn{padding:5px}
 .resume-paper .template-section-title{display:flex;align-items:baseline;gap:2mm}
 .resume-paper .template-section-title b{line-height:1.2}
-.resume-paper .block-meta{font-size:7.8pt;line-height:1.35;color:#71817c;margin:0 0 .7mm}
+.resume-paper .block-meta{font-size:7.8pt;line-height:1.35;margin:0 0 .5mm}
 .resume-paper .block-meta input{font-size:7.8pt}
-.resume-paper .block-copy{font-size:9pt;line-height:1.5;color:var(--t-copy)}
+.resume-paper .block-copy{font-size:9pt;line-height:1.4;color:var(--t-copy)}
 .resume-paper .editable-copy{font-size:9pt;line-height:1.5;color:#3f514d;background:#f7faf8;border:1px solid #dfe9e3;padding:3px 4px;min-height:24px}
 .resume-stage.edit-mode{background:#cbd5d0}
 .resume-stage.edit-mode .resume-paper{box-shadow:0 8px 28px #18302938;outline:1px solid #b8c9c1;outline-offset:3px}
@@ -14,7 +69,8 @@
 .resume-stage.edit-mode .resume-paper .mini-button{font-size:8px;padding:2px 5px}
 .resume-stage.edit-mode .resume-paper .inline-title{font-size:8.5pt}
 .resume-stage.edit-mode .resume-block.editable-block{cursor:pointer;border-radius:2px;transition:background .12s ease,box-shadow .12s ease}
-.resume-stage.edit-mode .resume-block.editable-block:hover{background:#f2f8f4;box-shadow:0 0 0 2px #8fc3b3}
+/* 悬停底色只做很淡的一层：再深一点就会把字段值（--t-meta 刚好过 AA）压到 4.4 以下。 */
+.resume-stage.edit-mode .resume-block.editable-block:hover{background:#f8fcfa;box-shadow:0 0 0 2px #8fc3b3}
 .block-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
 .block-editor-fields .field:only-child{grid-column:1 / -1}
 .block-editor-copy{width:100%;min-height:150px;border:1px solid #cfdbd3;padding:11px;font:inherit;font-size:13px;line-height:1.65;color:#283b31;background:#fff;resize:none}
@@ -57,10 +113,19 @@
 
 /* Resume canvas: source badge and continuation heading */
 .resume-paper .block-head{display:flex;align-items:baseline;gap:2mm}
-.source-tag{margin-left:auto;flex:none;border:1px solid #b9ccc5;color:#5c7a75;font-size:6.5pt;line-height:1;padding:1mm 1.6mm;border-radius:2mm;letter-spacing:.5px;background:#ffffff14}
+.source-tag{margin-left:auto;flex:none;border:1px solid #b9ccc5;color:#52706b;font-size:6.5pt;line-height:1;padding:1mm 1.6mm;border-radius:2mm;letter-spacing:.5px;background:#ffffff14}
 .source-tag.alert{color:#a34838;border-color:#dbb0a7;background:#fff5ee}
-.continued-mark{color:var(--t-meta);font-size:7pt;font-weight:400;margin-left:1.5mm}
+/* （续）标记坐在标题条底色上，用 heading 色——注册表门槛保证 heading 在 tint 上达标，
+   meta/meta_label 只保证在白纸上达标（classic 实测 4.23 不够）。 */
+.continued-mark{color:var(--t-heading);font-size:7pt;font-weight:400;margin-left:1.5mm}
 .resume-paper .mini-button{opacity:0;transition:opacity .12s ease,background .12s ease}
+/* 隐藏本栏：编辑态常显（它是个改动动作，不该藏在悬停后面），颜色更轻以免抢过"添加来源"。 */
+/* 隐藏本栏：与"添加来源"同为编辑动作，用同一字色（已过对比度），只用边框与文案区分。 */
+.resume-paper .mini-button.hide-button{border-color:#cfdbd3;color:#35645e;opacity:0}
+.resume-paper .hide-button+.mini-button,.resume-paper .mini-button+.mini-button{margin-left:2mm}
+/* 已隐藏栏目恢复条：隐藏之后画布上就没有它了，必须另给一个入口把人放回来。 */
+.hidden-sections{max-width:1050px;margin:0 auto 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:#67716b}
+.hidden-sections .button{min-height:30px;padding:5px 9px;font-size:11px;gap:5px}
 .resume-section:hover .template-section-title .mini-button,.resume-section:focus-within .template-section-title .mini-button{opacity:1}
 
 /* Version diff rows */
@@ -106,76 +171,133 @@
 .template-thumb{display:block;height:74px;border-bottom:1px solid #e5ece6}
 .template-card b{font-size:13px;padding:0 12px}
 .template-card small{font-size:10px;color:#71807a;padding:0 12px;line-height:1.5;min-height:30px}
-.template-card em{font-style:normal;font-size:10px;color:#8a978f;padding:0 12px}
+.template-card em{font-style:normal;font-size:10px;color:#8a978f;padding:0 12px;display:flex;gap:6px;align-items:center}
+/* 版式的机器可读性档位：单栏最稳、双栏页有风险、表格被明文列为解析失败原因。
+   用中性到警示的色阶，而不是"好/坏"两个字，因为侧栏与表格是刻意的排版选择。 */
+.parse-badge{font-size:9px;line-height:1;padding:3px 5px;border:1px solid transparent;white-space:nowrap}
+.parse-badge.safe{color:#2e695c;background:#eef5ef;border-color:#d5e5d8}
+.parse-badge.caution{color:#7a5a1e;background:#fbf4e6;border-color:#e8dcc0}
+.parse-badge.risky{color:#8a4636;background:#fdf1ec;border-color:#eed6cc}
+.parse-hint{margin:0;padding:11px 12px;background:#f5f8f5;border:1px solid #dce4de;color:#4c605d}
 .template-current{position:absolute;top:8px;right:8px;font-size:9px;background:#1d5c69;color:#fff;padding:2px 6px}
 
 /* Resume canvas themes (mirror BUILTIN_TEMPLATES in app/services.py) */
 
 /* Banner layout (天青横幅模板): full-width name/contact band on every page */
 .resume-paper.banner{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-.resume-banner{padding:9mm 12mm;flex:none;background:var(--t-sidebar-bg);color:var(--t-sidebar-fg)}
-.resume-banner h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:20pt;line-height:1.15;margin:0 0 2.4mm;letter-spacing:.5px}
-.resume-banner .banner-meta{display:flex;flex-wrap:wrap;gap:1mm 4mm;color:var(--t-sidebar-muted);font-size:8pt;line-height:1.45}
+.resume-banner{padding:8mm 11mm;flex:none;background:var(--t-sidebar-bg);color:var(--t-sidebar-fg)}
+.resume-banner h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:20pt;line-height:1.15;margin:0 0 2.2mm;letter-spacing:.5px}
+.resume-banner .banner-meta{display:flex;flex-wrap:wrap;gap:.8mm 3.8mm;color:var(--t-sidebar-muted);font-size:8pt;line-height:1.4}
 .resume-banner .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
-.resume-banner.banner-slim{padding:3.5mm 12mm;display:flex;align-items:baseline}
+.resume-banner .banner-meta span.meta+.meta::before{content:'·';opacity:.45;margin-right:1.2mm}
+.resume-banner.banner-slim{padding:3.5mm 11mm;display:flex;align-items:baseline}
 .resume-banner.banner-slim h1{font-size:10pt;margin:0;letter-spacing:1px}
 .resume-banner.banner-slim .banner-meta{display:none}
-.resume-paper.banner .resume-main{padding:8mm 12mm 13mm}
+.resume-paper.banner .resume-main{padding:7mm 11mm 10mm}
 
 /* Grid layout (雅蓝/灰石表格模板): Word-form look, bordered sections with solid header rows */
 .resume-paper.grid{grid-template-rows:auto 1fr}
-.resume-paper.grid .grid-head{border:1px solid var(--t-rule);text-align:center;padding:3.6mm 5mm 3.2mm;flex:none}
-.resume-paper.grid .grid-head h1{font-size:15.5pt;letter-spacing:2px;margin:0 0 2.5mm;color:var(--t-title)}
-.resume-paper.grid .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:1mm 4mm;color:var(--t-meta);font-size:8pt;line-height:1.45}
+.resume-paper.grid .grid-head{border:1px solid var(--t-rule);text-align:center;padding:3.4mm 5mm 3mm;flex:none}
+.resume-paper.grid .grid-head h1{font-size:15.5pt;letter-spacing:2px;margin:0 0 2.2mm;color:var(--t-title)}
+.resume-paper.grid .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
 .resume-paper.grid .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
-.resume-paper.grid .banner-meta span b{color:var(--t-meta-label);font-weight:600}
+.resume-paper.grid .banner-meta span.meta+.meta::before{content:'·';opacity:.45;margin-right:1.2mm}
 .resume-paper.grid .grid-head-slim{padding:2.2mm 5mm;border-bottom:1px solid var(--t-rule)}
 .resume-paper.grid .grid-head-slim h1{font-size:9.5pt;margin:0;letter-spacing:1px}
-.resume-paper.grid .resume-main{flex:1;padding:4mm 10mm 7mm}
-.resume-paper.grid .main-sections{gap:2.8mm}
+.resume-paper.grid .resume-main{flex:1;padding:3.5mm 9mm 6mm}
+.resume-paper.grid .main-sections{gap:2.4mm}
 .resume-paper.grid .resume-section{border:1px solid var(--t-rule);overflow:hidden}
-.resume-paper.grid .template-section-title{background:var(--t-sidebar-bg);margin:0;padding:1.6mm 3mm}
+.resume-paper.grid .template-section-title{background:var(--t-sidebar-bg);border-bottom:0;margin:0;padding:1.6mm 3mm}
 .resume-paper.grid .template-section-title b{color:var(--t-sidebar-fg);font-size:10pt;letter-spacing:1.2px}
 .resume-paper.grid .template-section-title span{color:var(--t-sidebar-fg)}
-.resume-paper.grid .resume-block{margin:0 3mm 2mm}
-.resume-paper.grid .resume-section .resume-block:first-of-type{margin-top:1.8mm}
+.resume-paper.grid .resume-block{margin:0 3mm 1.8mm}
+.resume-paper.grid .resume-section .resume-block:first-of-type{margin-top:1.6mm}
+.resume-paper.grid .awards-table{margin:0 3mm 1.8mm;width:calc(100% - 6mm)}
 .resume-stage.edit-mode .resume-paper.grid .template-section-title{border-bottom:0;padding-bottom:0}
 
 /* Line layout (羽墨/靛青线式模板): centered head, centered section titles, right-aligned periods */
 .resume-paper.line{grid-template-rows:auto 1fr}
-.resume-paper.line .line-head{text-align:center;flex:none;padding:2.6mm 8mm 3.6mm;border-bottom:2px solid var(--t-sidebar-bg)}
-.resume-paper.line .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 2mm;color:var(--t-title)}
-.resume-paper.line .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:1mm 4mm;color:var(--t-meta);font-size:8pt;line-height:1.45}
+.resume-paper.line .line-head{text-align:center;flex:none;padding:2.4mm 8mm 3.2mm;border-bottom:2px solid var(--t-sidebar-bg)}
+.resume-paper.line .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 1.8mm;color:var(--t-title)}
+.resume-paper.line .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
 .resume-paper.line .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
-.resume-paper.line .banner-meta span b{color:var(--t-meta-label);font-weight:600}
+.resume-paper.line .banner-meta span.meta+.meta::before{content:'·';opacity:.45;margin-right:1.2mm}
 .resume-paper.line .line-head-slim{padding:2.2mm 8mm;border-bottom:1px solid var(--t-rule)}
 .resume-paper.line .line-head-slim h1{font-size:9.5pt;margin:0;letter-spacing:1px}
-.resume-paper.line .resume-main{flex:1;padding:4mm 12mm 7mm}
-.resume-paper.line .template-section-title{justify-content:center}
-.resume-paper.line .template-section-title b{letter-spacing:2.5px;font-size:10.5pt}
+.resume-paper.line .resume-main{flex:1;padding:3.5mm 11mm 6mm}
+/* Line layout (羽墨线式模板): centered page head and centered section titles keep the
+   traditional 档案风 identity, so the title bar is a full-width hairline instead of the
+   tinted band the other layouts use. */
+.resume-paper.line .template-section-title{justify-content:center;background:none;border-bottom:1px solid var(--t-rule);padding:0 0 1.5mm}
+.resume-paper.line .template-section-title b{letter-spacing:1.8px;font-size:12pt}
 /* 条目标题行：标题居左、时间右对齐（非时间轴布局共用）；出现时间时来源徽标紧随其后。 */
 .resume-paper .entry-period{margin-left:auto;color:var(--t-accent);font-weight:650;font-size:8.5pt;white-space:nowrap}
 .resume-paper .entry-period~.source-tag{margin-left:2mm}
 .resume-paper.line .block-head .source-tag{margin-left:2mm}
-.resume-paper.line .resume-block:not(:last-child){border-bottom:1px solid var(--t-rule);padding-bottom:2mm}
+.resume-paper.line .resume-block:not(:last-child){border-bottom:1px solid var(--t-rule);padding-bottom:1.8mm}
 
 /* Compact heads for plain/timeline: centered name + contact line, lighter rule */
-.resume-paper.plain .line-head,.resume-paper.timeline .line-head{text-align:center;flex:none;padding:2.6mm 8mm 3.6mm;border-bottom:1.5px solid var(--t-rule)}
-.resume-paper.plain .resume-main,.resume-paper.timeline .resume-main{padding:11mm 13mm}
-.resume-paper.plain .line-head h1,.resume-paper.timeline .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 2mm;color:var(--t-title)}
-.resume-paper.plain .line-head .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:1mm 4mm;color:var(--t-meta);font-size:8pt;line-height:1.45}
-.resume-paper.plain .line-head .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
-.resume-paper.plain .line-head .banner-meta span b{color:var(--t-meta-label);font-weight:600}
+.resume-paper.plain .line-head,.resume-paper.timeline .line-head{text-align:center;flex:none;padding:2.4mm 8mm 3.2mm;border-bottom:1.5px solid var(--t-rule)}
+.resume-paper.plain .resume-main,.resume-paper.timeline .resume-main{padding:9mm 12mm}
+.resume-paper.plain .line-head h1,.resume-paper.timeline .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 1.8mm;color:var(--t-title)}
+.resume-paper.plain .line-head .banner-meta,.resume-paper.timeline .line-head .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
+.resume-paper.plain .line-head .banner-meta span,.resume-paper.timeline .line-head .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
+.resume-paper.plain .line-head .banner-meta span.meta+.meta::before,.resume-paper.timeline .line-head .banner-meta span.meta+.meta::before{content:'·';opacity:.45;margin-right:1.2mm}
 .resume-paper.plain .line-head-slim,.resume-paper.timeline .line-head-slim{padding:2.2mm 8mm;border-bottom:1px solid var(--t-rule)}
 .resume-paper.plain .line-head-slim h1,.resume-paper.timeline .line-head-slim h1{font-size:9.5pt;margin:0;letter-spacing:1px}
 
-/* Timeline layout (晨光/赭金时间轴模板): left time column, center rule with accent dots */
-.resume-paper.timeline .main-sections{gap:3.8mm}
-.resume-paper.timeline .resume-block{display:grid;grid-template-columns:15mm 3mm 1fr}
-.resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent);font-size:7.6pt;font-weight:650;line-height:1.45;padding-top:.4mm;overflow-wrap:anywhere}
-.resume-paper.timeline .resume-block::before{content:'';grid-column:2;grid-row:1;width:1px;justify-self:center;background:var(--t-rule)}
-.resume-paper.timeline .resume-block::after{content:'';grid-column:2;grid-row:1;width:2mm;height:2mm;border-radius:50%;background:var(--t-accent);justify-self:center;margin-top:1.2mm;box-shadow:0 0 0 .7mm #fff}
+/* Timeline layout (晨光时间轴模板): one continuous axis per section, time right-aligned
+   against it, entry dots sitting on the axis. Drawn on the section rather than on each
+   block so the line does not restart at every column and the section title rides the axis. */
+.resume-paper.timeline .resume-block{display:grid;grid-template-columns:20mm 4mm 1fr}
+.resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent);font-size:7.6pt;font-weight:600;line-height:1.35;text-align:right;padding-top:.3mm;overflow-wrap:anywhere}
+/* 轴线位置 = 时间栏宽度 + 轴栏一半（20mm + 4mm/2 = 22mm），与导出样式表同一口径。 */
+.resume-paper.timeline .resume-section{border-left:0;padding-left:0;position:relative}
+.resume-paper.timeline .resume-section::before{content:'';position:absolute;left:22mm;top:0;bottom:0;width:1px;background:var(--t-rule)}
+.resume-paper.timeline .template-section-title{margin-left:22mm;position:relative}
+.resume-paper.timeline .resume-block::after{content:'';grid-column:2;grid-row:1;width:2mm;height:2mm;border-radius:50%;background:var(--t-accent);justify-self:center;margin-top:1.4mm;box-shadow:0 0 0 .7mm #fff}
 .resume-paper.timeline .t-body{grid-column:3;min-width:0}
+.resume-paper.timeline .t-body h3{margin:0 0 1.3mm}
+.resume-paper.timeline .t-body ul{margin:.8mm 0 0;padding-left:3.2mm;list-style:none}
+.resume-paper.timeline .t-body li{padding-left:2.8mm}
+.resume-paper.timeline .t-body li::before{content:'·';display:inline-block;width:2.8mm;margin-left:-2.8mm;font-weight:700}
+
+/* 求职意向横带：一条横带替代"栏目标题条 + 一行字"的独立栏目（与导出样式表同构）。 */
+.intent-band{display:flex;flex-wrap:wrap;align-items:baseline;gap:1mm 3mm;margin:0 0 2.2mm;padding:1.5mm 2.6mm;background:var(--t-tint);border-left:2.4pt solid var(--t-accent)}
+.intent-band b{flex:none;color:var(--t-heading);font-size:10.5pt;letter-spacing:.4px}
+.intent-band span{color:var(--t-title);font-size:9.5pt;font-weight:650}
+.intent-band em{color:var(--t-meta);font-size:8.5pt;font-style:normal}
+.resume-paper.grid .intent-band{border:1px solid var(--t-rule);border-left:2.4pt solid var(--t-accent)}
+/* 成果三列表格：一行一项（时间 | 奖项/赛事 | 成绩（颁奖单位））。 */
+.resume-paper .awards-table{width:100%;border-collapse:collapse;margin:0}
+.resume-paper .awards-table th{background:var(--t-tint);color:var(--t-heading);font-size:8.5pt;font-weight:700;text-align:left;padding:1.2mm 2mm;border-bottom:1px solid var(--t-rule)}
+.resume-paper .awards-table td{color:var(--t-copy);font-size:9pt;line-height:1.4;padding:1.1mm 2mm;border-bottom:1px solid var(--t-rule)}
+.resume-paper .awards-table tr:last-child td{border-bottom:0}
+.resume-paper .awards-table .awards-time{width:24mm;color:var(--t-meta)}
+
+/* 标签栏版式（简牍标签栏模板）：左侧栏目标签列 + 右侧内容，中文校招的经典形态。
+   标签列用绝对定位的栏目标题实现：不占内容行高，正文从 28mm 处起排。 */
+.resume-paper.rail .rail-head{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;padding:6.5mm 10mm 3.2mm;border-bottom:2px solid var(--t-sidebar-bg)}
+.resume-paper.rail .rail-head h1{font-size:18pt;letter-spacing:1.5px;margin:0;color:var(--t-title)}
+.resume-paper.rail .rail-meta{display:flex;flex-direction:column;align-items:flex-end;gap:.7mm;color:var(--t-meta);font-size:8pt;line-height:1.4;text-align:right}
+.resume-paper.rail .rail-head-slim{padding:2.2mm 10mm;align-items:baseline;border-bottom:1px solid var(--t-rule)}
+.resume-paper.rail .rail-head-slim h1{font-size:9.5pt;letter-spacing:1px}
+.resume-paper.rail .resume-main{flex:1;padding:3.5mm 10mm 6mm}
+.resume-paper.rail .main-sections>.resume-section{border-left:0;padding:0 0 0 28mm;position:relative}
+.resume-paper.rail .template-section-title{position:absolute;left:0;top:.8mm;width:24mm;background:none;border-bottom:0;padding:0;margin:0}
+.resume-paper.rail .template-section-title b{color:var(--t-heading);font-size:10.5pt;letter-spacing:1.5px}
+
+/* 紧凑档（.compact）：内容只比一页多出不到 10% 时整页收紧。收缩比例必须 ≤ 1/1.10，
+   与 resume.ts/services.py 的 COMPACT_TRIGGER 同一安全约束（实测 ≈ 0.85）。 */
+.resume-paper.compact .main-sections{gap:1.8mm}
+.resume-paper.compact .template-section-title{padding:.7mm 2mm .6mm;margin-bottom:1mm}
+.resume-paper.compact .main-sections .resume-block,.resume-paper.compact .sidebar-content .resume-block{margin-bottom:1.2mm}
+.resume-paper.compact .block-copy,.resume-paper.compact .block-copy li{line-height:1.25}
+.resume-paper.compact .block-meta{margin:0 0 .3mm;gap:.4mm 3mm}
+.resume-paper.compact .sidebar-content{gap:2.2mm}
+.resume-paper.compact .sidebar-section .resume-block{margin-bottom:1.2mm}
+.resume-paper.compact .intent-band{padding:1mm 2mm;margin-bottom:1.5mm}
+.resume-paper.compact .resume-main,.resume-paper.compact.plain .resume-main,.resume-paper.compact.timeline .resume-main{padding-top:7mm}
 
 /* 石墨侧栏模板 */
 
@@ -212,8 +334,9 @@
 /* Markdown subset inside resume blocks */
 .resume-paper .block-copy strong{color:var(--t-title);font-weight:700}
 .resume-paper .block-copy a{color:var(--t-accent);text-decoration:underline}
-.resume-paper .block-copy ul{margin:1mm 0 0;padding-left:4mm;text-align:left}
-.resume-paper .block-copy li{line-height:1.5}
+.resume-paper .block-copy ul{margin:.8mm 0 0;padding-left:3.2mm;text-align:left;list-style:none}
+.resume-paper .block-copy li{line-height:1.4;padding-left:2.8mm}
+.resume-paper .block-copy li::before{content:'·';display:inline-block;width:2.8mm;margin-left:-2.8mm;font-weight:700}
 
 /* BlockEditor source reminder (replaces the full source/evidence sidebar) */
 .source-note{border:1px solid #d8e7da;background:#f4faf5;padding:12px 14px;display:grid;gap:6px}
@@ -287,7 +410,7 @@
 /* Template theming via CSS custom properties supplied by the API payload
    (app/templates.py -> /api/templates). The classic palette doubles as the
    fallback so the canvas renders even before template data arrives. */
-.resume-stage{--t-sidebar-bg:#163b43;--t-sidebar-fg:#f4f7f4;--t-sidebar-muted:#cad9d5;--t-sidebar-heading:#a7c9c2;--t-heading:#17343a;--t-title:#263f40;--t-meta:#66807b;--t-meta-label:#527875;--t-copy:#4c605d;--t-accent:#236b74;--t-rule:#d5e0dc}
+.resume-stage{--t-sidebar-bg:#163b43;--t-sidebar-fg:#f4f7f4;--t-sidebar-muted:#cad9d5;--t-sidebar-heading:#a7c9c2;--t-on-dark-accent:#39b0be;--t-heading:#1d5f66;--t-tint:#e9f0f1;--t-title:#263f40;--t-meta:#5f7873;--t-meta-label:#527875;--t-copy:#4c605d;--t-accent:#236b74;--t-rule:#d5e0dc}
 .resume-paper.plain{grid-template-columns:1fr;grid-template-rows:auto 1fr}
 .resume-paper.timeline{grid-template-rows:auto 1fr}
 .resume-paper.serif,.resume-paper.serif *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif}

@@ -7,7 +7,7 @@ import { Picker } from '../components/Picker'
 import { StageToolbar } from '../components/StageToolbar'
 import { TemplateModal } from '../components/TemplateModal'
 import { useLoad } from '../components/ui'
-import { factCategories, labels, layoutBudget, layoutMainIds, streamItems, type Content, type Fact, type Profile } from '../lib/resume'
+import { factCategories, labels, pageCountOf, type Content, type Fact, type Profile } from '../lib/resume'
 import type { TemplateDescriptor } from '../lib/templates'
 
 export function Composer({id,profile,back,open,error}:{id:number;profile:Profile;back:()=>void;open:(id:number)=>void;error:(s:string)=>void}){
@@ -29,7 +29,7 @@ export function Composer({id,profile,back,open,error}:{id:number;profile:Profile
     <BenchHead title="临时简历" subtitle={`${profile.name} · ${profile.core_requirements.join('、')||'未设置核心要求'}`} back={back} compact={compact}/>
     {missing>0&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>{missing} 条已选资料不可用</b><span>它们已归档或被删除，不会出现在预览中；点击对应栏目可重新选择。</span></div></div>}
     <p className="canvas-hint">初始画布只显示栏目；点击栏目选择事实资料，内容增加后自动续为 A4 页面。转换正式简历时会使用当前所选模板。</p>
-    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(linked.data.preview,layoutMainIds(layout),layoutBudget(layout),false,layout).length}/>
+    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={pageCountOf(linked.data.preview,layout)}/>
     <div className="stage-zoom" style={{zoom}}><Canvas content={linked.data.preview} mode="select" template={linked.data.template} select={id=>factCategories(id).length&&setSectionId(id)}/></div>
     <footer className="actionbar">
       <button className="button" onClick={back}>退出选择</button>

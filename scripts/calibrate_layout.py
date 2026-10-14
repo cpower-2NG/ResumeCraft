@@ -6,12 +6,18 @@ When it under-estimates, the export clips text off the bottom of the A4 page.
 This script renders a probe with content chosen so every constant in
 LAYOUT_METRICS can be measured from the DOM by web/scripts/measure_calib.mjs:
 
-- a long, realistic mixed Chinese/Latin paragraph  -> chars_per_line
-- a block with many display fields                -> meta_chars / meta line height
-- a second section                                -> header vs header_first
+- a long, CJK-only paragraph                          -> units_per_line
+- a block with many display fields                     -> meta_units / meta line height
+- a second section                                     -> header vs header_first
 
 Probes are written to output/tmp/calib/<template>.html. Run measure_calib.mjs
-against that directory to print the measured constants.
+against that directory to read the geometry, then show_calib.mjs to print values
+that can be copied into LAYOUT_METRICS.
+
+校准探针的正文是**纯中文**、每行容量按**字宽单位**（全角 2、半角 1）统计，见
+`app/services.py` 的 `text_units`。这两点都不能改回去：用拉丁字母较多的文本标定出的
+每行容量对纯中文正文偏乐观，估算会少算近三成行数、把正文顶出 A4 底边；只按纯中文
+字符数标定又会把带拉丁词的真实简历估高一截。
 """
 import io
 import sys
@@ -24,16 +30,20 @@ from app.templates import BUILTIN_TEMPLATES  # noqa: E402
 OUT = Path("output/tmp/calib")
 
 # One template per layout, plus the serif variants that exist in the library.
-PROBES = ["classic", "minimal", "academic", "azure", "regent", "atlas", "indigo", "quill", "lumen"]
+PROBES = ["classic", "onyx", "ink", "forest", "azure", "regent", "atlas", "flint", "quill", "lumen", "slate-rail"]
 
-# Realistic resume prose: mostly Chinese with Latin terms, the mix the estimator
-# has to predict. Long enough that the wrapped line count is statistically solid.
+# Realistic resume prose: a Chinese resume body is CJK-dominant, and a CJK glyph is
+# roughly twice as wide as a Latin one at the same font size. Probing with a
+# Latin-heavy sentence measured ~69 units/line where the same box only fits ~53 CJK
+# glyphs (=106 units), so the estimator under-charged every line and the packing
+# overflowed the page bottom (long-azure/long-regent clipped). The probe text stays
+# CJK-only and measures its capacity in glyph-width units, which is the safe and
+# accurate bound for any real mix.
 SENTENCE = (
     "负责中台服务的设计与落地，沉淀可复用组件与规范，推动跨团队协作和交付质量提升，"
-    "使用 Python、Kafka、MySQL、Docker 与 Kubernetes 支撑日均千万级请求，"
-    "主导接口性能优化，P99 从 800ms 降至 120ms，节省约一半机器成本。"
+    "主导接口性能优化，把响应时间从八百毫秒降到一百二十毫秒，节省约一半机器成本。"
 )
-BODY = SENTENCE * 30  # ~3000 chars
+BODY = SENTENCE * 45  # ~3300 chars, enough to measure a full-width fragment
 
 
 def probe_content() -> dict:
@@ -80,11 +90,12 @@ def probe_content() -> dict:
         return {"id": bid, "type": "fact", "title": title, "content": content, "fields": fields,
                 "field_labels": {}, "display_fields": display or list(fields), "source_refs": [], "origin": "fact"}
 
-    # 技能/成果是侧栏布局的侧栏内容，必须有真实正文与字段才能量到侧栏列的口径。
+    # 技能/成果是侧栏布局的侧栏内容，必须有真实正文与字段才能量到侧栏列的口径；
+    # 正文长度要盖过 measure_calib.mjs 挑段落用的 >200 字门槛。
     skills = {"id": "skills", "type": "skills", "title": "技能", "visibility": True, "blocks": [
-        block("probe-skill-1", "工程工具链", SENTENCE * 2,
+        block("probe-skill-1", "工程工具链", SENTENCE * 4,
               {"skill_category": "工程工具", "proficiency": "熟练"}, ["skill_category", "proficiency"]),
-        block("probe-skill-2", "方法论", SENTENCE,
+        block("probe-skill-2", "方法论", SENTENCE * 2,
               {"skill_category": "方法论", "proficiency": "掌握"}, ["skill_category", "proficiency"]),
     ]}
     awards = {"id": "awards", "type": "awards", "title": "成果", "visibility": True, "blocks": [

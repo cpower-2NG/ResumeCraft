@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  Static reproduction of the "blank temporary resume" canvas: every section except
+  求职目标 has no content, which is the state a new 临时简历 starts in. Used to check
+  that empty sections stay visible as click targets (the regression where the canvas
+  only showed 求职目标) and that they read as an affordance rather than a broken
+  section. Keep the class names in sync with web/src/components/Canvas.tsx.
+-->
+<html lang="zh-CN"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../src/styles.css">
+<style>html,body{margin:0;padding:0}</style>
+</head><body>
+<section class="resume-stage select-mode" data-template="classic">
+<article class="resume-paper" id="resume-page-1" data-page="1">
+  <aside class="resume-sidebar"><div class="sidebar-content">
+    <section class="resume-section sidebar-section empty-section">
+      <div class="template-section-title"><b>技能</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+    <section class="resume-section sidebar-section empty-section">
+      <div class="template-section-title"><b>成果</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+  </div></aside>
+  <main class="resume-main"><div class="main-sections">
+    <section class="resume-section selection-ready">
+      <div class="template-section-title"><b>求职目标</b></div>
+      <article class="resume-block">
+        <div class="block-head"><b>机器人数据采集员</b></div>
+        <p class="block-copy"></p>
+      </article>
+    </section>
+    <section class="resume-section empty-section">
+      <div class="template-section-title"><b>个人简介</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+    <section class="resume-section empty-section">
+      <div class="template-section-title"><b>项目与实践</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+    <section class="resume-section empty-section">
+      <div class="template-section-title"><b>教育经历</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+    <section class="resume-section empty-section">
+      <div class="template-section-title"><b>链接与作品集</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+  </div></main>
+</article>
+</section>
+</body></html>

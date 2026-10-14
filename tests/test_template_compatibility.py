@@ -19,21 +19,36 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from app.main import app, ensure_builtin_templates
-from app.services import PAIRING_BY_LAYOUT, render_resume_html
-from app.templates import BUILTIN_TEMPLATES, COLOUR_TOKENS
+from app.services import PAIR_BUDGET_BY_LAYOUT, PAGE_BUDGET_PX, pair_height, render_resume_html
+from app.templates import BUILTIN_TEMPLATES, COLOUR_TOKENS, RETIRED_TEMPLATES, descriptor_for
 from app.workbench_database import WorkbenchBase, get_db
-from app.workbench_models import ResumeTemplate, User, Workspace
+from app.workbench_models import ResumeTemplate, TemplateVersion, User, Workspace
 
 WEB_STYLES = Path(__file__).resolve().parents[1] / "web" / "src" / "styles.css"
 
-REQUIRED_TOKENS = {"name", "description", "layout", "sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
-COLOUR_TOKENS = {"sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
-LAYOUTS = {"sidebar", "plain", "banner", "grid", "line", "timeline"}
+REQUIRED_TOKENS = {"name", "description", "layout", "sidebar_bg", "sidebar_fg", "sidebar_muted", "sidebar_heading", "on_dark_accent", "heading", "title", "meta", "meta_label", "copy", "accent", "rule"}
+LAYOUTS = {"sidebar", "plain", "banner", "grid", "line", "timeline", "rail"}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 HEX_RE = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
-# 覆盖六种布局的新模板，作为端到端回归的代表样本。
-NEW_TEMPLATES = ["pine", "merlot", "ink", "brass", "marine", "haze", "violet", "celadon", "vermilion", "cobalt", "forest", "regent", "umber", "onyx", "atlas", "flint", "quill", "indigo", "lumen", "meridian"]
+# 六种布局各留一到三套配色，作为端到端回归的代表样本。
+NEW_TEMPLATES = sorted(BUILTIN_TEMPLATES)
+
+
+SAMPLE_TITLES = {"target": "后端开发工程师", "profile": "个人简介", "education": "华东理工大学 · 自动化", "awards": "校级优秀毕业设计"}
+
+
+def pairable_content() -> dict:
+    """给短栏目填上内容，用于验证"哪些布局会把相邻短栏目并排"。"""
+    content = sample_content()
+    for index, sid in enumerate(("target", "profile", "education", "awards"), start=1):
+        content["sections"][index]["blocks"] = [
+            {"id": f"fact-{sid}", "type": "fact", "title": SAMPLE_TITLES[sid], "content": "一段简短的说明文字。", "fields": {}, "field_labels": {}, "display_fields": [], "source_refs": [9], "origin": "fact"},
+        ]
+    content["sections"][7]["blocks"] = [
+        {"id": "fact-links", "type": "fact", "title": "作品集", "content": "example.com", "fields": {}, "field_labels": {}, "display_fields": [], "source_refs": [9], "origin": "fact"},
+    ]
+    return content
 
 
 def sample_content(long: bool = False) -> dict:
@@ -112,6 +127,10 @@ def test_export_html_is_valid_for_every_template(slug):
         assert 'class="page page-line"' in html and 'class="line-head"' in html
         assert "<aside class=\"sidebar\">" not in html
         assert 'class="page page-plain"' not in html
+    elif descriptor["layout"] == "rail":
+        assert 'class="page page-rail"' in html and 'class="rail-head"' in html
+        assert "<aside class=\"sidebar\">" not in html
+        assert 'class="page page-plain"' not in html
     else:  # timeline
         assert 'class="page page-timeline"' in html and "main-timeline" in html
         assert "<aside class=\"sidebar\">" not in html
@@ -125,12 +144,106 @@ def test_export_html_is_valid_for_every_template(slug):
     # 栏目标题的高度。
     assert "基本信息" not in html, f"模板 {slug} 重复渲染了基本信息栏目"
 
-    # 双栏收尾：短栏目两两并排成一行两个模块。时间轴保持整宽通排——左时间栏是它的
-    # 识别特征，没有时间栏就不是时间轴了。
-    if PAIRING_BY_LAYOUT[descriptor["layout"]]:
-        assert 'class="pair"' in html, f"模板 {slug} 的双栏收尾未生效"
-    else:
+    # 并排只发生在有额度的版式（表格），其余版式一律整宽通排，详见
+    # test_single_column_layouts_never_pair / test_form_layout_pairs_short_sections_side_by_side。
+    if not PAIR_BUDGET_BY_LAYOUT[descriptor["layout"]]:
         assert 'class="pair"' not in html, f"模板 {slug} 不应并排"
+
+
+@pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
+def test_sections_without_content_are_not_rendered(slug):
+    """没有内容的栏目不出现在纸面上。
+
+    样本里 个人简介/链接与作品集/求职目标/教育经历/成果 一条条目都没有。改前它们
+    照样排出栏目标题，纸面上留下一条只有标题的空条（时间轴还多一个悬空圆点）。
+    """
+    html = render_resume_html(sample_content(), "空栏目", 1, slug)
+    for title in ("个人简介", "链接与作品集", "求职目标", "教育经历"):
+        assert title not in html, f"模板 {slug} 为空栏目 {title} 排了标题"
+    assert "项目与实践" in html and "技能" in html
+
+
+@pytest.mark.parametrize("slug", ["classic", "ink", "atlas", "lumen"])
+def test_hidden_section_is_not_rendered(slug):
+    """整栏隐藏后导出端不再排它。
+
+    隐藏写在内容的 visibility 里（工作副本 → 版本），此导出端此前只按"有没有内容"筛栏目、
+    没读 visibility，于是栏目只在画布里消失、纸面上照样出现。预览侧用同一字段过滤
+    （web/src/lib/resume.ts 的 sectionVisible），两边的断页才对得上。
+    """
+    content = pairable_content()
+    content["sections"][3]["visibility"] = False  # experience
+    html = render_resume_html(content, "隐藏", 1, slug)
+    assert "项目与实践" not in html, f"模板 {slug} 仍然排出了被隐藏的栏目"
+    assert "技能" in html
+    # 隐藏不影响别的栏目：把同一份内容全部显示出来作对照。
+    for section in pairable_content()["sections"]:
+        section["visibility"] = True
+    visible_html = render_resume_html(pairable_content(), "全显", 1, slug)
+    assert "项目与实践" in visible_html
+
+
+def test_only_the_target_section_left_still_exports_one_page():
+    """全空/全隐藏的简历仍要出一页骨架，避免零页导出。"""
+    content = sample_content()
+    for section in content["sections"]:
+        section["visibility"] = section["id"] == "target"
+        if section["id"] == "target":
+            section["blocks"] = [{"id": "t", "type": "fact", "title": "后端开发工程师", "content": "", "fields": {}, "field_labels": {}, "display_fields": [], "source_refs": [], "origin": "profile"}]
+    html = render_resume_html(content, "空简历", 1, "ink")
+    assert html.count('class="page') == 1
+
+
+@pytest.mark.parametrize("slug", ["atlas", "flint"])
+def test_form_layout_pairs_short_sections_side_by_side(slug):
+    """表格表单版式把相邻短栏目并排成表格行——这是它自己的排版语汇。"""
+    content = pairable_content()
+    html = render_resume_html(content, "双栏", 1, slug)
+    assert 'class="pair"' in html, f"模板 {slug} 的相邻短栏目没有并排"
+    assert html.count('class="section"') >= 3
+
+
+@pytest.mark.parametrize("slug", ["classic", "onyx", "merlot"])
+def test_sidebar_layout_keeps_its_main_column_full_width(slug):
+    """侧栏布局一页已经是两列（58mm 侧栏 + 主栏），主栏再并排就成三列——额度为 0。"""
+    html = render_resume_html(pairable_content(), "侧栏", 1, slug)
+    assert 'class="pair"' not in html, f"模板 {slug} 的侧栏主栏不应并排"
+
+
+@pytest.mark.parametrize("slug", ["ink", "forest", "vermilion", "azure", "regent", "quill", "lumen"])
+def test_single_column_layouts_never_pair(slug):
+    """单栏系列一律整宽通排。
+
+    版式调研给出的硬约束：Greenhouse 官方把 "columned layout" 与 "tables" 列进
+    解析失败原因清单，TopResume 说解析器读不了右栏、会把信息打乱，各来源一致要求
+    工作经历/项目经历整宽独行。单栏系列的取舍是"兼容性优先，宁可多一页"，
+    并排（一行两栏）只保留在表格版式与侧栏版式的页级两栏结构里。
+    """
+    html = render_resume_html(pairable_content(), "单栏", 1, slug)
+    assert 'class="pair"' not in html, f"模板 {slug} 应保持单栏"
+
+
+def test_pair_budget_keeps_full_width_rows_the_default():
+    """一页里的并排行数不得超过该版式的额度（侧栏/单栏/时间轴为 0，表格为 3）。"""
+    for slug, descriptor in BUILTIN_TEMPLATES.items():
+        budget = PAIR_BUDGET_BY_LAYOUT[descriptor["layout"]]
+        html = render_resume_html(pairable_content(), "配额", 1, slug)
+        for number, page in enumerate(html.split('<section class="page')[1:], start=1):
+            on_page = page.count('<div class="pair">')
+            assert on_page <= budget, f"{slug} 第 {number} 页并排了 {on_page} 行，超出额度 {budget}"
+
+
+def test_pair_height_does_not_reject_uneven_columns():
+    """高度不齐本身不是拒绝配对的理由。
+
+    曾经加过"两栏高度差超过四行就不并排"的规则，本意是修短栏底下的空白，实测却把本来
+    省版面的配对推掉了：真实简历因此从一页变两页，而且第一页只填到 78%。短栏的空白
+    改由"每栏左侧色条 + 表格版式整行外框"来界定。
+    """
+    short = {"blocks": [{"title": "后端开发工程师", "content": "服务端方向。", "fields": {}, "display_fields": []}]}
+    tall = {"blocks": [{"title": "个人简介", "content": "四年服务端经验，关注稳定性与可维护性。" * 12, "fields": {}, "display_fields": []}]}
+    assert pair_height({"target": short, "profile": tall}, "plain", "target", "profile", PAGE_BUDGET_PX["plain"]) is not None
+    assert pair_height({"target": short, "profile": tall}, "grid", "target", "profile", PAGE_BUDGET_PX["grid"]) is not None
 
 
 @pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
@@ -151,7 +264,7 @@ def test_new_templates_paginate_long_content_and_mark_continuation(slug):
     assert "297mm" in html and "data-page" not in html  # 导出走 section.page，不携带 SPA 的 data-page 属性
 
 
-@pytest.mark.parametrize("slug", ["minimal", "classic", "azure", "lumen"])
+@pytest.mark.parametrize("slug", ["ink", "classic", "azure", "lumen"])
 def test_fragmented_entry_renders_its_title_once(slug):
     """续段只带正文：重复渲染标题会让同一个条目在页面上看起来出现了两次。"""
     html = render_resume_html(sample_content(long=True), "续段", 1, slug)
@@ -180,7 +293,7 @@ def test_spa_canvas_is_variable_driven():
     css = WEB_STYLES.read_text(encoding="utf-8")
     # 画布与横幅直接消费 API 色板变量；classic 色板作为 CSS 回退值保留。
     assert ".resume-sidebar{background:var(--t-sidebar-bg)" in css
-    assert ".resume-banner{padding:9mm 12mm;flex:none;background:var(--t-sidebar-bg)" in css
+    assert ".resume-banner{padding:8mm 11mm;flex:none;background:var(--t-sidebar-bg)" in css
     assert ".resume-stage{--t-sidebar-bg:#163b43" in css
     assert ".resume-paper.serif,.resume-paper.serif *" in css
     # 单栏布局只留一列；页头行固定为 auto，否则 align-content:stretch 会把富余高度
@@ -194,8 +307,13 @@ def test_spa_canvas_is_variable_driven():
     assert ".resume-paper .entry-period{margin-left:auto;color:var(--t-accent)" in css
     assert ".resume-paper.plain .line-head" in css, "plain 布局缺少紧凑页头样式"
     assert ".resume-paper.timeline .line-head" in css, "timeline 布局缺少紧凑页头样式"
-    assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:15mm 3mm 1fr}" in css
+    assert ".resume-paper.timeline .resume-block{display:grid;grid-template-columns:20mm 4mm 1fr}" in css
     assert ".resume-paper.timeline .t-time{grid-column:1;color:var(--t-accent)" in css
+    # 栏目 = 左侧色条 + 标题条：主栏栏目有框，表格版式与侧栏各有自己的容器形态。
+    assert ".main-sections>.resume-section,.pair>.resume-section{border-left:2.4pt solid var(--t-accent)" in css
+    assert ".resume-section .template-section-title{margin:0 0 1.5mm;padding:1.2mm 2.4mm 1mm;background:var(--t-tint)" in css
+    assert ".resume-paper.grid .template-section-title{background:var(--t-sidebar-bg);border-bottom:0" in css
+    assert ".sidebar-section{border-left:2pt solid var(--t-on-dark-accent)" in css
     # 不允许出现逐模板的硬编码主题/缩略图类——新增模板不应再改前端样式。
     for slug in BUILTIN_TEMPLATES:
         assert f"theme-{slug}" not in css, f"styles.css 仍残留 {slug} 的 theme-* 类"
@@ -217,7 +335,7 @@ SHARED_RHYTHM = [
      r"\.resume-paper \.block-copy\{font-size:[\d.]+pt;line-height:(?P<v>[\d.]+)"),
     ("元信息字号", r"^\s*\.block-meta \{[^}]*font-size:(?P<v>[\d.]+)pt",
      r"\.resume-paper \.block-meta\{font-size:(?P<v>[\d.]+)pt"),
-    ("栏目间距", r"^\.section \{ margin-top:(?P<v>[\d.]+)mm",
+    ("栏目间距", r"^\.main \.section \{ margin-top:(?P<v>[\d.]+)mm",
      r"\.main-sections\{display:grid;gap:(?P<v>[\d.]+)mm"),
     ("条目间距", r"^\.block \{ margin:0 0 (?P<v>[\d.]+)mm",
      r"\.main-sections \.resume-block\{margin-bottom:(?P<v>[\d.]+)mm"),
@@ -227,6 +345,22 @@ SHARED_RHYTHM = [
      r"\.sidebar-section \.resume-block\{margin-bottom:(?P<v>[\d.]+)mm"),
     ("时间轴时间栏宽度", r"^\.main-timeline \.block \{ display:grid; grid-template-columns:(?P<v>[\d.]+)mm",
      r"\.resume-paper\.timeline \.resume-block\{display:grid;grid-template-columns:(?P<v>[\d.]+)mm"),
+    ("时间轴轴线位置", r"^\.main-timeline \.section::before \{ content:''; position:absolute; left:(?P<v>[\d.]+)mm",
+     r"\.resume-paper\.timeline \.resume-section::before\{content:'';position:absolute;left:(?P<v>[\d.]+)mm"),
+    # —— 排版刻度：层级不只在"谁更大"，还在两端口径一致。预览曾漏声明条目标题字号，
+    # 让它继承浏览器默认 16px，于是预览里条目标题比栏目标题还大，栏目结构在画布上消失。
+    ("栏目标题字号", r"^\.section h2 \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-section \.template-section-title b\{font-size:(?P<v>[\d.]+)pt"),
+    ("条目标题字号", r"^\s*\.block h3 \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-paper \.block-head>b\{color:var\(--t-title\);font-size:(?P<v>[\d.]+)pt"),
+    ("正文字号", r"^\s*\.block p \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-paper \.block-copy\{font-size:(?P<v>[\d.]+)pt"),
+    ("侧栏栏目标题字号", r"^\.sidebar \.section h2 \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.sidebar-section \.template-section-title b\{color:var\(--t-sidebar-heading\);font-size:(?P<v>[\d.]+)pt"),
+    ("侧栏条目标题字号", r"^\.sidebar \.block h3 \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-paper \.sidebar-section \.block-head>b,\.resume-paper \.sidebar-section \.inline-title\{color:var\(--t-sidebar-fg\);font-size:(?P<v>[\d.]+)pt"),
+    ("侧栏正文字号", r"^\.sidebar \.block p \{[^}]*font-size:(?P<v>[\d.]+)pt",
+     r"\.resume-paper \.sidebar-section \.block-copy[^{]*\{color:var\(--t-sidebar-muted\);font-size:(?P<v>[\d.]+)pt"),
 ]
 
 
@@ -279,6 +413,47 @@ def test_startup_creates_every_builtin_template(builtin_client):
         assert row["version"] == 1 and row["template_version_id"]
 
 
+def test_startup_retires_templates_dropped_from_the_registry(builtin_client):
+    """精简模板库时，退役模板的数据库行改为停用而不是删除。
+
+    已有简历钉住的是模板版本行；停用后它不再出现在画廊里，但简历本身仍能导出，
+    配色按 RETIRED_TEMPLATES 解析到同版式的承接模板。
+    """
+    from app.workbench_database import SessionLocal
+
+    retired_slug, successor = next(iter(RETIRED_TEMPLATES.items()))
+    # 模拟早先版本建的库：注册表里已经没有这个 slug，但数据库行还在。
+    with SessionLocal() as db:
+        template = ResumeTemplate(workspace_id=1, name="历史模板", slug=retired_slug, description="早先版本创建", active=True)
+        db.add(template); db.flush()
+        db.add(TemplateVersion(template_id=template.id, version_number=1, content=f"code-rendered:{retired_slug}", checksum="code"))
+        db.commit()
+
+    ensure_builtin_templates()
+
+    listed = {item["slug"] for item in builtin_client.get("/api/templates").json()}
+    assert retired_slug not in listed
+    with SessionLocal() as db:
+        row = db.scalar(select(ResumeTemplate).where(ResumeTemplate.slug == retired_slug))
+        assert row is not None and row.active is False, f"{retired_slug} 的模板行应当被停用而非删除"
+        version = db.scalar(select(TemplateVersion).where(TemplateVersion.template_id == row.id))
+        assert version is not None, "停用不等于删除版本行：已有简历仍引用它"
+
+    assert descriptor_for(retired_slug) is BUILTIN_TEMPLATES[successor]
+
+
+def test_retired_slug_reports_successor_palette(client):
+    """钉在退役模板上的简历仍按承接模板下发配色与骨架。
+
+    conftest 的 client 建了一个早先版本的 ``focus`` 模板行（已从注册表退役），
+    它必须照常出现在模板列表里，但配色/布局取自承接模板 classic。
+    """
+    rows = {item["slug"]: item for item in client.get("/api/templates").json()}
+    assert "focus" in rows, "已有简历引用的退役模板不能从列表里消失"
+    assert rows["focus"]["layout"] == BUILTIN_TEMPLATES["classic"]["layout"]
+    assert rows["focus"]["tokens"] == {key: BUILTIN_TEMPLATES["classic"][key] for key in COLOUR_TOKENS}
+
+
 def test_startup_syncs_stale_builtin_metadata(builtin_client):
     """早先版本创建的模板行会被启动钩子同步回注册表文案（版本行保持不动）。"""
     from app.workbench_database import SessionLocal
@@ -326,7 +501,7 @@ def test_new_template_end_to_end_flow(builtin_client, slug):
     for token in COLOUR_TOKENS:
         assert descriptor[token] in body, f"导出 HTML 缺少模板 {slug} 的 {token}"
     page_class = {"sidebar": '<section class="page">', "plain": "page-plain", "banner": "page-banner-page",
-                  "grid": "page-grid", "line": "page-line", "timeline": "page-timeline"}[layout]
+                  "grid": "page-grid", "line": "page-line", "timeline": "page-timeline", "rail": "page-rail"}[layout]
     assert page_class in body
     if layout == "sidebar":
         assert "<aside class=\"sidebar\">" in body

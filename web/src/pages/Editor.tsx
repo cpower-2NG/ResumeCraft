@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArchiveRestore, CircleAlert, Download, FilePenLine, History, LayoutTemplate, Plus, Trash2 } from 'lucide-react'
+import { ArchiveRestore, CircleAlert, Download, Eye, FilePenLine, History, LayoutTemplate, Plus, Trash2 } from 'lucide-react'
 import { del, patch, post } from '../api'
 import { BenchHead } from '../components/BenchHead'
 import { Canvas } from '../components/Canvas'
@@ -7,10 +7,11 @@ import { Picker } from '../components/Picker'
 import { StageToolbar } from '../components/StageToolbar'
 import { TemplateModal } from '../components/TemplateModal'
 import { Field, Loading, Modal, useLoad } from '../components/ui'
-import { brief, date, factBlock, factCategories, fieldLabels, fragmentLimit, inSidebarStream, labels, layoutBudget, layoutMainIds, SIDE_IDS, splitText, streamItems, type Block, type Content, type Fact, type Pending, type UpdateBlock } from '../lib/resume'
+import { brief, date, factBlock, factCategories, fieldLabels, fragmentLimit, inSidebarStream, labels, pageCountOf, SIDE_IDS, splitText, type Block, type Content, type Fact, type Pending, type UpdateBlock } from '../lib/resume'
 import type { TemplateDescriptor } from '../lib/templates'
 
 type BlockMenu={sectionId:string;blockId:string;fragmentIndex:number;x:number;y:number}
+type LintIssue={level:string;section_id:string;block_id:string;message:string}
 
 export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:number;back:()=>void;error:(s:string)=>void;refresh:()=>void;focusBlock:{sectionId:string;blockId:string}|null;onFocusLocated:()=>void}){
   const resume=useLoad<any>(`/api/resumes/${id}`,null)
@@ -30,8 +31,16 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   const [templateOpen,setTemplateOpen]=useState(false)
   const [zoom,setZoom]=useState(1)
   const [compact,setCompact]=useState(false)
+  const [lint,setLint]=useState<LintIssue[]>([])
   useEffect(()=>{const h=()=>setCompact(window.scrollY>150);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h)},[])
   useEffect(()=>{if(resume.data){setContent(resume.data.working_copy.content);baseline.current=JSON.stringify(resume.data.working_copy.content)}},[resume.data])
+  // 导出体检与草稿同步：判定规则与导出 HTML 里的告警条同源（后端 lint_resume），
+  // 草稿变化后防抖拉取，问题亮在画布上方，打印/导出正文不受影响。
+  useEffect(()=>{
+    if(!content)return
+    const t=window.setTimeout(()=>{post<{issues:LintIssue[]}>(`/api/resumes/${id}/lint`,{}).then(r=>setLint(r.issues||[])).catch(()=>setLint([]))},600)
+    return()=>window.clearTimeout(t)
+  },[content,id])
   // Locate and flash the block affected by a pending item after navigation.
   useEffect(()=>{
     if(!content||!focusBlock)return
@@ -71,6 +80,15 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
     })}
   })
   const removeBlock=(sid:string,bid:string)=>setContent(old=>old?{sections:old.sections.map(s=>s.id!==sid?s:{...s,blocks:s.blocks.filter(b=>b.id!==bid)})}:old)
+  // 整栏隐藏：写进内容的 visibility（工作副本 → 版本），导出端读同一个字段决定排不排。
+  // 结构上保留栏目与条目，所以恢复时不需要重建任何东西。
+  const setSectionVisible=(sid:string,visible:boolean)=>setContent(old=>{
+    if(!old)return old
+    const exists=old.sections.some(s=>s.id===sid)
+    return {sections:exists
+      ? old.sections.map(s=>s.id===sid?{...s,visibility:visible}:s)
+      : [...old.sections,{id:sid,title:labels[sid],visibility:visible,blocks:[]}]}
+  })
   const moveBlock=(sid:string,bid:string,dir:1|-1)=>setContent(old=>{
     if(!old)return old
     return {sections:old.sections.map(s=>{
@@ -108,12 +126,32 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   const menuBlock=menu&&menuSection?menuSection.blocks.find(b=>b.id===menu.blockId)||null:null
   const menuIndex=menuSection&&menuBlock?menuSection.blocks.indexOf(menuBlock):-1
   const layout=resume.data.template?.layout||'sidebar'
+  // 已隐藏的栏目：列表里给回恢复入口，否则隐藏后画布上就再也点不到它了。
+  const hiddenTitles=content.sections.filter(s=>s.visibility===false).map(s=>[s.id,s.title||labels[s.id]] as [string,string])
+  // 体检条目点击定位：滚动到对应块并闪烁一次（与待办定位同一套视觉）。
+  const locateBlock=(sectionId:string,blockId:string)=>{
+    const el=document.querySelector(`[data-block-key="${sectionId}:${blockId}"]`) as HTMLElement|null
+    if(!el)return
+    el.scrollIntoView({behavior:'smooth',block:'center'})
+    el.classList.remove('flash-highlight');void el.offsetWidth;el.classList.add('flash-highlight')
+    window.setTimeout(()=>el.classList.remove('flash-highlight'),1600)
+  }
   return <main className="workbench">
     <BenchHead title={`正式简历 · ${versionLabel}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
     {changed.length>0&&!readOnly&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>来源资料已变化</b><span>受影响条目已标记；正文没有被自动改写。</span></div></div>}
-    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={streamItems(content,layoutMainIds(layout),layoutBudget(layout),false,layout).length}/>
+    {!readOnly&&lint.length>0&&<div className="lint-banner compact">
+      <CircleAlert size={17}/>
+      <div><b>导出体检发现 {lint.length} 个问题（打印时不会出现在简历上）</b>
+        <span>{lint.map(issue=><button key={`${issue.section_id}:${issue.block_id}:${issue.message}`} className={`lint-item lint-${issue.level}`} title={issue.block_id?'点击定位到对应条目':undefined} onClick={()=>issue.block_id&&locateBlock(issue.section_id,issue.block_id)}>{issue.level==='error'?'必须处理':'建议处理'}：{issue.message}</button>)}</span>
+      </div>
+    </div>}
+    <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={pageCountOf(content,layout)}/>
+    {!readOnly&&hiddenTitles.length>0&&<div className="hidden-sections">
+      <span>已隐藏 {hiddenTitles.length} 个栏目：</span>
+      {hiddenTitles.map(([sid,title])=><button key={sid} className="button" onClick={()=>setSectionVisible(sid,true)}><Eye size={13}/>{title} · 恢复</button>)}
+    </div>}
     <div className="stage-zoom" style={{zoom}}>
-      <Canvas content={content} mode={readOnly?'select':'edit'} template={resume.data.template} changed={changed} addFact={setPick} onEdit={openEdit} onContext={openMenu}/>
+      <Canvas content={content} mode={readOnly?'select':'edit'} template={resume.data.template} changed={changed} addFact={setPick} onEdit={openEdit} onContext={openMenu} onToggleSection={setSectionVisible}/>
     </div>
     <section className="version-panel">
       <header><History size={17}/><h2>版本历史</h2></header>

@@ -1,0 +1,177 @@
+{
+ "sections": [
+  {
+   "blocks": [
+    {
+     "content": "踏实肯干，善于分析问题，学习能力强。从算法竞赛转向具身智能，能够耐心完成物理设备联调与工程验证。\n每周可实习 5 天；最长可连续实习时间不限 · 深圳 · 深圳",
+     "id": "fact-1",
+     "origin": "fact",
+     "source_refs": [
+      1
+     ],
+     "title": "许榕鑫",
+     "type": "fact"
+    }
+   ],
+   "id": "basics",
+   "title": "基本信息",
+   "type": "basics",
+   "visibility": true
+  },
+  {
+   "blocks": [
+    {
+     "content": "机器人数据采集员",
+     "id": "target-profile",
+     "origin": "user",
+     "source_refs": [],
+     "title": "求职目标",
+     "type": "paragraph"
+    }
+   ],
+   "id": "target",
+   "title": "求职目标",
+   "type": "target",
+   "visibility": true
+  },
+  {
+   "blocks": [],
+   "id": "profile",
+   "title": "个人简介",
+   "type": "profile",
+   "visibility": true
+  },
+  {
+   "blocks": [
+    {
+     "content": "GPA 3.7/4.5；专业排名 9/153\n具身智能系统概论、ROS 系统与编程、开源鸿蒙设备开发、具身智能体开发、数据结构、操作系统 · 本科 · 数据科学与大数据技术",
+     "id": "fact-2",
+     "origin": "fact",
+     "source_refs": [
+      2
+     ],
+     "title": "深圳技术大学",
+     "type": "fact"
+    }
+   ],
+   "id": "education",
+   "title": "教育经历",
+   "type": "education",
+   "visibility": true
+  },
+  {
+   "blocks": [
+    {
+     "content": "使用 VR 头显和主从机械臂操作杆采集机器人运动数据，分析模型表现瓶颈并提出数据处理与任务策略改进。\n工业任务复杂，适合人类的执行策略不一定适合机器人；模型存在训练集过拟合。 · 竞赛 · 实验室小组",
+     "id": "fact-3",
+     "origin": "fact",
+     "source_refs": [
+      3
+     ],
+     "title": "越疆 X-Trainer 竞赛与优必选人形机器人挑战赛",
+     "type": "fact"
+    },
+    {
+     "content": "完成视觉检测相关项目开发与实验验证。\n课程设计 · 课程项目 · 完成课程项目。",
+     "id": "fact-5",
+     "origin": "fact",
+     "source_refs": [
+      5
+     ],
+     "title": "基于 YOLO 的跌倒检测系统",
+     "type": "fact"
+    },
+    {
+     "content": "负责 YOLO 感知章节文案、示范项目和自动标注脚本；为仿真抓取模块提供实践基线。\n教学表达、感知抓取全链路复杂度和章节协作需要同时平衡。 · 教材开发 · 深技大人工智能学院具身智能小组",
+     "id": "fact-4",
+     "origin": "fact",
+     "source_refs": [
+      4
+     ],
+     "title": "优必选机器人教材开发：YOLO 视觉检测与 IK",
+     "type": "fact"
+    }
+   ],
+   "id": "experience",
+   "title": "项目与实践",
+   "type": "experience",
+   "visibility": true
+  },
+  {
+   "blocks": [
+    {
+     "content": "机器人运动数据采集\n数据采集设备 · 能用",
+     "id": "fact-17",
+     "origin": "fact",
+     "source_refs": [
+      17
+     ],
+     "title": "VR 头显与主从机械臂",
+     "type": "fact"
+    },
+    {
+     "content": "个人与实验室开发\n开发环境 · 熟练",
+     "id": "fact-18",
+     "origin": "fact",
+     "source_refs": [
+      18
+     ],
+     "title": "Windows + WSL / Ubuntu",
+     "type": "fact"
+    },
+    {
+     "content": "机器人教材与仿真项目\n机器人开发 · 能用",
+     "id": "fact-15",
+     "origin": "fact",
+     "source_refs": [
+      15
+     ],
+     "title": "ROS2",
+     "type": "fact"
+    },
+    {
+     "content": "视觉检测与教材示范项目\n视觉与模型 · 能用",
+     "id": "fact-13",
+     "origin": "fact",
+     "source_refs": [
+      13
+     ],
+     "title": "YOLO",
+     "type": "fact"
+    }
+   ],
+   "id": "skills",
+   "title": "技能",
+   "type": "skills",
+   "visibility": true
+  },
+  {
+   "blocks": [
+    {
+     "content": "越疆 · 2026.06 · 省三等奖",
+     "id": "fact-19",
+     "origin": "fact",
+     "source_refs": [
+      19
+     ],
+     "title": "越疆 X-Trainer 竞赛",
+     "type": "fact"
+    },
+    {
+     "content": "优必选 · 2026.08 · 第 20 名",
+     "id": "fact-20",
+     "origin": "fact",
+     "source_refs": [
+      20
+     ],
+     "title": "优必选天工无疆全球人形机器人挑战赛",
+     "type": "fact"
+    }
+   ],
+   "id": "awards",
+   "title": "成果",
+   "type": "awards",
+   "visibility": true
+  }
+ ]
+}

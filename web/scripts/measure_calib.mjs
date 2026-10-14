@@ -23,6 +23,23 @@ for (const file of files) {
     const cs = el => getComputedStyle(el)
     const px = v => parseFloat(v) || 0
     const lineCount = el => { const r = document.createRange(); r.selectNodeContents(el); return r.getClientRects().length }
+    // Glyph-width units, matching text_units() in app/services.py: a full-width
+    // character occupies two units, everything else one. Capacity is reported in
+    // units so one constant fits both CJK-only and Latin-heavy prose.
+    const units = text => {
+      let total = 0
+      for (const char of text) {
+        const code = char.codePointAt(0)
+        const wide = (code >= 0x1100 && code <= 0x115f) || (code >= 0x2e80 && code <= 0x303e) ||
+          (code >= 0x3041 && code <= 0x33ff) || (code >= 0x3400 && code <= 0x4dbf) ||
+          (code >= 0x4e00 && code <= 0x9fff) || (code >= 0xa000 && code <= 0xa4cf) ||
+          (code >= 0xac00 && code <= 0xd7a3) || (code >= 0xf900 && code <= 0xfaff) ||
+          (code >= 0xfe30 && code <= 0xfe6f) || (code >= 0xff00 && code <= 0xff60) ||
+          (code >= 0xffe0 && code <= 0xffe6) || (code >= 0x20000 && code <= 0x3fffd)
+        total += wide ? 2 : 1
+      }
+      return total
+    }
     // Number of wrapped meta lines: distinct row tops among the flex items.
     const metaRows = el => new Set([...el.querySelectorAll('.meta')].map(c => Math.round(c.getBoundingClientRect().top))).size
     // Line boxes a text occupies at a given width, using the probe's own font.
@@ -64,13 +81,16 @@ for (const file of files) {
     pairProbe.remove()
 
     // The long prose block is the estimation target: full width, no pair parent.
-    const p = [...document.querySelectorAll('.main .block p')]
-      .filter(el => el.textContent.length > 500 && !el.closest('.pair'))[0]
+    const candidates = [...document.querySelectorAll('.main .block p')]
+      .filter(el => el.textContent.length > 500 && !el.closest('.pair'))
+    const p = candidates[0]
+    if (!p) throw new Error('calibration probe has no full-width paragraph over 500 chars')
     const text = p.textContent
     const pStyle = cs(p)
     const block = p.closest('.block')
     const blockStyle = cs(block)
     const meta = block.querySelector('.block-meta')
+    if (!meta) throw new Error('calibration probe block has no .block-meta')
     const metaSpan = meta.querySelector('.meta')
     const metaChars = [...meta.querySelectorAll('.meta')].reduce((sum, el) => {
       const b = el.querySelector('b')
@@ -147,8 +167,8 @@ for (const file of files) {
         meta: sMetaLine,
         base: Math.round(sBlock.getBoundingClientRect().height + px(cs(sBlock).marginBottom)
           - sLines * px(cs(sp).lineHeight) - sMetaLines * sMetaLine),
-        charsPerLine: Math.round(sp.textContent.length / sLines * 10) / 10,
-        metaChars: Math.round(sMetaChars / sMetaLines * 10) / 10,
+        charsPerLine: Math.round(units(sp.textContent) / sLines * 10) / 10,
+        metaChars: Math.round(units(sMeta.textContent) / sMetaLines * 10) / 10,
         header: Math.round(sBlock.getBoundingClientRect().top - sBlock.closest('.section').getBoundingClientRect().top),
       }
     }
@@ -160,11 +180,11 @@ for (const file of files) {
       headNatural: Math.round(headNatural),
       mainClient: main.clientHeight, mainScroll: main.scrollHeight,
       font: px(pStyle.fontSize), line,
-      charsPerLine: Math.round(text.length / blockLines * 10) / 10,
-      pairCharsPerLine: Math.round(text.length / boxesAt(text, pairWidth, pStyle) * 10) / 10,
+      charsPerLine: Math.round(units(text) / blockLines * 10) / 10,
+      pairCharsPerLine: Math.round(units(text) / boxesAt(text, pairWidth, pStyle) * 10) / 10,
       metaFont: px(metaStyle.fontSize), metaLine,
-      metaChars: Math.round(metaChars / metaLines * 10) / 10,
-      pairMetaChars: Math.round(metaChars / pairMetaLines * 10) / 10,
+      metaChars: Math.round(units(meta.textContent) / metaLines * 10) / 10,
+      pairMetaChars: Math.round(units(meta.textContent) / pairMetaLines * 10) / 10,
       titleRow: titlePx,
       header, headerFirst, base, blockLines, blockMetaLines,
       side,

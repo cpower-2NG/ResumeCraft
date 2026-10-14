@@ -1,0 +1,48 @@
+<!doctype html>
+<!--
+  Static reproduction of the DOM that Canvas.tsx renders for one page, so the SPA
+  stylesheet's typography can be measured without booting the app or a database.
+  Used by web/scripts/probe_canvas_type.mjs; keep the class names in sync with
+  web/src/components/Canvas.tsx.
+-->
+<html lang="zh-CN"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../src/styles.css">
+<style>html,body{margin:0;padding:0}</style>
+</head><body>
+<section class="resume-stage select-mode" data-template="classic">
+<article class="resume-paper" id="resume-page-1" data-page="1">
+  <aside class="resume-sidebar"><div class="sidebar-content">
+    <section class="resume-section sidebar-section">
+      <div class="template-section-title"><b>技能</b></div>
+      <article class="resume-block">
+        <div class="block-head"><b>VR 头显与主从机械臂</b></div>
+        <div class="block-meta"><span><b>数据采集设备</b> 能用</span></div>
+        <p class="block-copy">机器人运动数据采集</p>
+      </article>
+    </section>
+    <section class="resume-section sidebar-section">
+      <div class="template-section-title"><b>成果（续）</b></div>
+      <article class="resume-block">
+        <div class="block-head"><b>越疆 X-Trainer 竞赛</b><span class="entry-period">2026.06</span></div>
+        <div class="block-meta"><span><b>省</b> 三等奖</span></div>
+        <p class="block-copy"><a href="https://example.com/work">example.com/work</a></p>
+      </article>
+    </section>
+  </div></aside>
+  <main class="resume-main"><div class="main-sections">
+    <section class="resume-section">
+      <div class="template-section-title"><b>项目与实践</b></div>
+      <article class="resume-block">
+        <div class="block-head"><b>电商中台重构</b><span class="entry-period">2024.03 – 2025.06</span></div>
+        <div class="block-meta"><span><b>角色</b> 后端负责人</span><span><b>团队规模</b> 12 人</span></div>
+        <p class="block-copy">负责中台服务的设计与落地，沉淀可复用组件与规范。</p>
+      </article>
+    </section>
+    <section class="resume-section empty-section" data-empty="1">
+      <div class="template-section-title"><b>链接与作品集</b></div>
+      <p class="empty-hint">点击选择要放进本栏目的资料</p>
+    </section>
+  </div></main>
+</article>
+</section>
+</body></html>

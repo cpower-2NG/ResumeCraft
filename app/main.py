@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .services import CORE_SECTIONS, FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
-from .templates import BUILTIN_TEMPLATES, template_public_info
+from .services import CORE_SECTIONS, FACT_SCHEMAS, build_resume_content, content_hash, dump, evidence_count, identity_key, json_value, lint_resume, replace_custom_fields, replace_fact_details, render_resume_html, serialize_fact, serialize_profile, serialize_version, source_manifest, sync_references
+from .templates import BUILTIN_TEMPLATES, descriptor_for, template_public_info
 from .workbench_database import get_db
 from .workbench_models import Evidence, FactAudit, FactEvidence, FactRecord, JobOpportunity, LinkedResume, PendingItem, RequirementProfile, ResumeFactReference, ResumeIdentity, ResumeTemplate, ResumeVersion, ResumeWorkingCopy, TemplateVersion, Workspace
 
@@ -34,6 +34,10 @@ def ensure_builtin_templates():
 
     Missing slugs are seeded; existing rows have their name/description synced
     back to the registry so databases created by earlier releases converge.
+    Slugs retired from the registry are switched off rather than deleted: a
+    resume that already pinned one keeps rendering, but through the successor
+    template recorded in ``RETIRED_TEMPLATES``, so the gallery stops offering it
+    without any saved resume losing its palette family.
     """
     from .workbench_database import SessionLocal
 
@@ -44,14 +48,23 @@ def ensure_builtin_templates():
         for slug, descriptor in BUILTIN_TEMPLATES.items():
             template = db.scalar(select(ResumeTemplate).where(ResumeTemplate.workspace_id == WORKSPACE_ID, ResumeTemplate.slug == slug))
             if template:
-                if template.name != descriptor["name"] or template.description != descriptor["description"]:
+                if template.name != descriptor["name"] or template.description != descriptor["description"] or not template.active:
                     template.name = descriptor["name"]
                     template.description = descriptor["description"]
+                    template.active = True
                     changed = True
                 continue
             template = ResumeTemplate(workspace_id=WORKSPACE_ID, name=descriptor["name"], slug=slug, description=descriptor["description"], active=True)
             db.add(template); db.flush()
             db.add(TemplateVersion(template_id=template.id, version_number=1, content=f"code-rendered:{slug}", checksum="code"))
+            changed = True
+        retired = db.scalars(select(ResumeTemplate).where(
+            ResumeTemplate.workspace_id == WORKSPACE_ID,
+            ResumeTemplate.active.is_(True),
+            ResumeTemplate.slug.not_in(list(BUILTIN_TEMPLATES)),
+        )).all()
+        for template in retired:
+            template.active = False
             changed = True
         if changed:
             db.commit()
@@ -418,7 +431,7 @@ def templates(db: Session = Depends(get_db)):
     result = []
     for item in templates:
         version = db.scalar(select(TemplateVersion).where(TemplateVersion.template_id == item.id).order_by(TemplateVersion.version_number.desc()))
-        descriptor = BUILTIN_TEMPLATES.get(item.slug, {})
+        descriptor = descriptor_for(item.slug)
         result.append({"id": item.id, "name": item.name, "slug": item.slug, "description": item.description, "version": version.version_number if version else None, "template_version_id": version.id if version else None, **template_public_info(descriptor)})
     return result
 
@@ -502,8 +515,9 @@ def template_info_response(db: Session, template_version_id: int | None) -> dict
     if not version:
         return None
     template = db.get(ResumeTemplate, version.template_id)
-    descriptor = BUILTIN_TEMPLATES.get(template.slug, {}) if template else {}
-    return {"template_version_id": template_version_id, "template_id": template.id if template else None, "slug": template.slug if template else "classic", "name": template.name if template else "经典侧栏模板", **template_public_info(descriptor or BUILTIN_TEMPLATES["classic"])}
+    # 退役模板的 slug 会解析到承接模板：仍有简历钉住它时，配色和分页骨架都不变。
+    descriptor = descriptor_for(template.slug) if template else BUILTIN_TEMPLATES["classic"]
+    return {"template_version_id": template_version_id, "template_id": template.id if template else None, "slug": template.slug if template else "classic", "name": template.name if template else "经典侧栏模板", **template_public_info(descriptor)}
 
 
 class TemplateChoiceInput(BaseModel):
@@ -634,7 +648,22 @@ def export_resume(resume_id: int, version_number: int, db: Session = Depends(get
     content = json_value(version.content, {})
     template_version = db.get(TemplateVersion, version.template_version_id)
     template = db.get(ResumeTemplate, template_version.template_id) if template_version else None
-    html = render_resume_html(content, identity.display_name, version_number, template.slug if template else "classic")
+    html = render_resume_html(content, identity.display_name, version_number, template.slug if template else "classic", lint_issues=lint_resume(content))
     filename = re.sub(r"[^A-Za-z0-9\u4e00-\u9fff._-]+", "-", f"{identity.display_name}-v{version_number}").strip("-") or f"resume-v{version_number}"
     header_filename = quote(f"{filename}.html")
-    return Response(content=html, media_type="text/html; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="resume-v{version_number}.html"; filename*=UTF-8\'\'{header_filename}'})
+    return Response(content=html, media_type="text/html; charset=utf-8", headers={"Content-Disposition": f"attachment; filename=\"resume-v{version_number}.html\"; filename*=UTF-8''{header_filename}"})
+
+
+@app.post("/api/resumes/{resume_id}/lint")
+def lint_working_copy(resume_id: int, db: Session = Depends(get_db)):
+    """工作副本的导出体检：联系方式缺失、条目缺时间、测试数据、零信息句。
+
+    工作台画布在草稿变化后调用它，把问题亮在画布上方；判定规则与导出 HTML 里的
+    体检告警条同源（app/services.py 的 lint_resume），预览与导出不会各说各话。
+    """
+    require_workspace(db)
+    identity = get_or_404(db, ResumeIdentity, resume_id)
+    copy = db.scalar(select(ResumeWorkingCopy).where(ResumeWorkingCopy.resume_identity_id == identity.id))
+    if not copy:
+        raise HTTPException(404, "该简历还没有工作副本")
+    return {"issues": lint_resume(json_value(copy.content, {}))}

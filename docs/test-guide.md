@@ -32,22 +32,72 @@ npm run test:ui
 分页估算（`LAYOUT_METRICS`/`PAGE_BUDGET_PX`）是纯计算，既可能低估（导出正文越过 A4 底边被裁掉）也可能高估（页面过早切断）。改动版式、列宽、字号或估算常数后，必须按下面的闭环复测：
 
 ```powershell
-# 1) 生成 26 个模板 × 3 种密度样本的导出 HTML 到 output/tmp
+# 1) 生成 12 个模板 × 3 种密度样本的导出 HTML 到 output/tmp
 .\.venv\Scripts\python.exe scripts\gen_samples.py
 # 2) 无头浏览器逐页测量填充率与裁切像素
 cd web; node scripts\measure_pages.mjs ..\output\tmp > ..\output\tmp\metrics.json; cd ..
-# 3) 汇总并过验收门槛（任何一页不得裁切，非末页填充不得低于 80%）
+# 3) 汇总并过验收门槛（任何一页不得裁切，非末页填充不得低于 74%）
 .\.venv\Scripts\python.exe scripts\summarize_metrics.py
 ```
+
+并排节奏（整宽行 vs 并排行、以及哪些栏目被并排）用 `node web/scripts/count_pairs.mjs output/tmp` 看：按版式检查"整宽为主、并排为辅"，并确认单栏系列没有任何并排行。
+
+门槛取 74% 而不是更高：栏目是原子单元，一页最多会空掉"下一个放不下的栏目"那么高，实测最差 75%–77%（quill 线式版式落在栏目边界上；单栏版式没有并排可以吸收余量），而这个门槛要抓的过早切断在历史上是 13%–28%。阈值放在合法最差值之下一点：既不放过真正半空的页，也不把正常的栏目边界当故障。
 
 需要按实测重标估算常数时：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\calibrate_layout.py   # 用真实渲染器产出校准探针
-cd web; node scripts\measure_calib.mjs ..\output\tmp\calib  # 在浏览器里读真实几何
+cd web; node scripts\measure_calib.mjs ..\output\tmp\calib > ..\output\tmp\calib.json
+node scripts\show_calib.mjs ..\output\tmp\calib.json      # 打印可直接抄进 LAYOUT_METRICS 的数
 ```
 
-定位“估算与渲染对不上”时，`node web/scripts/dump_page.mjs <导出 HTML>` 会打印单个页面里每个栏目/条目的真实高度与裁切量。
+校准探针的正文是**纯中文**，每行容量按**字宽单位**统计（全角 2、半角 1，见 `app/services.py` 的 `text_units`）。这两点都不能改回去：用拉丁字母较多的文本标定出的每行容量对纯中文正文偏乐观，估算会少算近三成行数、把正文顶出 A4 底边；只按纯中文字符数标定又会把带拉丁词的真实简历估高一截（非末页只剩七成满）。
+
+定位“估算与渲染对不上”时：
+
+- `node web/scripts/dump_page.mjs <导出 HTML>`：打印单个页面里每个栏目/条目的真实高度与裁切量。
+- `node web/scripts/check_chars_per_line.mjs <导出 HTML>…`：对比各段落实际折出的每行字宽单位数。
+- `node web/scripts/crop_page.mjs <导出 HTML> <out.png> <x> <y> <w> <h> [倍率]`：放大某一小块，用于核对小字号下的字形与颜色。
+
+### 配色可读性与字号一致性
+
+改调色板、深色底样式或任何字号后：
+
+```powershell
+# 注册表级：白纸角色 vs 白纸、栏目标题 vs 标题条底色、深色面角色 vs sidebar_bg
+.\.venv\Scripts\python.exe scripts\audit_contrast.py
+# 注册表体检：打印派生出的 on_dark_accent / tint 与逐模板对比度
+.\.venv\Scripts\python.exe scripts\show_palettes.py
+# 渲染级：真实浏览器合成祖先背景后逐处文本算 WCAG 对比度（应 0 处低于 4.5:1）
+cd web; node scripts\audit_render_contrast.mjs ..\output\tmp 4.5; cd ..
+# 预览字号：量 SPA 画布各角色的计算字号（应与导出的 pt 值一致）
+cd web; node scripts\probe_canvas_type.mjs
+```
+
+### 画布（SPA）的对比度与渲染检查
+
+导出 HTML 与 SPA 画布是两套样式表，`audit_render_contrast.mjs` 只覆盖前者。**改画布样式、深色面规则或 CSS 变量后，必须同时跑画布这一侧**——v1.0.13 的"侧栏深色底上字看不见"就是只审导出漏掉的：
+
+```powershell
+# 需要应用在运行：powershell -File scripts\Start-ResumeCraft.ps1 -NoBrowser
+# 连到真实应用，逐套模板切换后逐处文本算对比度（12 套模板、编辑态，应 0 处低于 4.5:1）
+cd web; node scripts\audit_canvas_contrast.mjs http://127.0.0.1:5173 4.5
+# 只想看某一份简历的某个模板：打印侧栏每处文本的实际颜色/背景/字号，并截图
+cd web; node scripts\inspect_canvas.mjs http://127.0.0.1:5173 5 ..\output\tmp\canvas.png "经典侧栏"
+# 栏目隐藏/恢复：逐步断言（消失 → 出现恢复入口 → 恢复 → 入口收起）
+cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
+```
+
+这两个脚本会切换简历的模板来遍历模板库，跑完用 `python scripts\restore_resume_template.py <简历 id> <模板 slug>`
+把它改回去。它们**每一步都显式断言**（切到某模板后校验画布上的模板确实是它、走不到位就报错）：
+首版曾把点击失败 catch 掉，结果审计其实是在"碰巧打开的"页面上跑，界面一改版就会静默审错对象。
+
+画布的深色面规则另有一条结构性约束，改 `Canvas.tsx` 时要守住：侧栏里的栏目必须带
+`sidebar-section` 类（由 `inSidebarStream(layout, section.id)` 推导）。少了这个类，整套深色面
+配色都不会生效，而**任何只审导出的检查都发现不了**。
+
+核对"某个模板在纸面上到底长什么样"时，`python scripts\dump_resume_content.py [简历 id]` 会打印该版本保存的内容，便于区分"版式问题"和"内容本身就是空的"。
 
 测试夹具位于 `tests/conftest.py`。每个测试使用内存 SQLite、独立工作区和一个可用模板，不依赖真实数据库资料。
 
@@ -84,14 +134,28 @@ cd web; node scripts\measure_calib.mjs ..\output\tmp\calib  # 在浏览器里读
 
 ### `tests/test_template_compatibility.py`
 
-覆盖 26 个内置模板的四层契约（描述符完整、导出可用、前端同步、接口可用）：
+覆盖 12 个内置模板的四层契约（描述符完整、导出可用、前端同步、接口可用）：
 
-- 描述符：slug/色板/布局合法且名称唯一，六种布局都有模板覆盖。
-- 导出结构：每种布局的页面骨架、色板注入、无未渲染占位符；**姓名只出现在页头/侧栏页头，基本信息不再重复成栏目**；**短栏目成对并排（时间轴除外）**。
-- 排版常数一致：逐项比对导出样式表与 `web/src/styles.css` 里真正影响分页的数值（正文行高、元信息字号、栏目/条目间距、侧栏间距、时间轴时间栏宽度）。
+- 描述符：slug/色板/布局合法且名称唯一，六种布局都有模板覆盖，模板库维持在 10–12 套。
+- 导出结构：每种布局的页面骨架、色板注入、无未渲染占位符；**姓名只出现在页头/侧栏页头，基本信息不再重复成栏目**；时间轴不并排。
+- 内容编排：**导出端不排没有内容的栏目**（数据里空着的个人简介/链接与作品集此前会留一条空标题），而**画布端保留它们作为"点击选择资料"的占位入口**——两者刻意分开，不能合并；空栏目占位不计版面预算，预览与导出的断页因此一致（前端 `App.test.ts` 有用例）。
+- 并排（一行两栏）：**只有表格版式会并排**（额度 3），单栏/横幅/线式/时间轴一律整宽通排，侧栏版式用"侧栏 + 主栏"的页级两栏结构。逐模板验证"一页并排行数不超过额度"。取舍依据（Greenhouse 把 columned layout 列进解析失败原因、经历必须整宽等）写在 `app/services.py` 的 `PAIR_BUDGET_BY_LAYOUT` 注释与排版的 `parsingNote()` 里。
+- 退役模板：`RETIRED_TEMPLATES` 里的 slug 必须解析到同版式的承接模板，启动钩子把它们的数据库行改为停用而不是删除。
+- 排版常数一致：逐项比对导出样式表与 `web/src/styles.css` 里真正影响分页的数值（正文行高、元信息字号、栏目/条目间距、侧栏间距、时间轴时间栏宽度与轴线位置，以及栏目/条目/正文/侧栏各档字号）。
 - 分页行为：长内容分页并带“（续）”标记；**被切片的条目只渲染一次标题**（续段不再重复标题）。
 - 前端同步：`/api/templates` 下发 layout/serif/tokens，画布消费 CSS 变量，无逐模板硬编码主题类。
 - 接口全链路：启动建库 → 模板列表 → 选择模板 → 转为正式 → 导出。
+
+### `tests/test_template_contrast.py`
+
+把"纸面上的字能不能看清"变成门槛，而不是靠肉眼：
+
+- 白纸角色（heading/title/meta/meta_label/copy/accent）在 `#ffffff` 上必须达 AA（4.5:1）。
+- 栏目标题在它自己的标题条底色（`tint`）上必须达 AA；`tint` 本身不得深到盖住正文。
+- 深色面角色（sidebar_fg/sidebar_muted/sidebar_heading/on_dark_accent）在 `sidebar_bg` 上必须达 AA，且只对真有深色文字面的版式（侧栏/横幅/表格表头）要求。
+- `on_dark_accent` 必须有派生来源：达标或由 `accent` 派生，不允许既没覆盖也不达标。
+- 导出样式表里，画在深色面上的文字规则不得引用白纸角色——侧栏条目的时间与字段值曾经就是这样被涂成深色底上的深色字（渲染级实测 110 处低于 3:1）。
+- 深色面上必须显式使用深色面角色（时间、链接、字段值），不能靠继承碰运气。
 
 ### `tests/test_workflow.py`
 
