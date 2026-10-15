@@ -23,8 +23,10 @@ await page.waitForSelector('.module-card', { timeout: 20000 })
 
 for (const resume of resumes) {
   if (onlyResume && resume.id !== onlyResume) continue
-  // Home -> ResumeCraft 模块 -> 简历列表 -> 打开该简历。
-  await page.locator('.module-card', { hasText: 'ResumeCraft' }).first().click().catch(() => {})
+  // 首页 -> 简历工作台模块 -> 简历列表 -> 打开该简历。
+  // 选择器按当前界面文案（模块卡「简历工作台」）；以前写成旧项目名 "ResumeCraft"，
+  // 点不到又被 .catch 吞掉，于是脚本静默地在首页上跑完全程。
+  await page.locator('.module-card', { hasText: '简历工作台' }).first().click()
   await page.waitForSelector('.resume-row', { timeout: 15000 }).catch(() => {})
   const row = page.locator('.resume-row', { hasText: resume.display_name }).first()
   if (!(await row.count())) { console.log(`resume ${resume.id}: 列表里没找到行`); continue }

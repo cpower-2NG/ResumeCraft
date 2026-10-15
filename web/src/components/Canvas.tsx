@@ -156,10 +156,17 @@ function BlockView({section:s,block:b,mode,changed,sidebar,layout,onEdit,onConte
   const editClick=(e:ReactMouseEvent)=>{if(mode!=='edit')return;e.stopPropagation();onEdit?.({sectionId:s.id,blockId:sourceId,fragmentIndex:b.fragment_index??0})}
   const editContext=(e:ReactMouseEvent)=>{if(mode!=='edit')return;e.preventDefault();e.stopPropagation();onContext?.({sectionId:s.id,blockId:sourceId,fragmentIndex:b.fragment_index??0},e.clientX,e.clientY)}
   // 成果三列表格（与导出渲染器的 awards-table 同构）。
-  if(b.origin==='awards-table'&&b.table_rows)return <article className={`resume-block ${mode==='edit'?'editable-block':''}`} data-block-key={`${s.id}:${sourceId}`} onClick={editClick} onContextMenu={editContext}>
-    <table className="awards-table"><thead><tr><th>时间</th><th>奖项 / 赛事</th><th>成绩（颁奖单位）</th></tr></thead>
+  // 时间轴版式里必须和普通条目一样套一层 .t-body：`.resume-paper.timeline .resume-block`
+  // 是三列 grid（20mm 时间栏 / 4mm 轴线 / 1fr 正文），裸表格会被自动放进第 1 列，
+  // 于是被压成一条、表头竖排折行。导出端由 timeline_block_html 包了 t-body，画布这里
+  // 漏了同一步 —— 那正是"预览与导出不一致"。
+  if(b.origin==='awards-table'&&b.table_rows){
+    const table=<table className="awards-table"><thead><tr><th>时间</th><th>奖项 / 赛事</th><th>成绩（颁奖单位）</th></tr></thead>
       <tbody>{b.table_rows.map((row,i)=><tr key={i}><td className="awards-time">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>)}</tbody></table>
-  </article>
+    return <article className={`resume-block ${mode==='edit'?'editable-block':''}`} data-block-key={`${s.id}:${sourceId}`} onClick={editClick} onContextMenu={editContext}>
+      {timeline?<><span className="t-time"/><div className="t-body">{table}</div></>:table}
+    </article>
+  }
   const fields=b.fields||{}
   // 时间轴布局把时间放进左栏时间列；其余布局的时间右对齐到条目标题行行尾。
   const period=fields['period']&&(b.display_fields||Object.keys(fields)).includes('period')?fields['period']:''

@@ -414,3 +414,4 @@
 .resume-paper.plain{grid-template-columns:1fr;grid-template-rows:auto 1fr}
 .resume-paper.timeline{grid-template-rows:auto 1fr}
 .resume-paper.serif,.resume-paper.serif *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif}
+.lint-toggle{border:0;background:none;padding:0;margin-top:3px;font:inherit;font-size:11px;color:#a34838;text-decoration:underline;cursor:pointer}

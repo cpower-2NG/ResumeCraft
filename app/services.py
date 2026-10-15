@@ -1051,7 +1051,10 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         if band_copy == PLACEHOLDER_STRATEGY:
             band_copy = ""
         primary = band_title if band_title and band_title != SECTION_TITLES.get("target", "求职目标") else band_copy
-        secondary = band_copy if primary == band_title and band_title and band_copy else ""
+        # 辅助文案只在确实不同于主文案时才排：条目标题与正文都写成岗位方向的情况真实
+        # 存在（工作副本里正文被填成同一个词），否则横带会把同一个词打印两遍。
+        # 与 SPA 画布 lib/resume.ts 的 targetBand 同一判断。
+        secondary = band_copy if primary == band_title and band_title and band_copy and band_copy != primary else ""
         if primary:
             band_units = text_units(f"{primary}{secondary}")
             band_height = INTENT_BAND_BASE_PX + -(-band_units // LAYOUT_METRICS[layout_id]["units_per_line"]) * INTENT_BAND_LINE_PX
@@ -1064,9 +1067,9 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     budget = PAGE_BUDGET_PX[layout_id]
     main_stats: dict = {}
     main_pages = paginate(sections, main_ids, layout_id, budget, first_page_head=band_height, stats=main_stats)
-    # 紧凑档：全部内容比一页多不出 10% 时，与其让最后一两条挤到近乎空白的第二页，
-    # 不如整页换紧凑刻度重排（.page.compact，行距与间距收紧）。重排预算放大 15%，
-    # 紧凑 CSS 的真实收缩 ≥ 1/1.15，因此紧凑页不会越过 A4 底边。
+    # 紧凑档：全部内容比一页多不出 COMPACT_TRIGGER-1（8%）时，与其让最后一两条挤到近乎
+    # 空白的第二页，不如整页换紧凑刻度重排（.page.compact，行距与间距收紧）。重排预算按
+    # COMPACT_BUDGET_FACTOR 放大 15%，紧凑 CSS 的真实收缩 ≥ 1/1.15，因此不会越过 A4 底边。
     compact = False
     if len(main_pages) > 1 and main_ids:
         if main_stats.get("total", 0) <= budget * COMPACT_TRIGGER:

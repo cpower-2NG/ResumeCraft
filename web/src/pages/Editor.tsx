@@ -32,6 +32,9 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   const [zoom,setZoom]=useState(1)
   const [compact,setCompact]=useState(false)
   const [lint,setLint]=useState<LintIssue[]>([])
+  // 体检结果默认只给一行汇总：问题多时（实测真实简历可到 9 条）平铺会把 A4 画布
+  // 挤到首屏之外，而用户打开编辑器第一眼要看的是简历本身。
+  const [lintOpen,setLintOpen]=useState(false)
   useEffect(()=>{const h=()=>setCompact(window.scrollY>150);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h)},[])
   useEffect(()=>{if(resume.data){setContent(resume.data.working_copy.content);baseline.current=JSON.stringify(resume.data.working_copy.content)}},[resume.data])
   // 导出体检与草稿同步：判定规则与导出 HTML 里的告警条同源（后端 lint_resume），
@@ -60,6 +63,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   if(!content||!resume.data)return <Loading/>
   const readOnly=resume.data.status==='recycled'
   const changed=pending.data.filter(x=>x.resume_id===id).flatMap(x=>x.affected.map(a=>`${a.section_id}:${a.block_id}`))
+  const lintErrors=lint.filter(issue=>issue.level==='error').length
   const update:UpdateBlock=(sid,bid,value,key='content',fieldKey,fragmentIndex)=>setContent(old=>{
     if(!old)return old
     return {sections:old.sections.map(s=>{
@@ -141,8 +145,10 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
     {changed.length>0&&!readOnly&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>来源资料已变化</b><span>受影响条目已标记；正文没有被自动改写。</span></div></div>}
     {!readOnly&&lint.length>0&&<div className="lint-banner compact">
       <CircleAlert size={17}/>
-      <div><b>导出体检发现 {lint.length} 个问题（打印时不会出现在简历上）</b>
-        <span>{lint.map(issue=><button key={`${issue.section_id}:${issue.block_id}:${issue.message}`} className={`lint-item lint-${issue.level}`} title={issue.block_id?'点击定位到对应条目':undefined} onClick={()=>issue.block_id&&locateBlock(issue.section_id,issue.block_id)}>{issue.level==='error'?'必须处理':'建议处理'}：{issue.message}</button>)}</span>
+      <div>
+        <b>导出体检发现 {lint.length} 个问题（打印时不会出现在简历上）{lintErrors>0?` · 必须处理 ${lintErrors} 项`:''}</b>
+        <button className="lint-toggle" onClick={()=>setLintOpen(v=>!v)}>{lintOpen?'收起详情':'查看详情'}</button>
+        {lintOpen&&<span>{lint.map(issue=><button key={`${issue.section_id}:${issue.block_id}:${issue.message}`} className={`lint-item lint-${issue.level}`} title={issue.block_id?'点击定位到对应条目':undefined} onClick={()=>issue.block_id&&locateBlock(issue.section_id,issue.block_id)}>{issue.level==='error'?'必须处理':'建议处理'}：{issue.message}</button>)}</span>}
       </div>
     </div>}
     <StageToolbar zoom={zoom} setZoom={setZoom} pageCount={pageCountOf(content,layout)}/>

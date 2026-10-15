@@ -244,7 +244,9 @@ export const targetBand=(content:Content,layout:string)=>{
   let copy=String(block.content||'').trim()
   if(copy===PLACEHOLDER_STRATEGY)copy=''
   const primary=bandTitle&&bandTitle!==labels.target?bandTitle:copy
-  const secondary=primary===bandTitle&&bandTitle&&copy?copy:''
+  // 辅助文案只在确实不同于主文案时才排：条目标题与正文都写成岗位方向的情况真实存在
+  // （例如工作副本里正文被填成同一个词），否则横带会把同一个词打印两遍。导出端同一判断。
+  const secondary=primary===bandTitle&&bandTitle&&copy&&copy!==primary?copy:''
   if(!primary)return null
   const unitsPerLine=(LAYOUT_METRICS[layout]||LAYOUT_METRICS.sidebar).units_per_line
   const height=INTENT_BAND_BASE_PX+Math.ceil(textUnits(`${primary}${secondary}`)/unitsPerLine)*INTENT_BAND_LINE_PX

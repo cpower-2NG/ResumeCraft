@@ -197,15 +197,15 @@ cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
 本次修改后已运行：
 
 ```text
-.venv\Scripts\python.exe -m pytest -q           143 passed
-cd web; npx vitest run                          7 passed
+.venv\Scripts\python.exe -m pytest -q           221 passed, 6 skipped
+cd web; npx vitest run                          8 passed
 cd web; npx tsc -b --noEmit                     通过
 ```
 
-版式密度验收（26 个模板 × 3 种密度样本 = 78 份导出 HTML）：
+版式密度验收（13 个模板 × 3 种密度样本 = 39 份导出 HTML）：
 
 ```text
-renders 78  pages 84  single-page 72
+renders 39  pages 40  single-page 38
 clipped renders: 0
 under-filled non-final pages: 0
 ```
