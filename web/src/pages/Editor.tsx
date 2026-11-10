@@ -17,7 +17,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   const resume=useLoad<any>(`/api/resumes/${id}`,null)
   const versions=useLoad<any[]>(`/api/resumes/${id}/versions`,[])
   const facts=useLoad<Fact[]>('/api/facts',[])
-  const pending=useLoad<Pending[]>('/api/pending-items',[])
+  const pending=useLoad<Pending[]>('/api/pending-issues',[])
   const templates=useLoad<TemplateDescriptor[]>('/api/templates',[])
   const [content,setContent]=useState<Content|null>(null)
   const baseline=useRef('')
@@ -58,11 +58,11 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   // Only edits that diverge from the loaded baseline count as unsaved changes;
   // merely opening a resume must never mark the working copy dirty. A template
   // switch or server-side draft (working_copy.dirty) also counts as unsaved.
-  const localDirty=(!!content&&baseline.current!==''&&JSON.stringify(content)!==baseline.current)||!!resume.data?.working_copy.dirty
+  const localDirty=(!!content&&baseline.current!==''&&JSON.stringify(content)!==baseline.current)||resume.data?.working_copy.content_state==='dirty'
   useEffect(()=>{if(!content||!resume.data||resume.data.status==='recycled')return;const payload=JSON.stringify(content);if(payload===baseline.current)return;const t=window.setTimeout(()=>{patch(`/api/resumes/${id}/working-copy`,{content}).catch(e=>error(e.message))},500);return()=>clearTimeout(t)},[content,id,resume.data])
   if(!content||!resume.data)return <Loading/>
   const readOnly=resume.data.status==='recycled'
-  const changed=pending.data.filter(x=>x.resume_id===id).flatMap(x=>x.affected.map(a=>`${a.section_id}:${a.block_id}`))
+  const changed=pending.data.filter(x=>x.resume_id===id&&x.section_code&&x.block_key).map(x=>`${x.section_code}:${x.block_key}`)
   const lintErrors=lint.filter(issue=>issue.level==='error').length
   const update:UpdateBlock=(sid,bid,value,key='content',fieldKey,fragmentIndex)=>setContent(old=>{
     if(!old)return old
@@ -112,7 +112,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
   const save=async()=>{
     if(saving||readOnly)return
     setSaving(true)
-    try{await post(`/api/resumes/${id}/save`,{change_summary:'用户保存正式版本'});resume.reload();versions.reload();refresh()}
+    try{await post(`/api/resumes/${id}/save`,{change_summary:'用户保存正式版本',expected_version_id:resume.data.current_version_id});resume.reload();versions.reload();refresh()}
     catch(e){error((e as Error).message)}
     finally{setSaving(false)}
   }
@@ -141,7 +141,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
     window.setTimeout(()=>el.classList.remove('flash-highlight'),1600)
   }
   return <main className="workbench">
-    <BenchHead title={`正式简历 · ${versionLabel}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
+    <BenchHead title={`正式简历 · ${versionLabel}`} subtitle={`${resume.data.profile_name} · ${readOnly?'已移入回收站':resume.data.evidence_sync_state!=='clean'?'证据同步待合并':resume.data.baseline_state==='stale'?'工作副本基线已过期':localDirty?'工作副本有未保存修改':'工作副本已同步'}`} back={requestBack} compact={compact}/>
     {changed.length>0&&!readOnly&&<div className="warning-banner compact"><CircleAlert size={17}/><div><b>来源资料已变化</b><span>受影响条目已标记；正文没有被自动改写。</span></div></div>}
     {!readOnly&&lint.length>0&&<div className="lint-banner compact">
       <CircleAlert size={17}/>
@@ -161,7 +161,7 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
     </div>
     <section className="version-panel">
       <header><History size={17}/><h2>版本历史</h2></header>
-      {versions.data.map(v=><div className="version-row" key={v.id}><span><b>v{v.version_number}</b><small>{v.reason==='format_conversion'?'格式化简历、未润色':v.reason==='rollback'?'历史版本回退':v.reason==='evidence_sync'?'证据同步':v.reason==='template_change'?'模板调整':v.change_summary} · {date(v.created_at)}</small></span><div className="card-actions">{v.version_number!==resume.data.current_version&&<button className="button" onClick={()=>setDiffWith(v.version_number)}>对比当前</button>}<button className="button" onClick={()=>exportVersion(v.version_number)}><Download size={14}/>导出 HTML</button>{!readOnly&&v.version_number!==resume.data.current_version&&<button className="button" onClick={()=>setRestore(v.version_number)}>以 v{v.version_number} 创建工作副本</button>}</div></div>)}
+      {versions.data.map(v=><div className="version-row" key={v.id}><span><b>v{v.version_number}</b><small>{v.reason==='format_conversion'?'格式化简历、未润色':v.reason==='rollback'?'历史版本回退':v.reason==='evidence_sync'?'证据同步':v.change_summary} · {date(v.created_at)}</small></span><div className="card-actions">{v.version_number!==resume.data.current_version&&<button className="button" onClick={()=>setDiffWith(v.version_number)}>对比当前</button>}<button className="button" onClick={()=>exportVersion(v.version_number)}><Download size={14}/>导出 HTML</button>{!readOnly&&v.version_number!==resume.data.current_version&&<button className="button" onClick={()=>setRestore(v.version_number)}>以 v{v.version_number} 创建工作副本</button>}</div></div>)}
     </section>
     <footer className="actionbar">
       {readOnly
@@ -172,11 +172,11 @@ export function Editor({id,back,error,refresh,focusBlock,onFocusLocated}:{id:num
       <button className="button" disabled={!resume.data.current_version} onClick={()=>exportVersion(resume.data.current_version)}><Download size={15}/>导出正式简历</button>
       <button className="button primary" disabled={saving||readOnly} onClick={save}>{saving?'保存中…':readOnly?'已回收':'保存正式版本'}</button>
     </footer>
-    {!readOnly&&pick&&<Picker title={`为${labels[pick]}添加来源`} facts={facts.data.filter(f=>factCategories(pick).includes(f.category))} chosen={[]} toggle={fid=>{const f=facts.data.find(x=>x.id===fid);if(f)addFact(f)}} close={()=>setPick(null)}/>}
+    {!readOnly&&pick&&<Picker title={`为${labels[pick]}添加来源`} facts={facts.data.filter(f=>factCategories(pick).includes(f.category_code))} chosen={[]} toggle={fid=>{const f=facts.data.find(x=>x.id===fid);if(f)addFact(f)}} close={()=>setPick(null)}/>}
     {!readOnly&&restore!==null&&<Modal title="以历史版本创建工作副本" close={()=>setRestore(null)}><p className="modal-note">将以 v{restore} 替换当前工作副本，历史版本不受影响。</p><div className="modal-actions"><button className="button" onClick={()=>setRestore(null)}>保留当前草稿</button><button className="button primary" onClick={async()=>{try{await post(`/api/resumes/${id}/versions/${restore}/restore`);setRestore(null);resume.reload();versions.reload()}catch(e){error((e as Error).message)}}}>创建工作副本</button></div></Modal>}
     {!readOnly&&confirmLeave&&<Modal title="有未保存的修改" close={()=>setConfirmLeave(false)}><p className="modal-note">当前工作副本存在未保存修改。可以选择正式保存、保留草稿离开，或放弃这些修改。</p><div className="modal-actions"><button className="button primary" onClick={async()=>{setConfirmLeave(false);await save();back()}}>保存正式版本</button><button className="button" onClick={()=>{setConfirmLeave(false);back()}}>保留工作副本并离开</button><button className="button danger" onClick={async()=>{setConfirmLeave(false);await discard();back()}}>放弃未保存修改</button></div></Modal>}
     {diffWith!==null&&<DiffModal id={id} from={diffWith} to={resume.data.current_version} close={()=>setDiffWith(null)}/>}
-    {templateOpen&&<TemplateModal current={resume.data.template?.template_version_id} templates={templates.data} loading={templates.loading} onChoose={async(tvId)=>{try{await patch(`/api/resumes/${id}/template`,{template_version_id:tvId});setTemplateOpen(false);resume.reload()}catch(e){error((e as Error).message)}}} close={()=>setTemplateOpen(false)}/>}
+    {templateOpen&&<TemplateModal current={resume.data.template?.id} templates={templates.data} loading={templates.loading} onChoose={async(templateId)=>{try{await patch(`/api/resumes/${id}/template`,{template_id:templateId});setTemplateOpen(false);resume.reload()}catch(e){error((e as Error).message)}}} close={()=>setTemplateOpen(false)}/>}
     {!readOnly&&editing&&<BlockEditor content={content} target={editing} layout={layout} changed={changed.includes(`${editing.sectionId}:${editing.blockId}`)} update={update} removeBlock={removeBlock} close={()=>setEditing(null)}/>}
     {!readOnly&&menu&&<BlockContextMenu menu={menu} block={menuBlock} canMoveUp={menuBlock!==null&&menuIndex>0} canMoveDown={menuBlock!==null&&menuSection!==null&&menuIndex>-1&&menuIndex<menuSection.blocks.length-1} onEdit={openEdit} onAddSource={addSource} onRemove={sid=>{if(!menu)return;removeBlock(sid,menu.blockId);setMenu(null)}} onMove={(sid,dir)=>{if(!menu)return;moveBlock(sid,menu.blockId,dir);setMenu(null)}} onClose={()=>setMenu(null)}/>}
   </main>
@@ -262,4 +262,4 @@ function DiffModal({id,from,to,close}:{id:number;from:number;to:number;close:()=
   </Modal>
 }
 
-async function downloadExport(id:number,version:number){const base=import.meta.env.VITE_API_URL||'http://127.0.0.1:8000';const r=await fetch(`${base}/api/resumes/${id}/versions/${version}/export`,{method:'POST'});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||'导出失败');const blob=await r.blob();const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`resume-v${version}.html`;a.click();URL.revokeObjectURL(url)}
+async function downloadExport(id:number,version:number,force=false){const base=import.meta.env.VITE_API_URL||'http://127.0.0.1:8000';const r=await fetch(`${base}/api/resumes/${id}/versions/${version}/export${force?'?force=true':''}`,{method:'POST'});if(!r.ok){const detail=(await r.json().catch(()=>({}))).detail;if(r.status===409&&!force&&typeof detail==='string'&&window.confirm(`${detail}\n\n仍要导出吗？`)){return downloadExport(id,version,true)}throw new Error(typeof detail==='string'?detail:'导出失败')}const blob=await r.blob();const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`resume-v${version}.html`;a.click();URL.revokeObjectURL(url)}

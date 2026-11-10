@@ -1,11 +1,14 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
+export const apiUrl = (path: string) => `${BASE}${path}`
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const isForm = options.body instanceof FormData
   const response = await fetch(`${BASE}${path}`, { ...options, headers: { ...(isForm ? {} : { 'Content-Type': 'application/json' }), ...options.headers } })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.detail || '请求失败')
+    const detail = body.detail
+    throw new Error(typeof detail === 'string' ? detail : detail?.message || detail?.code || '请求失败')
   }
   return response.json()
 }

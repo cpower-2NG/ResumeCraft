@@ -21,7 +21,7 @@ export function Composer({id,profile,back,open,error}:{id:number;profile:Profile
   const [compact,setCompact]=useState(false)
   useEffect(()=>{const h=()=>setCompact(window.scrollY>150);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h)},[])
   const toggle=async(fid:number)=>{if(!sectionId)return;const old=linked.data.selection[sectionId]||[],next={...linked.data.selection,[sectionId]:old.includes(fid)?old.filter(x=>x!==fid):[...old,fid]};try{await patch(`/api/linked-resumes/${id}`,{selection:next});linked.reload()}catch(e){error((e as Error).message)}}
-  const chooseTemplate=async(tvId:number)=>{try{await patch(`/api/linked-resumes/${id}`,{template_version_id:tvId});setTemplateOpen(false);linked.reload()}catch(e){error((e as Error).message)}}
+  const chooseTemplate=async(templateId:number)=>{try{await patch(`/api/linked-resumes/${id}`,{template_id:templateId});setTemplateOpen(false);linked.reload()}catch(e){error((e as Error).message)}}
   const convert=async()=>{if(convertLoading)return;setConvertLoading(true);try{open((await post<{resume_id:number}>(`/api/linked-resumes/${id}/convert`)).resume_id)}catch(e){error((e as Error).message)}finally{setConvertLoading(false)}}
   const missing=Object.values(linked.data.selection).flat().filter(fid=>!facts.data.some(f=>f.id===fid)).length
   const layout=linked.data.template?.layout||'sidebar'
@@ -33,10 +33,10 @@ export function Composer({id,profile,back,open,error}:{id:number;profile:Profile
     <div className="stage-zoom" style={{zoom}}><Canvas content={linked.data.preview} mode="select" template={linked.data.template} select={id=>factCategories(id).length&&setSectionId(id)}/></div>
     <footer className="actionbar">
       <button className="button" onClick={back}>退出选择</button>
-      <button className="button" onClick={()=>setTemplateOpen(true)}><LayoutTemplate size={15}/>模板 · {linked.data.template?.name||'默认模板'}</button>
+      <button className="button" onClick={()=>setTemplateOpen(true)}><LayoutTemplate size={15}/>模板 · {linked.data.template?.display_name||'默认模板'}</button>
       <button className="button primary" disabled={linked.loading||convertLoading} onClick={convert}>{convertLoading?'正在生成…':'生成格式化简历'} {!convertLoading&&<ChevronRight size={16}/>}</button>
     </footer>
-    {sectionId&&<Picker title={labels[sectionId]} facts={facts.data.filter(f=>factCategories(sectionId).includes(f.category))} chosen={linked.data.selection[sectionId]||[]} toggle={toggle} close={()=>setSectionId(null)}/>}
-    {templateOpen&&<TemplateModal current={linked.data.template?.template_version_id} templates={templates.data} loading={templates.loading} onChoose={chooseTemplate} close={()=>setTemplateOpen(false)}/>}
+    {sectionId&&<Picker title={labels[sectionId]} facts={facts.data.filter(f=>factCategories(sectionId).includes(f.category_code))} chosen={linked.data.selection[sectionId]||[]} toggle={toggle} close={()=>setSectionId(null)}/>}
+    {templateOpen&&<TemplateModal current={linked.data.template?.id} templates={templates.data} loading={templates.loading} onChoose={chooseTemplate} close={()=>setTemplateOpen(false)}/>}
   </main>
 }

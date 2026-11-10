@@ -2,9 +2,9 @@ import { BriefcaseBusiness, ChevronRight, FilePenLine, Library } from 'lucide-re
 import { useLoad } from '../components/ui'
 import { date, type Resume } from '../lib/resume'
 
-// 首页固定三个主要入口并列展示；简历工作台是主入口，以深色卡片突出。
-// 模板从简历工作台/编辑器内进入，不作为首页独立模块。
-const MODULES=[[FilePenLine,'简历工作台','在 A4 简历上直接工作','resumes',true],[Library,'资料库','按分类维护事实与证据','facts',false],[BriefcaseBusiness,'岗位画像','组织招聘要求和简历策略','profiles',false]] as const
+// 首页固定三个主要入口并列展示；ResumeCraft 是简历模块入口。
+// 模板和版本从具体正式简历进入，不作为首页独立模块。
+const MODULES=[[FilePenLine,'ResumeCraft','创建临时简历并维护正式版本','resumes',true],[Library,'资料库','按分类维护事实与证据','facts',false],[BriefcaseBusiness,'岗位画像','组织招聘要求和简历策略','profiles',false]] as const
 
 export function Home({go,openResume}:{go:(p:any)=>void;openResume:(id:number)=>void}){
   const data=useLoad<{stats:Record<string,number>;recent_resumes:Resume[]}>('/api/overview',{stats:{facts:0,profiles:0,resumes:0,working_copies:0},recent_resumes:[]})

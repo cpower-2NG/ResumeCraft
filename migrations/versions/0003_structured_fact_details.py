@@ -20,6 +20,10 @@ def _fields(table, fields):
 
 
 def upgrade():
+    if "fact_categories" in sa.inspect(op.get_bind()).get_table_names():
+        return
+    if "personal_fact_details" in sa.inspect(op.get_bind()).get_table_names():
+        return
     op.create_table("personal_fact_details", *_fields("personal_fact_details", [
         "name", "phone", "email", "city", "desired_city", "birth_date", "age", "hometown",
         "status", "graduation", "availability", "bio",

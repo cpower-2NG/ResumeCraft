@@ -1,0 +1,155 @@
+{
+  "sections": [
+    {
+      "blocks": [
+        {
+          "content": "注重工程验证与文档沉淀，能够持续完成设备联调与结果复盘。\n每周可实习 5 天；可连续实习 · 杭州 · 杭州",
+          "id": "fact-1",
+          "origin": "fact",
+          "source_refs": [1],
+          "title": "测试用户",
+          "type": "fact"
+        }
+      ],
+      "id": "basics",
+      "title": "基本信息",
+      "type": "basics",
+      "visibility": true
+    },
+    {
+      "blocks": [
+        {
+          "content": "机器人数据采集工程师",
+          "id": "target-profile",
+          "origin": "user",
+          "source_refs": [],
+          "title": "求职目标",
+          "type": "paragraph"
+        }
+      ],
+      "id": "target",
+      "title": "求职目标",
+      "type": "target",
+      "visibility": true
+    },
+    {
+      "blocks": [],
+      "id": "profile",
+      "title": "个人简介",
+      "type": "profile",
+      "visibility": true
+    },
+    {
+      "blocks": [
+        {
+          "content": "GPA 3.6/4.0；专业排名 12/120\n机器人学、数据结构、操作系统 · 本科 · 自动化",
+          "id": "fact-2",
+          "origin": "fact",
+          "source_refs": [2],
+          "title": "示例理工大学",
+          "type": "fact"
+        }
+      ],
+      "id": "education",
+      "title": "教育经历",
+      "type": "education",
+      "visibility": true
+    },
+    {
+      "blocks": [
+        {
+          "content": "使用动作捕捉设备采集机械臂操作数据，分析模型瓶颈并提出数据清洗与任务编排改进。\n数据任务复杂，适合人工操作的策略需要重新拆解。 · 竞赛 · 实验室小组",
+          "id": "fact-3",
+          "origin": "fact",
+          "source_refs": [3],
+          "title": "机械臂数据采集与策略分析",
+          "type": "fact"
+        },
+        {
+          "content": "完成视觉检测课程项目的开发与实验验证。\n课程设计 · 课程项目 · 完成课程项目。",
+          "id": "fact-5",
+          "origin": "fact",
+          "source_refs": [5],
+          "title": "基于 YOLO 的目标检测系统",
+          "type": "fact"
+        },
+        {
+          "content": "负责感知章节文案、示例项目和自动标注脚本，为仿真抓取模块提供实践基线。\n教学表达与工程复杂度需要同时平衡。 · 教材开发 · 人工智能实验小组",
+          "id": "fact-4",
+          "origin": "fact",
+          "source_refs": [4],
+          "title": "机器人教材开发：视觉检测与逆运动学",
+          "type": "fact"
+        }
+      ],
+      "id": "experience",
+      "title": "项目与实践",
+      "type": "experience",
+      "visibility": true
+    },
+    {
+      "blocks": [
+        {
+          "content": "机器人运动数据采集\n数据采集设备 · 能用",
+          "id": "fact-17",
+          "origin": "fact",
+          "source_refs": [17],
+          "title": "动作捕捉设备",
+          "type": "fact"
+        },
+        {
+          "content": "个人与实验室开发\n开发环境 · 熟练",
+          "id": "fact-18",
+          "origin": "fact",
+          "source_refs": [18],
+          "title": "Linux / WSL",
+          "type": "fact"
+        },
+        {
+          "content": "机器人教材与仿真项目\n机器人开发 · 能用",
+          "id": "fact-15",
+          "origin": "fact",
+          "source_refs": [15],
+          "title": "ROS 2",
+          "type": "fact"
+        },
+        {
+          "content": "视觉检测与教材示例项目\n视觉与模型 · 能用",
+          "id": "fact-13",
+          "origin": "fact",
+          "source_refs": [13],
+          "title": "YOLO",
+          "type": "fact"
+        }
+      ],
+      "id": "skills",
+      "title": "技能",
+      "type": "skills",
+      "visibility": true
+    },
+    {
+      "blocks": [
+        {
+          "content": "星海机器人中心 · 2026.06 · 省三等奖",
+          "id": "fact-19",
+          "origin": "fact",
+          "source_refs": [19],
+          "title": "省级机器人竞赛",
+          "type": "fact"
+        },
+        {
+          "content": "示例竞赛组委会 · 2026.08 · 第 20 名",
+          "id": "fact-20",
+          "origin": "fact",
+          "source_refs": [20],
+          "title": "人形机器人挑战赛",
+          "type": "fact"
+        }
+      ],
+      "id": "awards",
+      "title": "成果",
+      "type": "awards",
+      "visibility": true
+    }
+  ]
+}

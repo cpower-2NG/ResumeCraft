@@ -3,29 +3,37 @@
 // SPA preview paginates exactly like the exported A4 HTML.
 import { mdLite } from './markdown'
 
-export type CustomField = { key:string; label:string; value:string; displayable:boolean; sort_order:number }
-export type Fact = { id:number; category:string; title:string; content:Record<string,string>; details:Record<string,string>; custom_fields:CustomField[]; display_fields:string[]; tags:string[]; status:string; updated_at:string; evidence_count:number }
-export type Profile = { id:number; name:string; role_direction:string; core_requirements:string[]; resume_strategy:string; raw_jd:string; status:string; updated_at:string; active_resume_id?:number; opportunity_count?:number }
-export type Block = { id:string; title:string; content:string; fields?:Record<string,string>; field_labels?:Record<string,string>; display_fields?:string[]; source_refs:number[]; origin:string; fragment_index?:number; continuation?:boolean; table_rows?:[string,string,string][] }
+export type Fact = { id:number; category_code:string; schema_version_id:number; business_key?:string|null; title:string; fields:Record<string,string|number|null>; tags:string[]; skill_ids:number[]; linked_skills:{id:number;title:string}[]; skill_group?:{id:number;code:string;display_name:string}|null; status:string; source_note:string; updated_at:string; evidence_count:number }
+export type Profile = { id:number; name:string; role_direction:string; core_requirements:string[]; general_requirements:string; responsibilities:string; resume_strategy:string; raw_jd:string; source_note:string; status:string; updated_at:string; active_resume_id?:number; opportunity_count?:number }
+export type ResumePhoto = { photo_id?:number; evidence_id:number; preview_url:string; filename?:string; mime_type?:string; data_url?:string }
+export type Block = { id:string; title:string; content:string; fields?:Record<string,string>; field_labels?:Record<string,string>; display_fields?:string[]; source_refs:number[]; origin:string; fragment_index?:number; continuation?:boolean; table_rows?:[string,string,string][]; photo?:ResumePhoto }
 export type Section = { id:string; title:string; visibility:boolean; blocks:Block[] }
 export type Content = { sections:Section[] }
-export type Resume = { id:number; display_name:string; profile_name:string; current_version:number; updated_at:string; dirty:boolean; warnings:number; status:string }
-export type Pending = { id:number; resume_id:number; fact_id:number; message:string; kind:string; created_at:string; affected:{section_id:string;block_id:string}[] }
+export type Resume = { id:number; display_name:string; profile_name:string; current_version:number; updated_at:string; content_state:'clean'|'dirty'; evidence_sync_state:'clean'|'pending'|'conflict'; baseline_state:'current'|'stale'; warnings:number; status:string; template_id:number }
+export type Pending = { id:number; resume_id:number|null; fact_id:number|null; evidence_id:number|null; profile_id:number|null; section_code:string; block_key:string; message:string; kind:string; status:string; created_at:string; source:any }
 export type SearchResult = { type:'fact'|'evidence'|'profile'|'opportunity'|'resume'; id:number; title:string; subtitle:string; status:string; updated_at:string; payload:any }
 export type BlockRef = { sectionId:string; blockId:string; fragmentIndex:number }
 export type UpdateBlock = (sectionId:string, blockId:string, value:string, key?:'content'|'title'|'field', fieldKey?:string, fragmentIndex?:number)=>void
 
 export const labels:Record<string,string> = { basics:'基本信息', target:'求职目标', profile:'个人简介', education:'教育经历', experience:'项目与实践', skills:'技能', awards:'成果', links:'链接与作品集' }
-export const categories = ['basics','education','experience','skills','awards','links']
-export const fieldLabels:Record<string,string> = { name:'姓名', phone:'电话', email:'邮箱', city:'所在地', desired_city:'目标城市', birth_date:'出生日期', age:'年龄', hometown:'籍贯', status:'身份状态', graduation:'毕业时间', availability:'到岗安排', bio:'个人简介', school:'学校', major:'专业', degree:'学历', start_date:'入学时间', end_date:'毕业时间', period:'时间', gpa:'GPA', ranking:'专业排名', achievement:'成绩与成果', courses:'相关课程', kind:'经历类型', organization:'组织/公司', role:'角色', team_size:'团队规模', context:'背景/使用场景', work:'具体工作', tools:'工具与技术', outcome:'结果', challenge:'挑战', solution:'解决方案', public_note:'公开说明', skill_category:'技能分类', proficiency:'熟练程度', issuer:'颁发方', result:'结果', note:'说明', link_type:'链接类型', url:'地址', label:'显示名称', role_direction:'岗位方向', core_requirements:'核心要求', summary:'简介' }
+export const categoryLabels:Record<string,string> = { basics:'个人档案', education:'教育经历', experience:'经历', skill:'技能', achievement:'成果' }
+export const categories = ['basics','education','experience','skill','achievement']
+export const fieldLabels:Record<string,string> = { name:'姓名', phone:'电话', email:'邮箱', city:'所在地', desired_city:'目标城市', birth_date:'出生日期', age_text:'年龄', hometown:'籍贯', identity_status:'身份状态', graduation_date:'毕业时间', availability:'到岗安排', bio:'个人简介', school:'学校', major:'专业', degree:'学历', start_date:'开始时间', end_date:'结束时间', period_text:'展示时间段', gpa:'GPA', ranking:'专业排名', achievement:'成绩与成果', courses:'相关课程', experience_kind:'经历类型', organization:'组织/公司', role:'角色', team_size:'团队规模', context_summary:'背景', work_summary:'具体工作', tools_summary:'工具与技术', result_summary:'结果摘要', challenge:'挑战（内部）', solution:'解决方案', public_note:'公开说明', skill_group:'技能分组', skill_group_id:'技能分组', proficiency:'熟练程度', usage_context:'使用场景', achievement_kind:'成果类型', occurred_on:'取得日期', experience_fact_id:'主经历', issuer:'颁发方', result_text:'成果内容', note:'说明', role_direction:'岗位方向', core_requirements:'核心要求', summary:'简介' }
 export const searchTypeLabels:Record<string,string> = { fact:'事实资料', evidence:'证据', profile:'岗位画像', opportunity:'招聘机会', resume:'正式简历' }
-export const pendingKindLabels:Record<string,string> = { source_changed:'来源资料变化', source_recycled:'来源移入回收站' }
+export const pendingKindLabels:Record<string,string> = { source_changed:'来源资料变化', source_recycled:'来源移入回收站', evidence_sync:'证据更新待处理', evidence_conflict:'证据更新合并失败', profile_changed:'画像变化待确认', export_warning:'导出警告', other:'其他待处理事项' }
 
 export const date = (v?:string) => v ? new Intl.DateTimeFormat('zh-CN',{dateStyle:'medium'}).format(new Date(v)) : '—'
-export const brief = (f:Fact) => Object.values(f.details || f.content || {}).filter(Boolean).slice(0,3).join(' · ') || '尚未补充详细信息'
+export const optionLabels:Record<string,Record<string,string>> = {
+  experience_kind:{project:'项目',work_internship:'实习/工作',competition:'竞赛',research:'科研',campus_volunteer:'校园/志愿',other:'其他'},
+  setting:{course:'课程',lab:'实验室',company:'公司',personal:'个人',team:'团队',community:'社群/公益',competition:'竞赛',other:'其他'},
+  achievement_kind:{honor:'荣誉',certificate:'证书',publication_patent:'发表/专利',project_result:'项目结果',other:'其他'},
+}
+export const optionLabel = (key:string,value?:string) => optionLabels[key]?.[value||''] || value || ''
+const preferredBriefKeys:Record<string,string[]> = { basics:['city','identity_status','graduation_date'], education:['school','major','degree','period_text'], experience:['experience_kind','organization','role','period_text','result_summary'], skill:['skill_group','proficiency','usage_context'], achievement:['achievement_kind','issuer','result_text','period_text'] }
+export const brief = (f:Fact) => [...(preferredBriefKeys[f.category_code]||Object.keys(f.fields||{})).map(k=>k==='experience_kind'||k==='achievement_kind'?optionLabel(k,String(f.fields?.[k]??'')):k==='skill_group'?f.skill_group?.display_name??'其他':f.fields?.[k]).filter(Boolean),...(f.linked_skills||[]).map(x=>x.title)].slice(0,3).join(' · ') || '尚未补充详细信息'
 export const section = (content:Content,id:string):Section => content.sections.find(s=>s.id===id) || {id,title:labels[id],visibility:true,blocks:[]}
 export const sourceIdOf = (b:Block) => b.id.split('--fragment-')[0]
-export const factCategories = (id:string) => id === 'basics' || id === 'profile' ? ['basics'] : id === 'target' ? [] : [id]
+export const factCategories = (id:string) => id === 'basics' ? ['basics'] : id === 'profile' || id === 'target' || id === 'links' ? [] : id === 'skills' ? ['skill'] : id === 'awards' ? ['achievement'] : [id]
 
 export { mdLite }
 
@@ -35,10 +43,10 @@ export { mdLite }
 // 前缀，与参考简历一致。
 const BOLD_METRIC_RE=/\d+(?:\.\d+)?\s*[%％]|第\s*\d+\s*名|省[一二三]等奖|国[一二三]等奖|\d+\s*(?:倍|名|人|项|份|台|万\+?)/g
 const boldMetrics=(t:string)=>/\*\*/.test(t)?t:t.replace(BOLD_METRIC_RE,m=>`**${m.trim()}**`)
-export const curatedExperience=(d:Record<string,string>)=>{const parts:string[]=[];const context=String(d.context||'').trim();const work=String(d.work||'').trim();if(context&&!work)parts.push(context);for(const k of ['work','solution','outcome'] as const){const v=String(d[k]||'').trim();if(v)parts.push(k==='outcome'?boldMetrics(v):v)}return parts.map(p=>`- ${p}`).join('\n')}
-export const curatedEducation=(d:Record<string,string>)=>{const lines:string[]=[];const a=String(d.achievement||'').trim();const c=String(d.courses||'').trim();if(a)lines.push(a);if(c)lines.push(`核心课程：${c}`);return lines.join('\n')}
+export const curatedExperience=(d:Record<string,unknown>)=>{const parts:string[]=[];const context=String(d.context_summary||d.context||'').trim();const work=String(d.work_summary||d.work||'').trim();if(context&&!work)parts.push(context);for(const [k,legacy] of [['work_summary','work'],['solution','solution'],['result_summary','outcome']] as const){const v=String(d[k]||d[legacy]||'').trim();if(v)parts.push(k==='result_summary'?boldMetrics(v):v)}return parts.map(p=>`- ${p}`).join('\n')}
+export const curatedEducation=(d:Record<string,unknown>)=>{const lines:string[]=[];const a=String(d.achievement||'').trim();const c=String(d.courses||'').trim();if(a)lines.push(a);if(c)lines.push(`核心课程：${c}`);return lines.join('\n')}
 
-export function factBlock(f:Fact,sid:string):Block{const d=f.details||f.content||{};const fields=Object.fromEntries(Object.entries(d).filter(([,v])=>v));if(sid==='profile')delete fields.bio;const extra=(f.custom_fields||[]).filter(x=>x.value);const field_labels=Object.fromEntries(extra.map(x=>[x.key,x.label||x.key]));extra.forEach(x=>{fields[x.key]=x.value});const standard=sid==='profile'?(d.bio?['bio']:['summary']):sid==='basics'?['phone','email','city','desired_city','hometown','status','graduation','availability']:sid==='education'?['period','major','degree','gpa','ranking']:sid==='experience'?['period','organization','role','team_size','tools']:sid==='skills'?['skill_category','proficiency']:sid==='awards'?['period','issuer','result']:['link_type','label','url'];const display_fields=standard.filter(k=>fields[k]).concat(extra.filter(x=>x.displayable).map(x=>x.key));const content=sid==='profile'?(d.bio||d.summary||''):sid==='education'?curatedEducation(d):sid==='experience'?curatedExperience(d):sid==='skills'?(d.context||''):sid==='awards'?(d.note||''):sid==='links'?(d.note||''):'';return {id:`fact-${f.id}-${Date.now()}`,type:'fact',title:f.title,content:content||brief(f),fields,field_labels,display_fields,source_refs:[f.id],origin:'fact'} as Block}
+export function factBlock(f:Fact,sid:string):Block{const d=f.fields||{};const fields:Record<string,string>=Object.fromEntries(Object.entries(d).filter(([,v])=>v).map(([k,v])=>[k,String(v)]));if(f.skill_group)fields.skill_group=f.skill_group.display_name;const standard=sid==='basics'?['phone','email','city','desired_city','hometown','identity_status','graduation_date','availability']:sid==='education'?['period_text','major','degree','gpa','ranking']:sid==='experience'?['period_text','organization','role','team_size','tools_summary']:sid==='skills'?['skill_group','proficiency']:['period_text','issuer','result_text'];const display_fields=standard.filter(k=>fields[k]);const content=sid==='education'?curatedEducation(d):sid==='experience'?curatedExperience(d):sid==='skills'?String(d.usage_context||''):sid==='awards'?String(d.note||''):'';return {id:`fact-${f.id}-${Date.now()}`,type:'fact',title:f.title,content:content||brief(f),fields,field_labels:{},display_fields,source_refs:[f.id],origin:'fact'} as Block}
 
 export function splitText(value:string,max=900){if(!value)return [''];const chunks:string[]=[];for(let start=0;start<value.length;start+=max)chunks.push(value.slice(start,start+max));return chunks}
 // 正文切片上限：侧栏版心只有约 44mm，切片要更短。与 services.py 的
@@ -112,7 +120,7 @@ export function skillGroups(blocks:Block[]):[string,string][]{
   const grouped:Record<string,string[]>={};const order:string[]=[]
   for(const b of blocks){
     const fields=b.fields||{}
-    const cat=String(fields.skill_category||'').trim()
+    const cat=String(fields.skill_group||fields.skill_category||'').trim()
     if(!cat)return[]
     if(!grouped[cat]){grouped[cat]=[];order.push(cat)}
     const prof=String(fields.proficiency||'').trim()
@@ -128,8 +136,8 @@ export function awardsTableRows(blocks:Block[]):[string,string,string][]{
   const rows:[string,string,string][]=[]
   for(const b of blocks){
     const fields=b.fields||{}
-    const period=String(fields.period||'').trim()
-    const result=String(fields.result||'').trim()
+    const period=String(fields.period_text||fields.period||'').trim()
+    const result=String(fields.result_text||fields.result||'').trim()
     if(!period||!result)return[]
     const issuer=String(fields.issuer||'').trim()
     rows.push([period,String(b.title||''),issuer?`${result}（${issuer}）`:result])
@@ -184,6 +192,8 @@ const SIDEBAR_NAME_PX=51
 const SIDEBAR_FIELD_PX=19
 const SIDEBAR_BIO_LINE_PX=18
 const SIDEBAR_HEAD_BASE_PX=20
+const SIDEBAR_PHOTO_PX=144
+export const HEADER_PHOTO_EXTRA_PX=64
 // 双栏收尾：短栏目两两并排（一行两个模块）。时间轴保持单列，左时间栏是它的
 // 识别特征。配对只发生在相邻栏目之间以保持栏目顺序，且必须真正省下纵向空间才
 // 配对——半宽折行会让正文变高，落差悬殊的栏目并排反而更费版面。
@@ -216,8 +226,9 @@ export const sidebarHeadHeight=(basic:Block|undefined):number=>{
     rows+=Math.max(1,Math.ceil(textUnits(value)/style.meta_units))
   }
   const bioLines=contentLineCount(basic?.content||'',style.units_per_line)
-  return SIDEBAR_HEAD_BASE_PX+SIDEBAR_NAME_PX+rows*SIDEBAR_FIELD_PX+bioLines*SIDEBAR_BIO_LINE_PX
+  return SIDEBAR_HEAD_BASE_PX+(basic?.photo?SIDEBAR_PHOTO_PX:0)+SIDEBAR_NAME_PX+rows*SIDEBAR_FIELD_PX+bioLines*SIDEBAR_BIO_LINE_PX
 }
+export const headerPhotoHeight=(basic:Block|undefined,layout:string)=>layout==='sidebar'||!basic?.photo?0:HEADER_PHOTO_EXTRA_PX
 // Section order and packing budget per template layout; mirrors render_resume_html().
 // 侧栏布局：基本信息由侧栏页头（姓名 + 联系方式 + 简介）呈现，不再重复成栏目；
 // 技能与成果在侧栏，主栏承载其余栏目。其余布局的姓名与联系方式由页头呈现，
@@ -284,7 +295,7 @@ const contentLineCount=(content:string,unitsPerLine:number)=>{
   return text.split('\n').reduce((s,seg)=>s+Math.max(1,Math.ceil(textUnits(seg)/unitsPerLine)),0)
 }
 const metaFieldLines=(b:Block,side:boolean,unitsPerLine:number)=>{
-  const values=metaValues(b,['period'])
+  const values=metaValues(b,['period','period_text'])
   if(!values.length)return 0
   if(side)return values.reduce((s,v)=>s+Math.max(1,Math.ceil(textUnits(v)/unitsPerLine)),0)
   return Math.max(1,Math.ceil(textUnits(values.join(' · '))/unitsPerLine))
@@ -466,7 +477,8 @@ export function pageCountOf(content:Content,layout:string):number{
   const hydrated=hydrateContent(content)
   const band=targetBand(hydrated,layout)
   const sideHead=sidebarHeadHeight(section(hydrated,'basics').blocks[0])
-  const {pages}=streamPages(hydrated,renderableIds(hydrated,layoutMainIds(layout)),layoutBudget(layout),false,layout,band?.height||0)
+  const basic=section(hydrated,'basics').blocks[0]
+  const {pages}=streamPages(hydrated,renderableIds(hydrated,layoutMainIds(layout)),layoutBudget(layout),false,layout,(band?.height||0)+headerPhotoHeight(basic,layout))
   const sidePages=layout==='sidebar'?streamItems(hydrated,renderableIds(hydrated,SIDE_IDS),SIDE_BUDGET,true,'sidebar',sideHead):[]
   return Math.max(pages.length,sidePages.length,1)
 }

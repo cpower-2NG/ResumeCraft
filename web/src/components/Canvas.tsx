@@ -1,6 +1,7 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { apiUrl } from '../api'
 import type { Block, Content, FlowUnit, Section, Unit } from '../lib/resume'
-import { awardsTableRows, factCategories, hydrateContent, inSidebarStream, labels, layoutBudget, layoutMainIds, mdLite, metaValues, renderableIds, section, SIDE_IDS, SIDE_BUDGET, sidebarHeadHeight, skillGroups, sourceIdOf, streamItems, streamPages, targetBand } from '../lib/resume'
+import { awardsTableRows, factCategories, headerPhotoHeight, hydrateContent, inSidebarStream, labels, layoutBudget, layoutMainIds, mdLite, metaValues, renderableIds, section, SIDE_IDS, SIDE_BUDGET, sidebarHeadHeight, skillGroups, sourceIdOf, streamItems, streamPages, targetBand } from '../lib/resume'
 import { templateVars, type TemplateInfo } from '../lib/templates'
 
 type CanvasShared={mode:'select'|'edit';select?:(s:string)=>void;changed?:string[];addFact?:(s:string)=>void;onEdit?:(target:{sectionId:string;blockId:string;fragmentIndex:number})=>void;onContext?:(target:{sectionId:string;blockId:string;fragmentIndex:number},x:number,y:number)=>void;onToggleSection?:(s:string,visible:boolean)=>void;layout?:string}
@@ -22,23 +23,28 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
   // 被关掉的栏目（visibility=false）两边都不排，且不占版面预算，预览断页才与导出一致。
   // 求职意向横带出现在第一页主栏最前（全部版式统一），高度从首页预算里扣除。
   const band=targetBand(hydrated,layout)
-  const {pages:mainPages,compact}=streamPages(hydrated,renderableIds(hydrated,layoutMainIds(layout)),layoutBudget(layout),false,layout,band?.height||0)
-  const sidePages=single?[]:streamItems(hydrated,renderableIds(hydrated,SIDE_IDS),SIDE_BUDGET,true,'sidebar',sidebarHeadHeight(section(hydrated,'basics').blocks[0]))
+  const basicBlock=section(hydrated,'basics').blocks[0]
+  const {pages:mainPages,compact}=streamPages(hydrated,renderableIds(hydrated,layoutMainIds(layout)),layoutBudget(layout),false,layout,(band?.height||0)+headerPhotoHeight(basicBlock,layout))
+  const sidePages=single?[]:streamItems(hydrated,renderableIds(hydrated,SIDE_IDS),SIDE_BUDGET,true,'sidebar',sidebarHeadHeight(basicBlock))
   const count=Math.max(mainPages.length,sidePages.length,1)
   const shared:CanvasShared={mode,select,changed,addFact,onEdit,onContext,onToggleSection,layout}
-  const basicBlock=section(hydrated,'basics').blocks[0]
   const bannerName=basicBlock?.title||'简历'
   // 所有单栏布局都用页头呈现姓名与联系方式；侧栏布局的基本信息在侧栏。
   const headClass=banner?'resume-banner':grid?'grid-head':rail?'rail-head':'line-head'
   const headSlimClass=banner?'banner-slim':grid?'grid-head-slim':rail?'rail-head-slim':'line-head-slim'
   const bandNode=band&&<div className="intent-band"><b>求职意向</b><span>{band.primary}</span>{band.secondary&&<em>{band.secondary}</em>}</div>
-  return <section className={`resume-stage ${mode==='edit'?'edit-mode':'select-mode'}`} style={templateVars(template)} data-template={template?.slug||'classic'}>
+  return <section className={`resume-stage ${mode==='edit'?'edit-mode':'select-mode'}`} style={templateVars(template)} data-template={template?.template_key||'classic'}>
     {Array.from({length:count},(_,i)=><Paper key={i} number={i+1} layout={layout} serif={template?.serif} compact={compact} sidebar={!single&&<>
       {i===0&&<SidebarHead block={basicBlock} fallback={bannerName}/>}
       {sidePages[i]?.length?<Sidebar items={sidePages[i]||[]} shared={shared}/>:<div className="continuation-mark">RESUME / {String(i+1).padStart(2,'0')}</div>}
     </>}>
       {single?(i===0
-        ?<header className={headClass}><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></header>
+        ?<header className={`${headClass}${basicBlock?.photo?' has-photo':''}`}>
+          <ResumePhoto block={basicBlock} variant={`photo-${grid?'grid':rail?'rail':banner?'banner':'line'}`}/>
+          {rail
+            ?<><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></>
+            :<div className="resume-head-copy"><h1>{bannerName}</h1><div className="banner-meta">{bannerFields(basicBlock)}</div></div>}
+        </header>
         :<header className={`${headClass} ${headSlimClass}`}><h1>{bannerName}</h1></header>)
         :null}
       <main className="resume-main"><div className="main-sections">{i===0?bandNode:null}{renderPageUnits(mainPages[i]||[],shared)}</div></main>
@@ -49,12 +55,22 @@ export function Canvas({content,mode,template,select,changed=[],addFact,onEdit,o
 // 元信息行 = 值 · 值 · 值（无标签、去重）；分隔点由 CSS 的 ::before 补上。
 function bannerFields(b:Block|undefined){if(!b)return null;return <>{metaValues(b).map((v,i)=><span className="meta" key={i}>{v}</span>)}</>}
 
+function ResumePhoto({block,variant}:{block:Block|undefined;variant:string}){
+  const photo=block?.photo
+  if(!photo)return null
+  const preview=String(photo.preview_url||'')
+  const src=photo.data_url||(preview?preview.startsWith('data:')?preview:apiUrl(preview):'')
+  if(!src)return null
+  return <figure className={`resume-photo ${variant}`}><img src={src} alt={`${block?.title||'简历'}的档案照片`}/></figure>
+}
+
 // 侧栏页头：姓名 + 联系方式 + 简介。侧栏布局的基本信息由它呈现（导出渲染器的
 // sidebar_head 是同构的），栏目流里不再重复一个"基本信息"栏目。分页估算本来就
 // 从侧栏首页预算里扣掉了这块高度（sidebarHeadHeight），此前画布却没画它。
 function SidebarHead({block,fallback}:{block:Block|undefined;fallback:string}){
   const content=(block?.content||'').trim()
   return <>
+    <ResumePhoto block={block} variant="photo-sidebar"/>
     <h1>{block?.title||fallback}</h1>
     {block&&<div className="side-meta">{bannerFields(block)}</div>}
     {content&&<p className="side-copy">{content}</p>}
@@ -169,8 +185,9 @@ function BlockView({section:s,block:b,mode,changed,sidebar,layout,onEdit,onConte
   }
   const fields=b.fields||{}
   // 时间轴布局把时间放进左栏时间列；其余布局的时间右对齐到条目标题行行尾。
-  const period=fields['period']&&(b.display_fields||Object.keys(fields)).includes('period')?fields['period']:''
-  const metaList=metaValues(b,['period'])
+  const periodKey=fields['period_text']?'period_text':fields['period']?'period':''
+  const period=periodKey&&(b.display_fields||Object.keys(fields)).includes(periodKey)?String(fields[periodKey]):''
+  const metaList=metaValues(b,['period','period_text'])
   const showTitle=!!b.title&&b.title!==s.title
   const body=<>
     <div className="block-head">{showTitle&&<b>{b.title}</b>}{!timeline&&period&&<span className="entry-period">{period}</span>}{b.continuation&&<small className="continuation-label">续</small>}{mode==='edit'&&b.source_refs.length>0&&<small className={`source-tag${changed?' alert':''}`}>{changed?'来源已变化':'事实来源'}</small>}</div>

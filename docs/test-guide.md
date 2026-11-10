@@ -1,5 +1,7 @@
 # ResumeCraft 测试说明
 
+> 文档状态：living-plan
+
 ## 1. 如何运行
 
 后端测试在项目根目录执行：
@@ -8,21 +10,28 @@
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
+文档与目标 SQL 契约检查：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_resource_library_spec.py
+.\.venv\Scripts\python.exe scripts\check_domain_specs.py
+```
+
 前端单元测试（Vitest，覆盖 SPA 分页模型 `lib/resume.ts`）：
 
 ```powershell
 cd web
-npx vitest run
-npx tsc -b --noEmit
+pnpm test
+pnpm exec tsc -b --noEmit
 ```
 
 浏览器交互冒烟测试：
 
 ```powershell
 cd web
-npm install
-npx playwright install chromium
-npm run test:ui
+pnpm install
+pnpm exec playwright install chromium
+pnpm test:ui
 ```
 
 脚本位于 `web/scripts/interaction-smoke.mjs`，会真实点击资料库、岗位画像、ResumeCraft、回收站和返回按钮，填写并保存资料与岗位画像，并把浏览器控制台错误作为失败条件。
@@ -81,7 +90,7 @@ cd web; node scripts\probe_canvas_type.mjs
 
 ```powershell
 # 需要应用在运行：powershell -File scripts\Start-ResumeCraft.ps1 -NoBrowser
-# 连到真实应用，逐套模板切换后逐处文本算对比度（12 套模板、编辑态，应 0 处低于 4.5:1）
+# 连到真实应用，逐套模板切换后逐处文本算对比度（13 套模板、编辑态，应 0 处低于 4.5:1）
 cd web; node scripts\audit_canvas_contrast.mjs http://127.0.0.1:5173 4.5
 # 只想看某一份简历的某个模板：打印侧栏每处文本的实际颜色/背景/字号，并截图
 cd web; node scripts\inspect_canvas.mjs http://127.0.0.1:5173 5 ..\output\tmp\canvas.png "经典侧栏"
@@ -108,6 +117,7 @@ cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
 - `test_fact_crud_structured_fields_and_audit`：创建带结构化字段的事实，修改字段，检查详情和审计记录；再验证按分类、回收和恢复的基本行为。
 - `test_fact_recycle_bin_lists_recycled_fact_and_restore`：创建被正式简历引用的事实，删除后确认进入回收站而不是物理删除，恢复后重新出现在有效资料中。
 - `test_evidence_link_is_reachable_from_fact`：给事实添加证据链接，再从事实的证据接口读取，确认链接可追溯。
+- `test_uploaded_evidence_can_be_previewed_inline`：上传图片证据后通过只读文件接口读取原始字节，确认响应使用图片类型和 `inline` 内容处置，缺失文件返回 404。
 
 ### `tests/test_linked_resume.py`
 
@@ -124,19 +134,19 @@ cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
 
 - `test_conversion_creates_v1_save_creates_v2_and_restore_creates_dirty_copy`：临时简历转换为正式 v1，编辑工作副本并保存为 v2，再从 v1 创建新的脏工作副本。
 - `test_formal_resume_contains_editable_job_target`：确认正式简历默认生成求职目标块，岗位方向和核心要求进入可编辑字段；修改并保存后仍能从正式版本读回。
-- `test_deleted_resume_is_visible_in_recycle_bin_and_same_profile_can_create_new_resume`：删除正式简历后确认正式列表为空、回收站可见；同一岗位画像可以重新转换新正式简历；恢复旧简历后两份都存在。
+- `test_deleted_resume_is_visible_in_recycle_bin_and_same_profile_can_create_new_resume`：删除正式简历后确认正式列表为空、回收站可见；同一岗位画像可以通过新草稿重新转换；恢复旧简历时若已有 active Resume 则返回 409，必须先归档当前记录。
 
 ### `tests/test_export.py`
 
 - `test_export_is_fixed_a4_and_paginates_long_formal_content`：写入超长正文，导出正式 HTML，确认包含固定 A4 尺寸、分页页面和完整长文本。
-- `test_export_with_link_block_renders_anchor`：链接类条目渲染为可点击的 `<a>`。
+- `test_export_with_link_block_renders_anchor`：手动维护的“链接与作品集”区块把 Markdown 链接渲染为可点击的 `<a>`；该区块不再选择链接事实。
 - `test_render_markdown_keeps_line_breaks`：正文里的换行渲染成 `<br>`（曾经按换行分段后又用空串拼接，把作者分好的行黏成一行），列表成组渲染、行尾换行不产生多余空行、加粗/斜体仍生效。
 
 ### `tests/test_template_compatibility.py`
 
-覆盖 12 个内置模板的四层契约（描述符完整、导出可用、前端同步、接口可用）：
+覆盖 13 个 active 内置模板的四层契约（描述符完整、导出可用、前端同步、接口可用）：
 
-- 描述符：slug/色板/布局合法且名称唯一，六种布局都有模板覆盖，模板库维持在 10–12 套。
+- 描述符：slug/色板/布局合法且名称唯一，六种布局都有模板覆盖；当前目录保持 13 个 active 模板和 14 个退役 slug 映射。
 - 导出结构：每种布局的页面骨架、色板注入、无未渲染占位符；**姓名只出现在页头/侧栏页头，基本信息不再重复成栏目**；时间轴不并排。
 - 内容编排：**导出端不排没有内容的栏目**（数据里空着的个人简介/链接与作品集此前会留一条空标题），而**画布端保留它们作为"点击选择资料"的占位入口**——两者刻意分开，不能合并；空栏目占位不计版面预算，预览与导出的断页因此一致（前端 `App.test.ts` 有用例）。
 - 并排（一行两栏）：**只有表格版式会并排**（额度 3），单栏/横幅/线式/时间轴一律整宽通排，侧栏版式用"侧栏 + 主栏"的页级两栏结构。逐模板验证"一页并排行数不超过额度"。取舍依据（Greenhouse 把 columned layout 列进解析失败原因、经历必须整宽等）写在 `app/services.py` 的 `PAIR_BUDGET_BY_LAYOUT` 注释与排版的 `parsingNote()` 里。
@@ -162,21 +172,33 @@ cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
 - `test_conversion_save_restore_and_source_alert`：串联事实、岗位画像、临时简历、正式保存、历史恢复、事实更新和来源变化提醒。
 - `test_evidence_and_unreferenced_fact_deletion`：确认未被引用的事实可物理删除，证据链接仍能正常读写。
 - `test_structured_fact_details_empty_linked_page_and_html_export`：测试结构化个人资料、空临时预览、选择资料、转换和 HTML 导出。
-- `test_fact_details_can_be_updated_and_export_renders_fields_and_long_text`：测试详细字段和自定义字段修改，并确认导出包含修改后的字段且长内容会分页。
+- `test_fact_details_can_be_updated_and_export_renders_fields_and_long_text`：测试结构化字段修改，并确认导出包含修改后的字段且长内容会分页。
 
 ### `tests/test_comprehensive_workflows.py`
 
-- `test_every_resume_section_has_editable_title_fields_and_body`：为基本信息、求职目标、个人简介、教育经历、项目与实践、技能、成果、链接与作品集准备资料，逐个修改标题、正文和字段，再保存并重新读取，确认每个栏目都能持久化编辑。
+- `test_every_resume_section_has_editable_title_fields_and_body`：为基本信息、求职目标、个人简介、教育经历、项目与实践、技能和成果选择资料，并手动添加作品集链接区块，逐个修改标题、正文和字段，再保存并重新读取，确认每个栏目都能持久化编辑。
 - `test_resume_source_warning_is_visible_then_resolved_after_save_and_refresh`：修改正式简历引用的事实，确认顶部提示数据和简历警告数出现；保存处理后的正文后确认待处理接口为空、警告数归零，页面刷新后不再显示提示。
 - `test_navigation_data_for_home_profiles_resumes_and_recycle_bin`：检查健康状态、首页概览计数、岗位画像列表、正式简历列表、删除后的回收站列表以及恢复后的列表状态，对应验证主要导航按钮的后端目标。
-- `test_dangerous_actions_return_explicit_state_and_are_reversible`：分别测试未引用资料永久删除、已引用资料回收、资料恢复、正式简历回收和恢复，确认每个危险操作都有明确结果且可恢复操作确实恢复。
-- `test_fact_schema_and_all_categories_can_be_loaded_for_edit_forms`：逐类读取资料编辑表单的字段 schema，确认六类资料都有字段，非法分类返回 404。
-- `test_profile_edit_duplicate_identity_and_opportunity_routes`：测试画像编辑的身份冲突提示、招聘机会新增和读取、无效画像路径返回 404。
+- `test_dangerous_actions_return_explicit_state_and_are_reversible`：分别测试资料回收、资料恢复、正式简历回收和恢复，确认每个危险操作都有明确结果且可恢复操作确实恢复。
+- `test_fact_schema_and_all_categories_can_be_loaded_for_edit_forms`：逐类读取资料编辑表单的字段 schema，确认五类资料都有字段，非法分类返回 404。
+- `test_profile_edit_is_audited_and_opportunity_routes`：测试画像编辑审计、招聘机会新增和读取、无效画像路径返回 404。
 - `test_duplicate_active_resume_is_rejected_but_recycled_resume_can_be_recreated`：重复生成活跃正式简历返回 409；正式简历回收后，同一岗位画像可以重新生成新的正式简历。
 - `test_working_copy_save_is_dirty_then_clean_and_versions_are_linear`：修改工作副本后确认 dirty，保存后确认 clean，再次编辑保存确认版本号线性增长。
 - `test_version_restore_does_not_overwrite_immutable_history`：从历史版本恢复工作副本，确认历史版本列表仍完整且不存在的版本返回 404。
 - `test_evidence_validation_and_archive_flow`：测试非法证据链接、有效证据链接、证据回收和非法文件格式，确认危险和输入错误都有明确状态码。
 - `test_missing_resources_and_invalid_payloads_are_reported`：集中验证事实、简历、临时简历和证据不存在时返回 404，避免界面点击后出现静默失败。
+
+### `tests/test_resource_library_spec.py`
+
+验证资料库可执行 SQL 可在临时 SQLite 中执行，并检查字段目录、关系编号、数据审计覆盖和中文图册不使用鸦脚语法。
+
+### `tests/test_domain_specs.py`
+
+验证岗位画像、简历主链、模板交付三套 SQL 可组合建库；覆盖一画像一 active Resume、画像复制不复制机会、草稿单次转化、工作副本正交状态、模板切换不产生版本、导出事件追加和待处理事项显式来源。
+
+### `tests/test_resource_organization.py`
+
+验证个人档案唯一、岗位表达字段、经历场景、技能关联、主题标签筛选、成果父经历、旧分类/字段拒绝规则，以及档案照片上传、替换、历史恢复、移除和伪图片拒绝。
 
 ## 交互测试脚本
 
@@ -194,12 +216,14 @@ cd web; node scripts\smoke_section_visibility.mjs http://127.0.0.1:5173
 
 ## 3. 当前验证结果
 
-本次修改后已运行：
+2026-11-10 发布整理后已运行：
 
 ```text
-.venv\Scripts\python.exe -m pytest -q           221 passed, 6 skipped
-cd web; npx vitest run                          8 passed
-cd web; npx tsc -b --noEmit                     通过
+.venv\Scripts\python.exe -m pytest -q           283 passed, 6 skipped
+cd web; pnpm test                               22 passed
+cd web; pnpm build                              TypeScript 与 Vite 构建通过
+.venv\Scripts\python.exe scripts\check_domain_specs.py
+.venv\Scripts\python.exe scripts\check_resource_library_spec.py
 ```
 
 版式密度验收（13 个模板 × 3 种密度样本 = 39 份导出 HTML）：
@@ -210,11 +234,13 @@ clipped renders: 0
 under-filled non-final pages: 0
 ```
 
-即：没有任何一页把内容裁在 A4 底边之外，也没有“只有一两行的尾页”。全量运行覆盖资料、证据、岗位画像、临时简历、正式简历生命周期、求职目标、来源提示、危险操作、HTML 导出与模板兼容性。运行时有 FastAPI/httpx 弃用警告，以及 `.pytest_cache` 无写权限警告；它们不影响测试结果。
+即：没有任何一页把内容裁在 A4 底边之外，也没有“只有一两行的尾页”。全量运行覆盖资料、证据、岗位画像、临时简历、正式简历生命周期、求职目标、来源提示、危险操作、HTML 导出、模板兼容性、目标领域 SQL 和文档一致性。运行时有 FastAPI/httpx 弃用警告；它们不影响测试结果。
+
+2026-11-10 发布整理基线：后端 `283 passed, 6 skipped`，前端 `22 passed`；新增测试覆盖五类资料、旧分类拒绝、干净数据库全量迁移、分类不可原地修改、成果父经历校验、独立成果空外键、事实更新时间、证据文件内联预览、档案照片上传/替换/恢复/移除、照片进入简历快照与工作副本同步、13 套模板的可选照片渲染、自包含 HTML 图片内嵌、回收简历待处理过滤、画像复制审计、正交工作副本状态、模板视觉切换不建版本、证据同步版本、ExportEvent、恢复冲突和匿名墓碑清理。
 
 ## 4. 仍需新增的测试
 
-1. **前端组件测试**：用 Vitest + Testing Library 测试岗位画像已有 `active_resume_id` 时显示“打开正式简历”，没有时显示“创建临时简历”；测试正式简历和回收站列表的空态、加载态和错误态。当前 `web/package.json` 虽有 `vitest` 命令，但尚未配置测试文件和 Testing Library。
+1. **前端交互测试**：当前已有 Vitest 服务端渲染测试覆盖七类版式的照片显隐；仍需用 Testing Library 或浏览器测试覆盖文件选择、上传完成后预览刷新，以及岗位画像和正式简历列表的空态、加载态与错误态。
 2. **求职目标编辑交互测试**：验证标题、岗位方向、核心要求和强调方向四类输入都能修改，自动保存后重新加载仍保留；同时验证回收站正式简历为只读。
 3. **接口错误状态测试**：覆盖活跃正式简历重复转换返回 409、回收后可重新转换、转换后列表和概览计数同步变化。
 4. **回收站边界测试**：验证删除后正式列表不显示、回收站显示；恢复后只回到正式列表，不产生重复身份或重复版本。

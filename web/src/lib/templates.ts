@@ -5,14 +5,14 @@ import type { CSSProperties } from 'react'
 
 export type TemplateLayout = 'sidebar' | 'plain' | 'banner' | 'grid' | 'line' | 'timeline' | 'rail'
 // Row of GET /api/templates.
-export type TemplateDescriptor = { id:number; slug:string; name:string; description:string; layout:string; serif?:boolean; tokens:Record<string,string>; version:number|null; template_version_id:number }
+export type TemplateDescriptor = { id:number; template_key:string; display_name:string; description:string; renderer_key:string; layout:string; serif?:boolean; tokens:Record<string,string>; status:string }
 // Template info embedded in resume payloads (GET /api/resumes/{id}.template).
-export type TemplateInfo = { slug:string; name:string; layout:string; serif?:boolean; tokens?:Record<string,string>; template_version_id?:number; template_id?:number } | null
+export type TemplateInfo = { id:number; template_key:string; display_name:string; description?:string; renderer_key?:string; layout:string; serif?:boolean; tokens?:Record<string,string>; status:string } | null
 
 // Classic palette doubles as the CSS fallback in styles.css. heading/tint are
 // derived in app/templates.py from accent; the values here mirror that result.
 export const CLASSIC_TOKENS:Record<string,string> = { sidebar_bg:'#163b43', sidebar_fg:'#f4f7f4', sidebar_muted:'#cad9d5', sidebar_heading:'#a7c9c2', on_dark_accent:'#39b0be', heading:'#1d5f66', tint:'#e9f0f1', title:'#263f40', meta:'#5f7873', meta_label:'#527875', copy:'#4c605d', accent:'#236b74', rule:'#d5e0dc' }
-export const DEFAULT_TEMPLATE:TemplateInfo = { slug:'classic', name:'经典侧栏模板', layout:'sidebar', tokens:CLASSIC_TOKENS }
+export const DEFAULT_TEMPLATE:TemplateInfo = { id:0, template_key:'classic', display_name:'经典侧栏模板', layout:'sidebar', status:'available', tokens:CLASSIC_TOKENS }
 
 const VAR_NAMES:Record<string,string> = { sidebar_bg:'--t-sidebar-bg', sidebar_fg:'--t-sidebar-fg', sidebar_muted:'--t-sidebar-muted', sidebar_heading:'--t-sidebar-heading', on_dark_accent:'--t-on-dark-accent', heading:'--t-heading', tint:'--t-tint', title:'--t-title', meta:'--t-meta', meta_label:'--t-meta-label', copy:'--t-copy', accent:'--t-accent', rule:'--t-rule' }
 

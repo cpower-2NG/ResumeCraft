@@ -2,7 +2,7 @@
 
 这些能力共同回应一次版式评审（对照三份 AI 生成的参考简历）发现的四类问题：
 条目时间丢失、联系方式缺失无提示、meta 行噪音、短内容被挤到近乎空白的第二页。
-夹具 real_flattened_resume.json 是真实工作区里字段被压平的正式简历——历史迁移或
+夹具 flattened_resume.json 模拟字段被压平的正式简历——历史迁移或
 外部写入都可能产出这种块，渲染器完全依赖 fields，没有兜底时时间/单位/角色全部消失。
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ from app.services import (
     skill_groups,
 )
 
-FIXTURE = Path(__file__).resolve().parent / "fixtures" / "real_flattened_resume.json"
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "flattened_resume.json"
 FLATTENED = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
@@ -46,9 +46,9 @@ def test_hydrate_extracts_meta_tail_from_flattened_experience():
 
 
 def test_hydrate_recovers_award_whole_line():
-    flat = {"id": "a", "title": "越疆 X-Trainer 竞赛", "content": "越疆 · 2026.06 · 省三等奖", "source_refs": [19], "origin": "fact"}
+    flat = {"id": "a", "title": "省级机器人竞赛", "content": "星海机器人中心 · 2026.06 · 省三等奖", "source_refs": [19], "origin": "fact"}
     hydrated = hydrate_block(flat, "awards")
-    assert hydrated["fields"] == {"period": "2026.06", "issuer": "越疆", "result": "省三等奖"}
+    assert hydrated["fields"] == {"period": "2026.06", "issuer": "星海机器人中心", "result": "省三等奖"}
     assert hydrated["content"] == ""
 
 
@@ -56,7 +56,7 @@ def test_hydrate_ignores_prose_with_mid_dots():
     """正文里的" · "不是字段尾巴：不跟在完整句子后、也不含时间形状的段，一律不动。"""
     prose = {"id": "n", "title": "t", "content": "负责 A · B · C 三条产品线", "source_refs": [], "origin": "fact"}
     assert hydrate_block(prose, "experience") is prose
-    availability = {"id": "b", "title": "许榕鑫", "content": "每周可实习 5 天；最长可连续实习时间不限 · 深圳 · 深圳", "source_refs": [1], "origin": "fact"}
+    availability = {"id": "b", "title": "测试用户", "content": "每周可实习 5 天；可连续实习 · 杭州 · 杭州", "source_refs": [1], "origin": "fact"}
     assert hydrate_block(availability, "basics") is availability
 
 
@@ -66,7 +66,7 @@ def test_hydrate_never_touches_structured_blocks():
 
 
 def test_flattened_fixture_hydrates_and_lints():
-    """真实夹具：回收后经历块拿到 meta 值、成果块拿到时间/颁发方/结果。"""
+    """压平夹具：回收后经历块拿到 meta 值、成果块拿到时间/颁发方/结果。"""
     hydrated = hydrate_content(FLATTENED)
     sections = sections_of(hydrated)
     experience = sections["experience"]["blocks"][0]
@@ -84,7 +84,7 @@ def test_flattened_fixture_hydrates_and_lints():
 
 def test_lint_flags_missing_contact_garbage_and_zero_info():
     content = {"sections": [
-        {"id": "basics", "title": "基本信息", "visibility": True, "blocks": [{"id": "b", "title": "许榕鑫", "content": "", "fields": {"city": "深圳"}, "display_fields": ["city"], "source_refs": [1], "origin": "fact"}]},
+        {"id": "basics", "title": "基本信息", "visibility": True, "blocks": [{"id": "b", "title": "测试用户", "content": "", "fields": {"city": "杭州"}, "display_fields": ["city"], "source_refs": [1], "origin": "fact"}]},
         {"id": "experience", "title": "项目与实践", "visibility": True, "blocks": [{"id": "e", "title": "某项目", "content": "- 做了具体的事。\n- 完成课程项目。", "fields": {"period": "2025.12"}, "display_fields": ["period"], "source_refs": [2], "origin": "fact"}]},
         {"id": "awards", "title": "成果", "visibility": True, "blocks": [{"id": "a", "title": "某奖", "content": "阿斯顿发斯蒂芬", "fields": {"period": "2026.06", "result": "省三等奖"}, "display_fields": ["period", "result"], "source_refs": [19], "origin": "fact"}]},
     ]}
@@ -101,10 +101,10 @@ def test_lint_flags_missing_contact_garbage_and_zero_info():
 
 def test_render_hydration_surfaces_meta_and_awards_table():
     """导出渲染前先做字段回收：压平的经历排出 meta 值，成果排出三列表格。"""
-    html = render_resume_html(FLATTENED, "许榕鑫", 1, "ink")
+    html = render_resume_html(FLATTENED, "测试用户", 1, "ink")
     assert '<span class="meta">实验室小组</span>' in html
     assert 'class="awards-table"' in html
-    assert "省三等奖（越疆）" in html
+    assert "省三等奖（星海机器人中心）" in html
 
 
 # ---------------------------------------------------------------- 组稿策展
@@ -148,8 +148,8 @@ def test_skill_groups_require_category_and_merge_items():
 
 
 def test_awards_table_rows_require_period_and_result():
-    ok = [{"title": "竞赛", "fields": {"period": "2026.06", "issuer": "越疆", "result": "省三等奖"}}]
-    assert awards_table_rows(ok) == [("2026.06", "竞赛", "省三等奖（越疆）")]
+    ok = [{"title": "竞赛", "fields": {"period": "2026.06", "issuer": "星海机器人中心", "result": "省三等奖"}}]
+    assert awards_table_rows(ok) == [("2026.06", "竞赛", "省三等奖（星海机器人中心）")]
     assert awards_table_rows([{"title": "竞赛", "fields": {"period": "2026.06"}}]) == []
 
 
@@ -231,7 +231,7 @@ def test_content_far_over_one_page_stays_multipage():
     assert "page compact" not in html
 
 
-def test_flattened_real_resume_fits_one_page():
-    """真实压平简历此前排出"半空第二页"；回收 + 紧凑档后必须单页。"""
-    html = render_resume_html(FLATTENED, "许榕鑫", 1, "ink")
+def test_flattened_resume_fits_one_page():
+    """压平简历此前排出"半空第二页"；回收 + 紧凑档后必须单页。"""
+    html = render_resume_html(FLATTENED, "测试用户", 1, "ink")
     assert html.count('class="page') == 1

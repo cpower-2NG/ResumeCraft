@@ -2,10 +2,20 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+
+# Local application state. ResumeCraft creates these on first launch.
 data/
-data/*.db
-data/*.db-*
-data/attachments/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+*.temp
+.env
+.env.*
+!.env.example
+
 web/node_modules/
 node_modules/
 web/.pnpm-store/
@@ -14,6 +24,11 @@ web/dist/
 web/tsconfig.tsbuildinfo
 attachments/
 exports/
-data/logs/
 output/
 .DS_Store
+
+# Personal working notes and generated evidence stay local.
+gui-test-screenshots/
+docs/projects/
+docs/resource-library/data-*.md
+docs/gui-test-report-*.md

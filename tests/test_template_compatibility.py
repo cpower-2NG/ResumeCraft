@@ -18,11 +18,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-from app.main import app, ensure_builtin_templates
+from app.main import app, sync_global_catalogues
 from app.services import PAIR_BUDGET_BY_LAYOUT, PAGE_BUDGET_PX, pair_height, render_resume_html
 from app.templates import BUILTIN_TEMPLATES, COLOUR_TOKENS, RETIRED_TEMPLATES, descriptor_for
 from app.workbench_database import WorkbenchBase, get_db
-from app.workbench_models import ResumeTemplate, TemplateVersion, User, Workspace
+from app.workbench_models import Template, User, Workspace
 
 WEB_STYLES = Path(__file__).resolve().parents[1] / "web" / "src" / "styles.css"
 
@@ -72,6 +72,19 @@ def sample_content(long: bool = False) -> dict:
             {"id": "links", "type": "links", "title": "链接与作品集", "visibility": True, "blocks": []},
         ]
     }
+
+
+def sample_content_with_photo() -> dict:
+    content = sample_content()
+    content["sections"][0]["blocks"][0]["photo"] = {
+        "photo_id": 7,
+        "evidence_id": 8,
+        "preview_url": "/api/evidence/8/file",
+        "filename": "portrait.png",
+        "mime_type": "image/png",
+        "data_url": "data:image/png;base64,cG9ydHJhaXQ=",
+    }
+    return content
 
 
 # ---------------------------------------------------------------- 注册表契约
@@ -148,6 +161,22 @@ def test_export_html_is_valid_for_every_template(slug):
     # test_single_column_layouts_never_pair / test_form_layout_pairs_short_sections_side_by_side。
     if not PAIR_BUDGET_BY_LAYOUT[descriptor["layout"]]:
         assert 'class="pair"' not in html, f"模板 {slug} 不应并排"
+
+
+@pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
+def test_optional_profile_photo_renders_in_every_template(slug):
+    html = render_resume_html(sample_content_with_photo(), "照片简历", 1, slug)
+    assert html.count('class="resume-photo ') == 1, f"模板 {slug} 未渲染照片"
+    assert 'src="data:image/png;base64,cG9ydHJhaXQ="' in html
+    assert 'alt="陈晓的档案照片"' in html
+
+
+@pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
+def test_profile_photo_is_optional_and_leaves_layout_unchanged_when_absent(slug):
+    html = render_resume_html(sample_content(), "无照片简历", 1, slug)
+    body = html.split("<body>", 1)[-1].split("</body>", 1)[0]
+    assert "resume-photo" not in body
+    assert " has-photo" not in body
 
 
 @pytest.mark.parametrize("slug", sorted(BUILTIN_TEMPLATES))
@@ -281,7 +310,7 @@ def test_unknown_slug_falls_back_to_classic():
 
 def test_api_exposes_palette_for_every_template(builtin_client):
     """SPA 画布的主题完全来自 API 下发的 tokens/serif/layout，注册表必须完整下发。"""
-    rows = {item["slug"]: item for item in builtin_client.get("/api/templates").json()}
+    rows = {item["template_key"]: item for item in builtin_client.get("/api/templates").json()}
     for slug, descriptor in BUILTIN_TEMPLATES.items():
         row = rows[slug]
         assert row["layout"] == descriptor["layout"]
@@ -388,7 +417,7 @@ def builtin_client(monkeypatch):
         db.add(Workspace(owner_id=user.id, name="Test workspace"))
         db.commit()
     monkeypatch.setattr("app.workbench_database.SessionLocal", Session)
-    ensure_builtin_templates()
+    sync_global_catalogues()
 
     def override():
         with Session() as db:
@@ -404,54 +433,48 @@ def builtin_client(monkeypatch):
 
 def test_startup_creates_every_builtin_template(builtin_client):
     rows = builtin_client.get("/api/templates").json()
-    by_slug = {item["slug"]: item for item in rows}
+    by_slug = {item["template_key"]: item for item in rows}
     assert set(by_slug) == set(BUILTIN_TEMPLATES)
     for slug, descriptor in BUILTIN_TEMPLATES.items():
         row = by_slug[slug]
-        assert row["name"] == descriptor["name"] and row["description"] == descriptor["description"]
+        assert row["display_name"] == descriptor["name"] and row["description"] == descriptor["description"]
         assert row["layout"] == descriptor["layout"]
-        assert row["version"] == 1 and row["template_version_id"]
+        assert row["status"] == "available"
 
 
 def test_startup_retires_templates_dropped_from_the_registry(builtin_client):
-    """精简模板库时，退役模板的数据库行改为停用而不是删除。
-
-    已有简历钉住的是模板版本行；停用后它不再出现在画廊里，但简历本身仍能导出，
-    配色按 RETIRED_TEMPLATES 解析到同版式的承接模板。
-    """
+    """退役模板保留迁移记录，但不再出现在可选模板目录。"""
     from app.workbench_database import SessionLocal
 
     retired_slug, successor = next(iter(RETIRED_TEMPLATES.items()))
     # 模拟早先版本建的库：注册表里已经没有这个 slug，但数据库行还在。
     with SessionLocal() as db:
-        template = ResumeTemplate(workspace_id=1, name="历史模板", slug=retired_slug, description="早先版本创建", active=True)
-        db.add(template); db.flush()
-        db.add(TemplateVersion(template_id=template.id, version_number=1, content=f"code-rendered:{retired_slug}", checksum="code"))
+        template = Template(
+            template_key=retired_slug,
+            display_name="历史模板",
+            description="早先版本创建",
+            renderer_key=retired_slug,
+            status="available",
+        )
+        db.add(template)
         db.commit()
 
-    ensure_builtin_templates()
+    sync_global_catalogues()
 
-    listed = {item["slug"] for item in builtin_client.get("/api/templates").json()}
+    listed = {item["template_key"] for item in builtin_client.get("/api/templates").json()}
     assert retired_slug not in listed
     with SessionLocal() as db:
-        row = db.scalar(select(ResumeTemplate).where(ResumeTemplate.slug == retired_slug))
-        assert row is not None and row.active is False, f"{retired_slug} 的模板行应当被停用而非删除"
-        version = db.scalar(select(TemplateVersion).where(TemplateVersion.template_id == row.id))
-        assert version is not None, "停用不等于删除版本行：已有简历仍引用它"
+        row = db.scalar(select(Template).where(Template.template_key == retired_slug))
+        assert row is not None and row.status == "retired", f"{retired_slug} 的模板行应当被停用而非删除"
 
     assert descriptor_for(retired_slug) is BUILTIN_TEMPLATES[successor]
 
 
-def test_retired_slug_reports_successor_palette(client):
-    """钉在退役模板上的简历仍按承接模板下发配色与骨架。
-
-    conftest 的 client 建了一个早先版本的 ``focus`` 模板行（已从注册表退役），
-    它必须照常出现在模板列表里，但配色/布局取自承接模板 classic。
-    """
-    rows = {item["slug"]: item for item in client.get("/api/templates").json()}
-    assert "focus" in rows, "已有简历引用的退役模板不能从列表里消失"
-    assert rows["focus"]["layout"] == BUILTIN_TEMPLATES["classic"]["layout"]
-    assert rows["focus"]["tokens"] == {key: BUILTIN_TEMPLATES["classic"][key] for key in COLOUR_TOKENS}
+def test_retired_slug_is_not_selectable(client):
+    """退役模板不能继续作为新简历的选择项。"""
+    rows = {item["template_key"]: item for item in client.get("/api/templates").json()}
+    assert "focus" not in rows
+    assert set(rows) == set(BUILTIN_TEMPLATES)
 
 
 def test_startup_syncs_stale_builtin_metadata(builtin_client):
@@ -459,41 +482,56 @@ def test_startup_syncs_stale_builtin_metadata(builtin_client):
     from app.workbench_database import SessionLocal
 
     with SessionLocal() as db:
-        row = db.scalar(select(ResumeTemplate).where(ResumeTemplate.slug == "classic"))
+        row = db.scalar(select(Template).where(Template.template_key == "classic"))
         row.description = "历史遗留的过期描述"
         db.commit()
 
-    ensure_builtin_templates()
+    sync_global_catalogues()
 
-    rows = {item["slug"]: item for item in builtin_client.get("/api/templates").json()}
+    rows = {item["template_key"]: item for item in builtin_client.get("/api/templates").json()}
     assert rows["classic"]["description"] == BUILTIN_TEMPLATES["classic"]["description"]
 
 
 @pytest.mark.parametrize("slug", NEW_TEMPLATES)
 def test_new_template_end_to_end_flow(builtin_client, slug):
-    templates = {item["slug"]: item for item in builtin_client.get("/api/templates").json()}
-    version_id = templates[slug]["template_version_id"]
+    templates = {item["template_key"]: item for item in builtin_client.get("/api/templates").json()}
+    template_id = templates[slug]["id"]
     layout = BUILTIN_TEMPLATES[slug]["layout"]
 
     profile = builtin_client.post("/api/requirement-profiles", json={"name": "兼容性岗位"}).json()
-    linked_id = builtin_client.post(f"/api/linked-resumes?profile_id={profile['id']}&template_version_id={version_id}").json()["id"]
+    linked_id = builtin_client.post(
+        "/api/linked-resumes",
+        json={"profile_id": profile["id"], "template_id": template_id},
+    ).json()["id"]
     linked = builtin_client.get(f"/api/linked-resumes/{linked_id}").json()
-    assert linked["template"]["slug"] == slug and linked["template"]["layout"] == layout
+    assert linked["template"]["template_key"] == slug and linked["template"]["layout"] == layout
 
     facts = {}
-    for category, title in (("basics", "陈晓"), ("experience", "中台重构"), ("skills", "Python")):
-        facts[category] = builtin_client.post("/api/facts", json={"category": category, "title": title, "details": {"summary": "事实"}}).json()["id"]
-    builtin_client.patch(f"/api/linked-resumes/{linked['id']}", json={"selection": {"basics": [facts["basics"]], "experience": [facts["experience"]], "skills": [facts["skills"]]}})
+    fact_fields = {
+        "basics": {"name": "陈晓", "bio": "事实"},
+        "experience": {"experience_kind": "project", "work_summary": "事实"},
+        "skill": {"usage_context": "事实"},
+    }
+    for category, title in (("basics", "陈晓"), ("experience", "中台重构"), ("skill", "Python")):
+        facts[category] = builtin_client.post(
+            "/api/facts",
+            json={
+                "category_code": category,
+                "title": title,
+                "fields": fact_fields[category],
+            },
+        ).json()["id"]
+    builtin_client.patch(f"/api/linked-resumes/{linked['id']}", json={"selection": {"basics": [facts["basics"]], "experience": [facts["experience"]], "skills": [facts["skill"]]}})
 
     resume_id = builtin_client.post(f"/api/linked-resumes/{linked['id']}/convert").json()["resume_id"]
     resume = builtin_client.get(f"/api/resumes/{resume_id}").json()
-    assert resume["template"]["slug"] == slug and resume["template"]["layout"] == layout
+    assert resume["template"]["template_key"] == slug and resume["template"]["layout"] == layout
     assert resume["template"]["tokens"] == {key: BUILTIN_TEMPLATES[slug][key] for key in COLOUR_TOKENS}
 
     saved = builtin_client.post(f"/api/resumes/{resume_id}/save", json={"change_summary": "兼容性验证"})
     assert saved.status_code == 200, saved.text
 
-    export = builtin_client.post(f"/api/resumes/{resume_id}/versions/2/export")
+    export = builtin_client.post(f"/api/resumes/{resume_id}/versions/2/export?force=true")
     assert export.status_code == 200, export.text
     body = export.text
     assert "@page" in body and "size: A4" in body

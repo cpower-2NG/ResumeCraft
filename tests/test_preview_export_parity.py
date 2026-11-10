@@ -19,7 +19,8 @@ from pathlib import Path
 import pytest
 
 from app.services import (LAYOUT_METRICS, PAIR_BUDGET_BY_LAYOUT, PAIR_MAX_SHARE,
-                          PAIR_MIN_BALANCE, PAIR_MIN_SAVING, PAIR_REF_CHARS, PAGE_BUDGET_PX)
+                          PAIR_MIN_BALANCE, PAIR_MIN_SAVING, PAIR_REF_CHARS, PAGE_BUDGET_PX,
+                          HEADER_PHOTO_EXTRA_PX, SIDEBAR_PHOTO_PX)
 
 RESUME_TS = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "resume.ts"
 TS = RESUME_TS.read_text(encoding="utf-8")
@@ -89,3 +90,8 @@ def test_pair_constants_match(py_value, ts_name):
 def test_pair_budget_matches():
     ts = _ts_pair_budget()
     assert ts == dict(PAIR_BUDGET_BY_LAYOUT), f"并排额度两端不一致：导出 {PAIR_BUDGET_BY_LAYOUT} vs 预览 {ts}"
+
+
+def test_optional_photo_metrics_match():
+    assert _ts_number("SIDEBAR_PHOTO_PX") == SIDEBAR_PHOTO_PX
+    assert _ts_number("HEADER_PHOTO_EXTRA_PX") == HEADER_PHOTO_EXTRA_PX

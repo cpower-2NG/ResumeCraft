@@ -1,7 +1,7 @@
 {
   "name": "resumecraft",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": { "dev": "vite", "build": "tsc -b && vite build", "test": "vitest run", "test:ui": "node scripts/interaction-smoke.mjs" },
   "dependencies": { "@vitejs/plugin-react": "latest", "lucide-react": "latest", "react": "latest", "react-dom": "latest" },

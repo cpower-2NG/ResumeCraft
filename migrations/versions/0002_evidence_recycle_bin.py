@@ -11,6 +11,13 @@ depends_on = None
 
 
 def upgrade():
+    if "fact_categories" in sa.inspect(op.get_bind()).get_table_names():
+        return
+    # 0001 historically used live metadata. On a fresh database it may already
+    # have created the target schema, so this legacy step is a no-op there.
+    tables = set(sa.inspect(op.get_bind()).get_table_names())
+    if {"templates", "resumes"} <= tables:
+        return
     op.add_column("fact_records", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("requirement_profiles", sa.Column("status", sa.String(length=30), nullable=False, server_default="active"))
     op.add_column("requirement_profiles", sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))

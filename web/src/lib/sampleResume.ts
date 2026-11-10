@@ -1,10 +1,12 @@
 import type { Content } from './resume'
 
+const SAMPLE_PORTRAIT=`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 290"><rect width="230" height="290" fill="#dce8e1"/><circle cx="115" cy="103" r="51" fill="#52776b"/><path d="M25 290c8-72 40-112 90-112s82 40 90 112" fill="#31594e"/><path d="M70 92c8-48 82-48 90 0" fill="#6e9285"/></svg>')}`
+
 // Sample facts used only by template previews (template library page and the
 // creation-time template gallery): one compact entry per section so every
 // template shows its real layout, colours and typography.
 export const SAMPLE_CONTENT:Content={sections:[
-  {id:'basics',title:'基本信息',visibility:true,blocks:[{id:'sample-basics',title:'陈晓萌',content:'',fields:{phone:'138 0000 0000',email:'chenxiaomeng@example.com',city:'上海',desired_city:'上海',status:'应届毕业生',graduation:'2026年6月'},display_fields:['phone','email','city','desired_city','status','graduation'],source_refs:[],origin:'fact'}]},
+  {id:'basics',title:'基本信息',visibility:true,blocks:[{id:'sample-basics',title:'陈晓萌',content:'',fields:{phone:'138 0000 0000',email:'chenxiaomeng@example.com',city:'上海',desired_city:'上海',status:'应届毕业生',graduation:'2026年6月'},display_fields:['phone','email','city','desired_city','status','graduation'],source_refs:[],origin:'fact',photo:{evidence_id:0,preview_url:SAMPLE_PORTRAIT,filename:'sample-portrait.svg',mime_type:'image/svg+xml'}}]},
   {id:'target',title:'求职目标',visibility:true,blocks:[{id:'sample-target',title:'机器人数据采集工程师',content:'突出数据采集流水线与标注质量管理的工程实践，强调跨团队协作。',fields:{role_direction:'机器人 · 数据工程'},display_fields:['role_direction'],source_refs:[],origin:'profile'}]},
   {id:'profile',title:'个人简介',visibility:true,blocks:[{id:'sample-profile',title:'个人简介',content:'三年机器人数据采集与标注经验，熟悉采集规范制定、质量抽检与交付复盘。',fields:{},display_fields:[],source_refs:[],origin:'fact'}]},
   {id:'experience',title:'项目与实践',visibility:true,blocks:[

@@ -9,7 +9,7 @@ Every template is described once here and consumed everywhere:
 ``layout`` decides the page skeleton (sidebar = 左侧栏双栏, plain = 单栏通排,
 banner = 顶部横幅单栏, grid = 表格表单, line = 经典线式, timeline = 时间轴通排);
 the colour tokens drive both renderers; ``serif`` switches the paper to a serif
-family. Adding an entry here (plus the ResumeTemplate / TemplateVersion row
+family. Adding an entry here is enough: the global Template catalogue is
 created automatically on startup) extends the library with no frontend changes.
 
 Two rules keep the palettes honest, and both are enforced by tests:

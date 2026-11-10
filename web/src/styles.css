@@ -186,6 +186,12 @@
 /* Banner layout (天青横幅模板): full-width name/contact band on every page */
 .resume-paper.banner{grid-template-columns:1fr;grid-template-rows:auto 1fr}
 .resume-banner{padding:8mm 11mm;flex:none;background:var(--t-sidebar-bg);color:var(--t-sidebar-fg)}
+.resume-photo{margin:0;flex:none;width:23mm;height:29mm;overflow:hidden;border:1.5pt solid var(--t-rule);background:#f4f7f4}
+.resume-photo img{width:100%;height:100%;display:block;object-fit:cover;object-position:center top}
+.photo-sidebar{width:27mm;height:33mm;margin:0 auto 4mm;border-color:#ffffff59;background:var(--t-sidebar-bg)}
+.resume-banner.has-photo{display:flex;align-items:center;justify-content:space-between;gap:8mm}
+.resume-banner.has-photo .photo-banner{order:2;border-color:#ffffff5c}
+.resume-head-copy{flex:1;min-width:0}
 .resume-banner h1{font-family:Georgia,"Microsoft YaHei",serif;font-size:20pt;line-height:1.15;margin:0 0 2.2mm;letter-spacing:.5px}
 .resume-banner .banner-meta{display:flex;flex-wrap:wrap;gap:.8mm 3.8mm;color:var(--t-sidebar-muted);font-size:8pt;line-height:1.4}
 .resume-banner .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
@@ -198,6 +204,9 @@
 /* Grid layout (雅蓝/灰石表格模板): Word-form look, bordered sections with solid header rows */
 .resume-paper.grid{grid-template-rows:auto 1fr}
 .resume-paper.grid .grid-head{border:1px solid var(--t-rule);text-align:center;padding:3.4mm 5mm 3mm;flex:none}
+.resume-paper.grid .grid-head.has-photo{display:flex;justify-content:space-between;align-items:center;gap:8mm;text-align:left}
+.resume-paper.grid .grid-head.has-photo .photo-grid{order:2}
+.resume-paper.grid .grid-head.has-photo .banner-meta{justify-content:flex-start}
 .resume-paper.grid .grid-head h1{font-size:15.5pt;letter-spacing:2px;margin:0 0 2.2mm;color:var(--t-title)}
 .resume-paper.grid .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
 .resume-paper.grid .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
@@ -218,6 +227,7 @@
 /* Line layout (羽墨/靛青线式模板): centered head, centered section titles, right-aligned periods */
 .resume-paper.line{grid-template-rows:auto 1fr}
 .resume-paper.line .line-head{text-align:center;flex:none;padding:2.4mm 8mm 3.2mm;border-bottom:2px solid var(--t-sidebar-bg)}
+.resume-paper.line .line-head.has-photo{display:flex;justify-content:center;align-items:center;gap:7mm;text-align:left}
 .resume-paper.line .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 1.8mm;color:var(--t-title)}
 .resume-paper.line .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
 .resume-paper.line .banner-meta span{display:inline-flex;gap:1mm;align-items:baseline}
@@ -238,6 +248,7 @@
 
 /* Compact heads for plain/timeline: centered name + contact line, lighter rule */
 .resume-paper.plain .line-head,.resume-paper.timeline .line-head{text-align:center;flex:none;padding:2.4mm 8mm 3.2mm;border-bottom:1.5px solid var(--t-rule)}
+.resume-paper.plain .line-head.has-photo,.resume-paper.timeline .line-head.has-photo{display:flex;justify-content:center;align-items:center;gap:7mm;text-align:left}
 .resume-paper.plain .resume-main,.resume-paper.timeline .resume-main{padding:9mm 12mm}
 .resume-paper.plain .line-head h1,.resume-paper.timeline .line-head h1{font-size:16pt;letter-spacing:1.5px;margin:0 0 1.8mm;color:var(--t-title)}
 .resume-paper.plain .line-head .banner-meta,.resume-paper.timeline .line-head .banner-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:.8mm 3.8mm;color:var(--t-meta);font-size:8pt;line-height:1.4}
@@ -278,6 +289,8 @@
 /* 标签栏版式（简牍标签栏模板）：左侧栏目标签列 + 右侧内容，中文校招的经典形态。
    标签列用绝对定位的栏目标题实现：不占内容行高，正文从 28mm 处起排。 */
 .resume-paper.rail .rail-head{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;padding:6.5mm 10mm 3.2mm;border-bottom:2px solid var(--t-sidebar-bg)}
+.resume-paper.rail .rail-head.has-photo{align-items:center}
+.resume-paper.rail .rail-head.has-photo h1{flex:1}
 .resume-paper.rail .rail-head h1{font-size:18pt;letter-spacing:1.5px;margin:0;color:var(--t-title)}
 .resume-paper.rail .rail-meta{display:flex;flex-direction:column;align-items:flex-end;gap:.7mm;color:var(--t-meta);font-size:8pt;line-height:1.4;text-align:right}
 .resume-paper.rail .rail-head-slim{padding:2.2mm 10mm;align-items:baseline;border-bottom:1px solid var(--t-rule)}
@@ -415,3 +428,67 @@
 .resume-paper.timeline{grid-template-rows:auto 1fr}
 .resume-paper.serif,.resume-paper.serif *{font-family:Georgia,"Times New Roman","Songti SC",SimSun,serif}
 .lint-toggle{border:0;background:none;padding:0;margin-top:3px;font:inherit;font-size:11px;color:#a34838;text-decoration:underline;cursor:pointer}
+
+/* Browser printing from the workbench must not inherit the narrow-screen preview
+   transform. A4 is about 794 CSS px wide, so an @media(max-width:850px) rule used
+   to scale every paper to 46% in print and overlap consecutive sheets with the
+   compensating negative margins. Print only the resume stage at its real A4 size. */
+@media print{
+  @page{size:A4;margin:0}
+  html,body{width:210mm;min-width:210mm;margin:0!important;padding:0!important;background:#fff!important}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .app-shell>:not(.workbench),.workbench>:not(.stage-zoom){display:none!important}
+  .app-shell>.workbench{display:block!important;width:210mm!important;max-width:none!important;margin:0!important;padding:0!important}
+  .workbench>.stage-zoom{display:block!important;width:210mm!important;margin:0!important;padding:0!important;zoom:1!important;transform:none!important}
+  .stage-zoom>.resume-stage{display:block!important;width:210mm!important;min-width:210mm!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important}
+  .resume-stage .resume-paper{transform:none!important;transform-origin:initial!important;margin:0!important;box-shadow:none!important;outline:0!important;break-after:page!important;page-break-after:always!important}
+  .resume-stage .resume-paper:last-child{break-after:auto!important;page-break-after:auto!important}
+  .resume-stage .resume-paper .mini-button,.resume-stage .resume-paper .title-actions,.resume-stage .resume-paper .source-tag,.resume-stage .resume-paper .empty-section{display:none!important}
+}
+
+/* Structured resource library: typed facts, explicit relations, and tags. */
+.fact-table-row{grid-template-columns:1.15fr 1.6fr .8fr .35fr .55fr}
+.tag-filter{align-items:center}
+.tag-filter>svg{margin-right:2px;color:#628176}
+.fact-tags{display:flex!important;gap:4px;flex-wrap:wrap;white-space:normal!important;overflow:visible!important}
+.fact-tags i{font-style:normal;font-size:10px;color:#2e695c;background:#eef5ef;padding:3px 5px}
+.fact-form-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.relation-fields{display:grid;gap:8px;border-top:1px solid #e5ece6;padding-top:12px}
+.relation-fields .custom-fields-head small{color:#78867f}
+.relation-checks{display:flex;gap:7px;flex-wrap:wrap}
+.relation-checks label{border:1px solid #d8e4dc;background:#f7faf7;padding:6px 8px;display:flex;align-items:center;gap:5px;font-size:11px;color:#40574d}
+.relation-checks input{accent-color:#1d5c69}
+@media(max-width:850px){.fact-table-row{grid-template-columns:1fr auto}.fact-form-grid{grid-template-columns:1fr}.fact-table-row>span:nth-child(2),.fact-table-row>span:nth-child(3),.fact-table-row>span:nth-child(4){display:none}}
+
+/* Evidence files can be reviewed in place; links stay in the external browser. */
+.evidence-row{align-items:center}
+.evidence-main{border:0;background:none;color:inherit;text-align:left;padding:0;display:grid;gap:2px;flex:1;min-width:0;cursor:pointer;font:inherit}
+.evidence-main b{font-size:12px}
+.evidence-main small{font-size:10px;color:#738079;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evidence-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
+.evidence-actions .mini-button{display:inline-flex;align-items:center;gap:4px}
+.modal.evidence-preview-modal{width:min(1120px,96vw)}
+.evidence-preview-frame{width:100%;height:min(72vh,760px);border:1px solid #d7e1da;background:#f7faf7}
+.evidence-preview-image{display:block;max-width:100%;max-height:72vh;margin:auto;object-fit:contain;border:1px solid #d7e1da;background:#f7faf7}
+@media(max-width:650px){.evidence-row{align-items:flex-start;flex-wrap:wrap}.evidence-actions{width:100%;margin-left:23px}.evidence-preview-frame{height:65vh}}
+
+/* Profile portraits are archive assets, separate from process evidence. */
+.profile-photo-panel{display:grid;gap:12px;border:1px solid #d9e5dd;background:#f8fbf8;padding:14px}
+.profile-photo-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.profile-photo-head>div{display:grid;gap:3px}
+.profile-photo-head b{font-size:13px;color:#34554a}
+.profile-photo-head small,.profile-photo-empty small,.profile-photo-current small,.profile-photo-history-row small{font-size:10px;color:#718178}
+.profile-photo-current{display:flex;align-items:center;gap:12px}
+.profile-photo-current img{width:84px;height:108px;object-fit:cover;object-position:center top;border:1px solid #cbd9d0;background:#fff}
+.profile-photo-current>span{display:grid;gap:4px;flex:1;min-width:0}
+.profile-photo-current>span b,.profile-photo-history-row span b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-photo-empty{min-height:90px;border:1px dashed #c9d8ce;background:#fff;display:grid;place-items:center;gap:4px;color:#6c8076;font-size:12px}
+.profile-photo-empty svg{color:#6c9482}
+.profile-photo-history{border-top:1px solid #e2ebe5;padding-top:10px}
+.profile-photo-history-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8efe9}
+.profile-photo-history-row:last-child{border-bottom:0}
+.profile-photo-history-row img{width:42px;height:54px;object-fit:cover;object-position:center top;background:#fff;border:1px solid #d4dfd7}
+.profile-photo-history-row span{display:grid;gap:3px;flex:1;min-width:0}
+.profile-photo-history-row .mini-button{margin-left:auto}
+.mini-button.danger{color:#a34838;border-color:#ddb5aa}
+@media(max-width:650px){.profile-photo-head{align-items:flex-start;flex-direction:column}.profile-photo-current{align-items:flex-start;flex-wrap:wrap}.profile-photo-history-row{align-items:flex-start;flex-wrap:wrap}.profile-photo-history-row .mini-button{margin-left:0}}

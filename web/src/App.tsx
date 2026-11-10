@@ -25,11 +25,10 @@ export default function App(){
   const [insufficient,setInsufficient]=useState<Profile|null>(null)
   // 待创建临时简历的岗位画像：模板库大卡片弹窗挂起期间暂存。
   const [templatePick,setTemplatePick]=useState<Profile|null>(null)
-  const pending = useLoad<Pending[]>('/api/pending-items',[])
+  const pending = useLoad<Pending[]>('/api/pending-issues',[])
   const startCompose = async (p:Profile,templateVersionId?:number|null) => { try {
-    const tv=templateVersionId||pendingTemplate
-    const query=tv?`&template_version_id=${tv}`:''
-    const r=await post<{id:number}>(`/api/linked-resumes?profile_id=${p.id}${query}`)
+    const templateId=templateVersionId||pendingTemplate
+    const r=await post<{id:number}>('/api/linked-resumes',{profile_id:p.id,template_id:templateId||undefined})
     setPendingTemplate(null)
     setProfile(p); setLinked(r.id); setPage('compose')
   } catch(e) { setError((e as Error).message) } }
@@ -44,9 +43,8 @@ export default function App(){
   const openResume = (id:number) => { setResume(id); setPage('editor') }
   const openPending = (item:Pending) => {
     setPendingOpen(false)
-    const target = item.affected[0]
-    setFocusBlock(target ? {sectionId:target.section_id, blockId:target.block_id} : null)
-    openResume(item.resume_id)
+    setFocusBlock(item.section_code&&item.block_key ? {sectionId:item.section_code, blockId:item.block_key} : null)
+    if(item.resume_id)openResume(item.resume_id)
   }
   return <div className="app-shell">
     <header className="topbar">
@@ -61,7 +59,7 @@ export default function App(){
     {page==='resumes'&&<Resumes back={()=>setPage('home')} open={openResume} create={()=>setPage('profiles')} pending={pending.data} library={()=>setPage('templates')}/>}
     {page==='compose'&&profile&&linked&&<Composer id={linked} profile={profile} back={()=>setPage('profiles')} open={openResume} error={setError}/>}
     {page==='editor'&&resume&&<Editor id={resume} back={()=>setPage('resumes')} error={setError} refresh={pending.reload} focusBlock={focusBlock} onFocusLocated={()=>setFocusBlock(null)}/>}
-    {page==='templates'&&<TemplateLibrary back={()=>setPage('home')} onCreate={(tvId)=>{setPendingTemplate(tvId||null);setPage('profiles')}}/>}
+    {page==='templates'&&<TemplateLibrary back={()=>setPage('home')} onCreate={(templateId)=>{setPendingTemplate(templateId||null);setPage('profiles')}}/>}
     {pending.data.length>0&&<button className="pending-fab" onClick={()=>setPendingOpen(v=>!v)} title="待处理事项"><CircleAlert size={18}/><i>{pending.data.length}</i></button>}
     {pendingOpen&&<aside className="pending-panel">
       <header><h2>待处理事项</h2><button className="icon-btn" onClick={()=>setPendingOpen(false)}><X size={16}/></button></header>
@@ -83,7 +81,7 @@ export default function App(){
         <button className="button primary" onClick={()=>{const p=insufficient;setInsufficient(null);setTemplatePick(p)}}>继续制作</button>
       </div>
     </Modal>}
-    {templatePick&&<TemplateGalleryModal current={pendingTemplate??undefined} onChoose={tvId=>{const p=templatePick;setTemplatePick(null);startCompose(p,tvId)}} close={()=>setTemplatePick(null)}/>}
+    {templatePick&&<TemplateGalleryModal current={pendingTemplate??undefined} onChoose={templateId=>{const p=templatePick;setTemplatePick(null);startCompose(p,templateId)}} close={()=>setTemplatePick(null)}/>}
   </div>
 }
 
@@ -99,7 +97,7 @@ function TopSearch({go,openResume,setFocusFact}:{go:(p:any)=>void;openResume:(id
     if(r.type==='resume')openResume(r.id)
     else if(r.type==='profile'||r.type==='opportunity')go('profiles')
     else if(r.type==='fact'&&r.payload){setFocusFact(r.payload as Fact);go('facts')}
-    else if(r.type==='evidence'&&r.payload?.fact){setFocusFact(r.payload.fact as Fact);go('facts')}
+    else if(r.type==='evidence')go('facts')
   }
   return <div className="top-search" ref={box}>
     <Search size={15}/><input placeholder="全局搜索：资料、证据、画像、机会、简历" value={q} onChange={e=>setQ(e.target.value)}/>

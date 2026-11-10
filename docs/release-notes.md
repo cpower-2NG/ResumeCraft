@@ -1,5 +1,29 @@
 # ResumeCraft 发布记录
 
+> **历史快照，不作为现行规范。** 本页只记录各版本当时发布的内容与验证结果；当前能力和目标边界以[能力状态矩阵](capabilities.md)和现行设计文档为准。
+
+## v2.0.0
+
+发布日期：2026-11-09
+
+- 资料库从兼容模型整体迁移为目标强类型模型：`fact_records` 使用 `category_code / schema_version_id / business_key`，五类明细表、字段定义、技能分组、标签别名、扩展值、事实审计和证据审计全部落库。
+- REST API 统一升级为 `category_code / fields`、`/api/opportunities`、`/api/pending-issues`、全局模板 `id/template_key`；移除 `identity_key`、`template_version_id`、旧 `category/details` 与 `pending-items` 运行契约。
+- SPA 同步新字段、受控字段结构、技能分组和待处理事项来源，事实、画像、模板、临时简历、正式编辑与导出均走新契约。
+- 新增 `0016_target_resource_model` 不可逆迁移，保留资料业务内容并清理全部 `legacy_*`、`resume_templates` 和 `template_versions` 运行依赖；`0017_target_guard_completion` 补齐字段目录、标签命名空间和扩展值的目标触发器。
+- 新增 `0018_profile_photos`，支持个人档案照片上传、替换、历史恢复、移除，以及照片进入简历快照、工作副本和自包含 HTML 导出。
+- 迁移后 `PRAGMA foreign_key_check` 为空；数据库和附件仅保存在本地运行目录，不随源码仓库发布。
+- 验证：后端 283 项通过、6 项跳过；前端 Vitest 22 项通过；领域与资料库 SQL 文档契约通过；TypeScript 与 Vite 生产构建通过；迁移副本的资料、画像、简历详情、版本和 HTML 导出冒烟通过。
+
+## v1.1.0
+
+发布日期：2026-11-05
+
+- 正式简历从迁移层 `ResumeIdentity` 收敛为 `Resume`，数据库 ID 即身份；一画像最多一份 active Resume，恢复冲突显式返回 409。
+- 临时简历记录一次性转化关系；工作副本拆分正文、证据同步和版本基线三项正交状态。
+- 模板改为全局只读目录，Resume 保存当前 Template ID；模板切换不再置脏或创建版本。
+- 新增画像字段审计、简历内画像复制、当前/版本事实与证据快照、证据同步版本和 ExportEvent。
+- 数据库迁移保留 26 条事实、6 份正式简历、10 个版本、38 份临时草稿；迁移前备份保存在 `data/backups/`。
+
 ## v1.0.14
 
 发布日期：2026-10-03
@@ -13,7 +37,7 @@
 3. **短内容被挤到半空的第二页（P0/P1）**。分页打包器新增**紧凑档**：估算总高比一页多不出 8% 时整页换紧凑刻度重排（行距 1.25、间距收紧，实测收缩比 0.91 ≤ 1/1.08，不会裁字）；同时全模板间距收紧（行距 1.5→1.4、栏目距 4.4→3.2mm、条目距 2.6→2mm、栏目标题 12→11pt），度量常量经 `scripts/calibrate_layout.py` + `web/scripts/measure_calib.mjs` 在收紧后的 CSS 上实测回填。
 4. **信息密度与结构（P1/P2）**。meta 行去标签化（"组织公司 实验室小组"→"实验室小组 · 主要贡献者"，值去重）；组稿正文 bullet 化（背景/挑战不再平铺，结果行量化指标加粗）；**求职目标改为页头下的一条意向横带**；**成果排三列表格**（时间 | 奖项 | 成绩）；**技能按分类合并成行**（"编程语言：C/C++（熟练，场景）、Python"）。并排列与整宽通排、预览与导出共用同一套形态与权重。
 
-新增第 13 套模板 **简牍标签栏模板**（`slate-rail`，rail 版式）：左侧栏目标签列 + 右侧内容，中文校招的经典形态；时间轴左时间栏加宽到 20mm（"2026.05 - 至今"不再折行）。工具页新增 `web/scripts/check_overflow.mjs`（逐页溢出检测）与 `web/scripts/measure_parts.mjs`（横带/表格/紧凑收缩比实测）；测试夹具 `tests/fixtures/real_flattened_resume.json` 固化真实压平简历，回归见 `tests/test_format_upgrades.py`。
+新增第 13 套模板 **简牍标签栏模板**（`slate-rail`，rail 版式）：左侧栏目标签列 + 右侧内容，中文校招的经典形态；时间轴左时间栏加宽到 20mm（"2026.05 - 至今"不再折行）。工具页新增 `web/scripts/check_overflow.mjs`（逐页溢出检测）与 `web/scripts/measure_parts.mjs`（横带/表格/紧凑收缩比实测）；测试夹具 `tests/fixtures/flattened_resume.json` 使用合成数据模拟字段压平简历，回归见 `tests/test_format_upgrades.py`。
 
 
 ### 修复：侧栏深色底上的文字在画布里读不出来（P0）

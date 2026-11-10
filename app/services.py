@@ -5,14 +5,31 @@ import html
 import json
 import re
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from .templates import BUILTIN_TEMPLATES, descriptor_for  # registry lives in app/templates.py; re-exported for callers.
+from .templates import BUILTIN_TEMPLATES, descriptor_for
 from .workbench_models import (
-    AchievementFactDetail, EducationFactDetail, ExperienceFactDetail, FactCustomField,
-    FactEvidence, FactRecord, LinkFactDetail, PersonalFactDetail, RequirementProfile,
-    ResumeFactReference, SkillFactDetail,
+    Evidence,
+    ExperienceSkillLink,
+    FactAchievementDetail,
+    FactBasicsDetail,
+    FactCategory,
+    FactEducationDetail,
+    FactEvidence,
+    FactExperienceDetail,
+    FactExtensionValue,
+    FactFieldDefinition,
+    FactRecord,
+    FactSchemaVersion,
+    FactSkillDetail,
+    FactTag,
+    ProfilePhoto,
+    RequirementProfile,
+    ResumeEvidenceUse,
+    ResumeFactUse,
+    SkillGroup,
+    Tag,
 )
 
 CORE_SECTIONS = [
@@ -56,15 +73,200 @@ def render_markdown(text: str) -> str:
         rendered.append("<ul>" + "".join(list_items) + "</ul>")
     return "<br>".join(rendered)
 
-FACT_SCHEMAS = {
-    "basics": [("name", "姓名", "text", True), ("phone", "电话", "text", False), ("email", "邮箱", "email", False), ("city", "所在地", "text", False), ("desired_city", "目标城市", "text", False), ("birth_date", "出生日期", "text", False), ("age", "年龄", "text", False), ("hometown", "籍贯", "text", False), ("status", "身份状态", "text", False), ("graduation", "毕业时间", "text", False), ("availability", "到岗安排", "textarea", False), ("bio", "个人简介", "textarea", False)],
-    "education": [("school", "学校", "text", True), ("major", "专业", "text", False), ("degree", "学历", "text", False), ("start_date", "入学时间", "text", False), ("end_date", "毕业时间", "text", False), ("period", "在读期间", "text", False), ("gpa", "GPA", "text", False), ("ranking", "专业排名", "text", False), ("achievement", "成绩与成果", "textarea", False), ("courses", "相关课程", "textarea", False)],
-    "experience": [("kind", "经历类型", "text", False), ("period", "时间", "text", False), ("organization", "组织/公司", "text", False), ("role", "角色", "text", False), ("team_size", "团队规模", "text", False), ("context", "背景", "textarea", False), ("work", "具体工作", "textarea", False), ("tools", "工具与技术", "textarea", False), ("outcome", "结果", "textarea", False), ("challenge", "挑战", "textarea", False), ("solution", "解决方案", "textarea", False), ("public_note", "公开说明", "textarea", False)],
-    "skills": [("skill_category", "技能分类", "text", False), ("proficiency", "熟练程度", "text", False), ("context", "使用场景", "textarea", False)],
-    "awards": [("period", "时间", "text", False), ("issuer", "颁发方", "text", False), ("result", "结果", "text", False), ("note", "说明", "textarea", False)],
-    "links": [("link_type", "链接类型", "text", False), ("url", "地址", "url", True), ("label", "显示名称", "text", False), ("note", "说明", "textarea", False)],
+FACT_CATEGORY_LABELS = {
+    "basics": "个人档案",
+    "education": "教育经历",
+    "experience": "经历",
+    "skill": "技能",
+    "achievement": "成果",
 }
-DETAIL_MODELS = {"basics": PersonalFactDetail, "education": EducationFactDetail, "experience": ExperienceFactDetail, "skills": SkillFactDetail, "awards": AchievementFactDetail, "links": LinkFactDetail}
+
+DETAIL_MODELS = {
+    "basics": FactBasicsDetail,
+    "education": FactEducationDetail,
+    "experience": FactExperienceDetail,
+    "skill": FactSkillDetail,
+    "achievement": FactAchievementDetail,
+}
+
+SCHEMA_FIELDS: dict[str, list[tuple[str, str, str, str, str, int]]] = {
+    "basics": [
+        ("name", "姓名", "text", "required_for_output", "name", 10),
+        ("phone", "电话", "text", "recommended", "phone", 20),
+        ("email", "邮箱", "text", "recommended", "email", 30),
+        ("city", "所在地", "text", "optional", "city", 40),
+        ("desired_city", "目标城市", "text", "optional", "desired_city", 50),
+        ("birth_date", "出生日期", "date", "optional", "birth_date", 60),
+        ("age_text", "年龄", "text", "optional", "age_text", 70),
+        ("hometown", "籍贯", "text", "optional", "hometown", 80),
+        ("identity_status", "身份状态", "text", "optional", "identity_status", 90),
+        ("graduation_date", "毕业时间", "year_month", "optional", "graduation_date", 100),
+        ("availability", "到岗安排", "long_text", "optional", "availability", 110),
+        ("bio", "个人简介", "long_text", "optional", "bio", 120),
+    ],
+    "education": [
+        ("school", "学校", "text", "required_for_output", "school", 10),
+        ("major", "专业", "text", "optional", "major", 20),
+        ("degree", "学历", "text", "recommended", "degree", 30),
+        ("start_date", "入学时间", "year_month", "optional", "start_date", 40),
+        ("end_date", "毕业时间", "year_month", "optional", "end_date", 50),
+        ("period_text", "展示时间段", "text", "optional", "period_text", 60),
+        ("gpa", "GPA", "text", "optional", "gpa", 70),
+        ("ranking", "排名", "text", "optional", "ranking", 80),
+        ("achievement", "成绩与成果", "long_text", "optional", "achievement", 90),
+        ("courses", "相关课程", "long_text", "optional", "courses", 100),
+    ],
+    "experience": [
+        ("experience_kind", "经历类型", "enum", "required_for_output", "experience_kind", 10),
+        ("period_text", "展示时间段", "text", "recommended", "period_text", 20),
+        ("start_date", "开始时间", "year_month", "optional", "start_date", 30),
+        ("end_date", "结束时间", "year_month", "optional", "end_date", 40),
+        ("organization", "组织/公司", "text", "optional", "organization", 50),
+        ("role", "角色", "text", "optional", "role", 60),
+        ("team_size", "团队规模", "text", "optional", "team_size", 70),
+        ("context_summary", "背景", "long_text", "optional", "context_summary", 80),
+        ("work_summary", "具体工作", "long_text", "recommended", "work_summary", 90),
+        ("tools_summary", "工具与技术", "long_text", "optional", "tools_summary", 100),
+        ("result_summary", "结果摘要", "long_text", "optional", "result_summary", 110),
+        ("challenge", "挑战", "long_text", "optional", "challenge", 120),
+        ("solution", "解决方案", "long_text", "optional", "solution", 130),
+        ("public_note", "公开说明", "long_text", "optional", "public_note", 140),
+    ],
+    "skill": [
+        ("skill_group_id", "技能分组", "integer", "recommended", "skill_group_id", 10),
+        ("proficiency", "熟练程度", "text", "optional", "proficiency", 20),
+        ("usage_context", "使用场景", "long_text", "optional", "usage_context", 30),
+    ],
+    "achievement": [
+        ("achievement_kind", "成果类型", "enum", "required_for_output", "achievement_kind", 10),
+        ("period_text", "展示时间段", "text", "optional", "period_text", 20),
+        ("occurred_on", "取得日期", "date", "optional", "occurred_on", 30),
+        ("issuer", "颁发方", "text", "optional", "issuer", 40),
+        ("result_text", "成果内容", "text", "required_for_output", "result_text", 50),
+        ("note", "说明", "long_text", "optional", "note", 60),
+        ("experience_fact_id", "主经历", "integer", "optional", "experience_fact_id", 70),
+    ],
+}
+
+FACT_SCHEMAS = {
+    category: [
+        (key, label, value_type, requirement == "required_for_output")
+        for key, label, value_type, requirement, _, _ in fields
+    ]
+    for category, fields in SCHEMA_FIELDS.items()
+}
+
+FACT_FIELD_OPTIONS = {
+    "experience_kind": [
+        ("project", "项目"),
+        ("work_internship", "实习/工作"),
+        ("competition", "竞赛"),
+        ("research", "科研"),
+        ("campus_volunteer", "校园/志愿"),
+        ("other", "其他"),
+    ],
+    "proficiency": [("了解", "了解"), ("能用", "能用"), ("熟练", "熟练"), ("精通", "精通")],
+    "achievement_kind": [
+        ("honor", "荣誉"),
+        ("certificate", "证书"),
+        ("publication_patent", "发表/专利"),
+        ("project_result", "项目结果"),
+        ("other", "其他"),
+    ],
+}
+
+DETAIL_COLUMNS = {
+    category: {key for key, *_ in fields}
+    for category, fields in SCHEMA_FIELDS.items()
+}
+
+
+def canonical_category(category: str) -> str:
+    return category
+
+
+def ensure_fact_catalog(db: Session) -> None:
+    """Seed the controlled category and field registry for new databases."""
+    categories = [
+        ("basics", "基本信息", 10),
+        ("education", "教育经历", 20),
+        ("experience", "经历", 30),
+        ("skill", "技能", 40),
+        ("achievement", "成果", 50),
+    ]
+    for code, display_name, sort_order in categories:
+        if db.get(FactCategory, code) is None:
+            db.add(
+                FactCategory(
+                    code=code,
+                    display_name=display_name,
+                    sort_order=sort_order,
+                    status="active",
+                )
+            )
+    db.flush()
+    for code, _, _ in categories:
+        schema = db.scalar(
+            select(FactSchemaVersion).where(
+                FactSchemaVersion.category_code == code,
+                FactSchemaVersion.status == "published",
+            )
+        )
+        if schema is None:
+            schema = FactSchemaVersion(
+                category_code=code,
+                version_number=1,
+                status="published",
+                note=f"{FACT_CATEGORY_LABELS[code]} v1",
+            )
+            db.add(schema)
+            db.flush()
+        existing = set(
+            db.scalars(
+                select(FactFieldDefinition.field_key).where(
+                    FactFieldDefinition.schema_version_id == schema.id
+                )
+            ).all()
+        )
+        for key, label, value_type, requirement, column, sort_order in SCHEMA_FIELDS[code]:
+            if key not in existing:
+                db.add(
+                    FactFieldDefinition(
+                        category_code=code,
+                        schema_version_id=schema.id,
+                        field_key=key,
+                        label=label,
+                        value_type=value_type,
+                        requirement_level=requirement,
+                        is_extension=0,
+                        storage_table=DETAIL_MODELS[code].__tablename__,
+                        storage_column=column,
+                        sort_order=sort_order,
+                    )
+                )
+    db.flush()
+
+
+def schema_for(
+    db: Session,
+    category: str,
+    schema_version_id: int | None = None,
+) -> FactSchemaVersion:
+    ensure_fact_catalog(db)
+    if schema_version_id is not None:
+        item = db.get(FactSchemaVersion, schema_version_id)
+        if item is None or item.category_code != category:
+            raise ValueError("资料字段结构不属于该分类")
+        return item
+    item = db.scalar(
+        select(FactSchemaVersion).where(
+            FactSchemaVersion.category_code == category,
+            FactSchemaVersion.status == "published",
+        )
+    )
+    if item is None:
+        raise ValueError("资料分类没有已发布字段结构")
+    return item
 
 
 def json_value(value: str, default):
@@ -78,112 +280,437 @@ def dump(value) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=lambda item: item.isoformat() if hasattr(item, "isoformat") else str(item))
 
 
-def content_hash(content: dict) -> str:
-    return hashlib.sha256(dump(content).encode("utf-8")).hexdigest()
+def content_hash(
+    content: dict,
+    profile_snapshot: dict | None = None,
+    source_manifest: list[dict] | None = None,
+    evidence_manifest: list[dict] | None = None,
+) -> str:
+    """Hash the business content of a formal version.
 
-
-def identity_key(profile: RequirementProfile) -> str:
-    requirements = json_value(profile.core_requirements, [])
-    normalized = sorted({str(item).strip().lower() for item in requirements if str(item).strip()})
-    fields = [profile.role_direction, " ".join(normalized), profile.resume_strategy]
-    return "|".join(re.sub(r"\s+", " ", (value or "").strip()).lower() for value in fields)
+    Template choice, display filename, export time and generated HTML are
+    deliberately excluded so visual upgrades never mutate the business hash.
+    """
+    payload = {
+        "content": content,
+        "profile": profile_snapshot or {},
+        "sources": source_manifest or [],
+        "evidence": evidence_manifest or [],
+    }
+    return hashlib.sha256(dump(payload).encode("utf-8")).hexdigest()
 
 
 def _model_values(detail) -> dict:
     if not detail:
         return {}
-    return {column.name: getattr(detail, column.name) for column in detail.__table__.columns if column.name != "fact_id"}
+    system = {"fact_id", "workspace_id", "category_code"}
+    return {
+        column.name: getattr(detail, column.name)
+        for column in detail.__table__.columns
+        if column.name not in system
+    }
 
 
 def fact_details(db: Session, fact: FactRecord) -> dict:
-    legacy = json_value(fact.content, {})
-    model = DETAIL_MODELS.get(fact.category)
+    category = fact.category_code
+    model = DETAIL_MODELS.get(category)
     detail = db.get(model, fact.id) if model else None
-    values = dict(legacy)
-    values.update(_model_values(detail))
-    if fact.category == "skills" and "skill_category" not in values and "category" in values:
-        values["skill_category"] = values["category"]
-    return {key: value for key, value in values.items() if value not in (None, "")}
+    values = _model_values(detail)
+    result = {
+        field_key: values.get(field_key, "")
+        for field_key in DETAIL_COLUMNS.get(category, set())
+    }
+    extensions = db.execute(
+        select(FactExtensionValue, FactFieldDefinition)
+        .join(
+            FactFieldDefinition,
+            FactFieldDefinition.id == FactExtensionValue.field_definition_id,
+        )
+        .where(FactExtensionValue.fact_id == fact.id)
+    ).all()
+    for value, definition in extensions:
+        if definition.value_type == "number":
+            result[definition.field_key] = value.numeric_value
+        elif definition.value_type == "boolean":
+            result[definition.field_key] = value.boolean_value
+        elif definition.value_type == "integer":
+            result[definition.field_key] = json_value(value.json_value, None)
+        else:
+            result[definition.field_key] = value.text_value or ""
+    return result
 
 
 def replace_fact_details(db: Session, fact: FactRecord, values: dict) -> None:
-    model = DETAIL_MODELS.get(fact.category)
+    category = fact.category_code
+    model = DETAIL_MODELS.get(category)
     if not model:
         return
+    if category == "skill" and not values.get("skill_group_id"):
+        group = db.scalar(
+            select(SkillGroup).where(
+                SkillGroup.workspace_id == fact.workspace_id,
+                SkillGroup.normalized_name == "其他",
+            )
+        )
+        if group is None:
+            group = SkillGroup(
+                workspace_id=fact.workspace_id,
+                code="other",
+                display_name="其他",
+                normalized_name="其他",
+                sort_order=999,
+                status="active",
+            )
+            db.add(group)
+            db.flush()
+        values = {**values, "skill_group_id": group.id}
     detail = db.get(model, fact.id)
     if not detail:
-        detail = model(fact_id=fact.id)
+        detail = model(
+            fact_id=fact.id,
+            workspace_id=fact.workspace_id,
+            category_code=category,
+        )
         db.add(detail)
-    for key, *_ in FACT_SCHEMAS[fact.category]:
-        setattr(detail, key, str(values.get(key, "") or ""))
-
-
-def custom_fields(db: Session, fact_id: int) -> list[dict]:
-    return [{"key": item.field_key, "label": item.label, "value": item.value, "displayable": item.displayable, "sort_order": item.sort_order} for item in db.query(FactCustomField).filter(FactCustomField.fact_id == fact_id).order_by(FactCustomField.sort_order).all()]
-
-
-def replace_custom_fields(db: Session, fact_id: int, values: list[dict]) -> None:
-    db.query(FactCustomField).filter(FactCustomField.fact_id == fact_id).delete()
-    for index, item in enumerate(values):
-        key = str(item.get("key") or item.get("field_key") or "").strip()
-        if not key:
+    for key in DETAIL_COLUMNS[category]:
+        value = values.get(key, "")
+        if key in {"experience_fact_id", "skill_group_id"}:
+            text = str(value or "").strip()
+            setattr(detail, key, int(text) if text else None)
+        else:
+            setattr(detail, key, str(value or ""))
+    db.execute(
+        delete(FactExtensionValue).where(FactExtensionValue.fact_id == fact.id)
+    )
+    extension_definitions = db.scalars(
+        select(FactFieldDefinition).where(
+            FactFieldDefinition.category_code == category,
+            FactFieldDefinition.schema_version_id == fact.schema_version_id,
+            FactFieldDefinition.is_extension == 1,
+        )
+    ).all()
+    for definition in extension_definitions:
+        raw = values.get(definition.field_key)
+        if raw in (None, ""):
             continue
-        db.add(FactCustomField(fact_id=fact_id, field_key=key, label=str(item.get("label") or key), value=str(item.get("value") or ""), displayable=bool(item.get("displayable", True)), sort_order=int(item.get("sort_order", index))))
+        payload = {
+            "workspace_id": fact.workspace_id,
+            "fact_id": fact.id,
+            "category_code": category,
+            "schema_version_id": fact.schema_version_id,
+            "field_definition_id": definition.id,
+        }
+        if definition.value_type == "number":
+            payload["numeric_value"] = float(raw)
+        elif definition.value_type == "boolean":
+            payload["boolean_value"] = (
+                raw
+                if isinstance(raw, bool)
+                else str(raw).strip().lower() in {"1", "true", "yes", "是"}
+            )
+        elif definition.value_type == "integer":
+            payload["json_value"] = dump(int(raw))
+        else:
+            payload["text_value"] = str(raw)
+        db.add(FactExtensionValue(**payload))
+
+
+def _normalized(value) -> str:
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    return text.lower() if re.fullmatch(r"[\x00-\x7f ]*", text) else text
+
+
+def business_key_for(
+    category: str,
+    title: str,
+    fields: dict,
+    *,
+    existing: str | None = None,
+) -> str:
+    if category == "basics":
+        return "primary"
+    parts: list[str] = []
+    if category == "education":
+        parts = [
+            fields.get("school"),
+            fields.get("degree"),
+            fields.get("major"),
+            fields.get("start_date"),
+            fields.get("end_date"),
+        ]
+    elif category == "experience":
+        parts = [
+            fields.get("experience_kind"),
+            fields.get("organization"),
+            title,
+            fields.get("start_date"),
+            fields.get("end_date"),
+        ]
+    elif category == "skill":
+        parts = [title]
+    elif category == "achievement":
+        parts = [
+            fields.get("achievement_kind"),
+            fields.get("issuer"),
+            fields.get("result_text"),
+            fields.get("occurred_on"),
+            fields.get("experience_fact_id"),
+        ]
+    key = "|".join(_normalized(part) for part in parts if str(part or "").strip())
+    return key or existing or _normalized(title) or category
+
+
+def fact_tags(db: Session, fact_id: int) -> list[str]:
+    return [
+        item.display_name
+        for item in db.scalars(
+            select(Tag)
+            .join(FactTag, FactTag.tag_id == Tag.id)
+            .where(FactTag.fact_id == fact_id, Tag.status == "active")
+            .order_by(Tag.display_name)
+        ).all()
+    ]
+
+
+def replace_fact_tags(
+    db: Session,
+    workspace_id: int,
+    fact_id: int,
+    values: list[str],
+) -> list[str]:
+    cleaned = []
+    seen = set()
+    for raw in values:
+        name = str(raw).strip()
+        normalized = re.sub(r"\s+", " ", name).lower()
+        if not name or normalized in seen:
+            continue
+        seen.add(normalized)
+        cleaned.append(name)
+    db.query(FactTag).filter(FactTag.fact_id == fact_id).delete()
+    for name in cleaned:
+        normalized = re.sub(r"\s+", " ", name).lower()
+        tag = db.scalar(
+            select(Tag).where(
+                Tag.workspace_id == workspace_id,
+                Tag.normalized_name == normalized,
+            )
+        )
+        if tag is None:
+            tag = Tag(
+                workspace_id=workspace_id,
+                display_name=name,
+                normalized_name=normalized,
+                status="active",
+            )
+            db.add(tag)
+            db.flush()
+        db.add(FactTag(workspace_id=workspace_id, fact_id=fact_id, tag_id=tag.id))
+    return cleaned
+
+
+def linked_skill_ids(db: Session, fact_id: int) -> list[int]:
+    return list(
+        db.scalars(
+            select(ExperienceSkillLink.skill_fact_id)
+            .where(ExperienceSkillLink.experience_fact_id == fact_id)
+            .order_by(ExperienceSkillLink.skill_fact_id)
+        ).all()
+    )
+
+
+def linked_skills(db: Session, fact_id: int) -> list[dict]:
+    rows = db.execute(
+        select(FactRecord.id, FactRecord.title)
+        .join(
+            ExperienceSkillLink,
+            ExperienceSkillLink.skill_fact_id == FactRecord.id,
+        )
+        .where(
+            ExperienceSkillLink.experience_fact_id == fact_id,
+            FactRecord.status == "active",
+        )
+        .order_by(FactRecord.title)
+    ).all()
+    return [{"id": row.id, "title": row.title} for row in rows]
+
+
+def replace_experience_skills(
+    db: Session,
+    workspace_id: int,
+    fact_id: int,
+    category: str,
+    skill_ids: list[int],
+) -> None:
+    db.query(ExperienceSkillLink).filter(
+        ExperienceSkillLink.experience_fact_id == fact_id
+    ).delete()
+    if canonical_category(category) != "experience":
+        return
+    for skill_id in dict.fromkeys(int(value) for value in skill_ids):
+        skill = db.get(FactRecord, skill_id)
+        if (
+            skill is None
+            or skill.workspace_id != workspace_id
+            or skill.category_code != "skill"
+        ):
+            continue
+        db.add(
+            ExperienceSkillLink(
+                workspace_id=workspace_id,
+                experience_fact_id=fact_id,
+                skill_fact_id=skill_id,
+            )
+        )
 
 
 def fact_to_block(db: Session, fact: FactRecord, section_id: str) -> dict:
     details = fact_details(db, fact)
-    extra = [item for item in custom_fields(db, fact.id) if item.get("value") not in (None, "")]
     fields = dict(details)
-    field_labels = {}
-    for item in extra:
-        fields[item["key"]] = item["value"]
-        field_labels[item["key"]] = item["label"] or item["key"]
+    field_labels: dict[str, str] = {}
     if section_id == "profile":
         display_fields = ["bio"] if details.get("bio") else ["summary"]
         plain = details.get("bio") or details.get("summary") or ""
     elif section_id == "basics":
-        display_fields = [key for key in ("phone", "email", "city", "desired_city", "hometown", "status", "graduation", "availability") if details.get(key)]
+        display_fields = [
+            key
+            for key in (
+                "phone",
+                "email",
+                "city",
+                "desired_city",
+                "hometown",
+                "identity_status",
+                "graduation_date",
+                "availability",
+            )
+            if details.get(key)
+        ]
         plain = ""
     elif section_id == "education":
-        display_fields = [key for key in ("period", "major", "degree", "gpa", "ranking") if details.get(key)]
+        display_fields = [
+            key
+            for key in ("period_text", "major", "degree", "gpa", "ranking")
+            if details.get(key)
+        ]
         plain = curated_education_plain(details)
     elif section_id == "experience":
-        display_fields = [key for key in ("period", "organization", "role", "team_size", "tools") if details.get(key)]
+        display_fields = [
+            key
+            for key in ("period_text", "organization", "role", "team_size")
+            if details.get(key)
+        ]
+        related_skills = linked_skills(db, fact.id)
+        if related_skills:
+            fields["skills"] = "、".join(item["title"] for item in related_skills)
+            field_labels["skills"] = "使用技能"
+            display_fields.append("skills")
+        elif details.get("tools_summary"):
+            display_fields.append("tools_summary")
         plain = curated_experience_plain(details)
     elif section_id == "skills":
-        display_fields = [key for key in ("skill_category", "proficiency") if details.get(key)]
-        plain = str(details.get("context") or "")
+        group = db.get(SkillGroup, details.get("skill_group_id"))
+        fields["skill_group"] = group.display_name if group else "其他"
+        display_fields = ["skill_group", "proficiency"]
+        plain = str(details.get("usage_context") or "")
     elif section_id == "awards":
-        display_fields = [key for key in ("period", "issuer", "result") if details.get(key)]
+        display_fields = [
+            key for key in ("period_text", "issuer", "result_text") if details.get(key)
+        ]
         plain = str(details.get("note") or "")
     else:
-        display_fields = [key for key in ("link_type", "label", "url") if details.get(key)]
-        plain = str(details.get("note") or "")
+        display_fields = []
+        plain = ""
     if not plain and details.get("summary"):
         display_fields = ["summary"]
         plain = str(details["summary"])
-    display_fields.extend(item["key"] for item in extra if item.get("displayable") and item["key"] not in display_fields)
     if section_id == "profile":
         fields.pop("bio", None)
     title = str(details.get("name") or fact.title) if section_id == "basics" else fact.title
-    return {"id": f"fact-{fact.id}", "type": "fact", "title": title, "content": plain, "fields": fields, "field_labels": field_labels, "display_fields": display_fields, "source_refs": [fact.id], "origin": "fact"}
+    block = {"id": f"fact-{fact.id}", "type": "fact", "title": title, "content": plain, "fields": fields, "field_labels": field_labels, "display_fields": display_fields, "source_refs": [fact.id], "origin": "fact"}
+    if section_id == "basics":
+        photo = profile_photo_snapshot(db, fact.id)
+        if photo:
+            block["photo"] = photo
+    return block
+
+
+def profile_photo_snapshot(db: Session, basics_fact_id: int) -> dict | None:
+    """Return current archive-photo metadata for a resume snapshot."""
+    basics = db.get(FactRecord, basics_fact_id)
+    if basics is None or basics.category_code != "basics":
+        return None
+    photo = db.scalar(
+        select(ProfilePhoto).where(
+            ProfilePhoto.workspace_id == basics.workspace_id,
+            ProfilePhoto.basics_fact_id == basics_fact_id,
+            ProfilePhoto.status == "active",
+        )
+    )
+    if photo is None:
+        return None
+    evidence = db.get(Evidence, photo.evidence_id)
+    if (
+        evidence is None
+        or evidence.workspace_id != basics.workspace_id
+        or evidence.kind != "file"
+        or not str(evidence.mime_type or "").startswith("image/")
+    ):
+        return None
+    return {
+        "photo_id": photo.id,
+        "evidence_id": evidence.id,
+        "preview_url": f"/api/evidence/{evidence.id}/file",
+        "filename": evidence.filename,
+        "mime_type": evidence.mime_type,
+    }
 
 
 def allowed_categories(section_id: str) -> list[str]:
-    return ["basics"] if section_id in {"basics", "profile"} else ([] if section_id == "target" else [section_id])
+    if section_id in {"basics", "profile"}:
+        return ["basics"]
+    if section_id == "target":
+        return []
+    return {"skills": ["skill"], "awards": ["achievement"], "links": []}.get(
+        section_id, [section_id]
+    )
 
 
 def build_resume_content(db: Session, profile: RequirementProfile, selection: dict) -> dict:
     facts = {item.id: item for item in db.query(FactRecord).filter(FactRecord.workspace_id == profile.workspace_id, FactRecord.status == "active").all()}
+    basics_fact = next(
+        (item for item in facts.values() if item.category_code == "basics"),
+        None,
+    )
+    basics = fact_details(db, basics_fact) if basics_fact else {}
     sections = []
     for section_id, title in CORE_SECTIONS:
         selected_ids = selection.get(section_id, [])
-        blocks = [fact_to_block(db, facts[fact_id], section_id) for fact_id in selected_ids if fact_id in facts and facts[fact_id].category in allowed_categories(section_id)]
+        blocks = [
+            fact_to_block(db, facts[fact_id], section_id)
+            for fact_id in selected_ids
+            if fact_id in facts
+            and facts[fact_id].category_code in allowed_categories(section_id)
+        ]
+        if section_id == "profile":
+            summary = str(basics.get("bio") or "")
+            blocks = [{
+                "id": "profile-summary",
+                "type": "profile",
+                "title": "个人简介",
+                "content": summary,
+                "fields": {},
+                "field_labels": {},
+                "display_fields": [],
+                "source_refs": [],
+                "origin": "profile",
+            }] if summary else []
         if section_id == "target":
             target_fields = {
                 "role_direction": profile.role_direction,
                 "core_requirements": "、".join(json_value(profile.core_requirements, [])),
+                "desired_city": basics.get("desired_city", ""),
+                "availability": basics.get("availability", ""),
             }
             blocks = [{
                 "id": "profile-target",
@@ -191,7 +718,12 @@ def build_resume_content(db: Session, profile: RequirementProfile, selection: di
                 "title": profile.role_direction or profile.name or "求职目标",
                 "content": profile.resume_strategy or "请填写与目标岗位匹配的简历强调方向。",
                 "fields": target_fields,
-                "field_labels": {"role_direction": "岗位方向", "core_requirements": "核心要求"},
+                "field_labels": {
+                    "role_direction": "岗位方向",
+                    "core_requirements": "核心要求",
+                    "desired_city": "目标城市",
+                    "availability": "到岗安排",
+                },
                 "display_fields": [key for key, value in target_fields.items() if value],
                 "source_refs": [],
                 "origin": "profile",
@@ -204,23 +736,163 @@ def source_manifest(content: dict) -> list[dict]:
     return [{"fact_id": fact_id, "section_id": section["id"], "block_id": block["id"]} for section in content.get("sections", []) for block in section.get("blocks", []) for fact_id in block.get("source_refs", []) if isinstance(fact_id, int)]
 
 
-def sync_references(db: Session, identity_id: int, content: dict) -> None:
-    db.execute(delete(ResumeFactReference).where(ResumeFactReference.resume_identity_id == identity_id))
-    for item in source_manifest(content):
-        db.add(ResumeFactReference(resume_identity_id=identity_id, **item))
+def evidence_manifest(db: Session, content: dict) -> list[dict]:
+    """Return the selected evidence and its display settings in render order."""
+    rows: list[dict] = []
+    seen: set[tuple[int, str, str]] = set()
+    for section in content.get("sections", []):
+        section_id = str(section.get("id") or "")
+        for block in section.get("blocks", []):
+            block_id = str(block.get("id") or "")
+            for evidence_id in block.get("evidence_refs", []):
+                if not isinstance(evidence_id, int):
+                    continue
+                key = (evidence_id, section_id, block_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                display_mode = str(block.get("evidence_display") or "reference")
+                if display_mode not in {"hidden", "inline_link", "attachment", "reference"}:
+                    display_mode = "reference"
+                evidence = db.get(Evidence, evidence_id)
+                rows.append(
+                    {
+                        "evidence_id": evidence_id,
+                        "section_id": section_id,
+                        "block_id": block_id,
+                        "display_mode": display_mode,
+                        "label": str(block.get("evidence_label") or ""),
+                        "title": evidence.title if evidence else "",
+                        "status": evidence.status if evidence else "",
+                        "kind": evidence.kind if evidence else "",
+                        "url": evidence.url if evidence else "",
+                        "filename": evidence.filename if evidence else "",
+                        "checksum": evidence.checksum if evidence else "",
+                    }
+                )
+    return rows
+
+
+def sync_references(
+    db: Session,
+    resume_id: int,
+    workspace_id: int,
+    content: dict,
+    evidence_rows: list[dict] | None = None,
+) -> None:
+    db.execute(delete(ResumeFactUse).where(ResumeFactUse.resume_id == resume_id))
+    db.execute(delete(ResumeEvidenceUse).where(ResumeEvidenceUse.resume_id == resume_id))
+    facts = {
+        item.id: item
+        for item in db.query(FactRecord)
+        .filter(FactRecord.workspace_id == workspace_id)
+        .all()
+    }
+    for order, item in enumerate(source_manifest(content)):
+        fact = facts.get(item["fact_id"])
+        db.add(
+            ResumeFactUse(
+                workspace_id=workspace_id,
+                resume_id=resume_id,
+                fact_id=item["fact_id"],
+                section_code=item["section_id"],
+                block_key=item["block_id"],
+                display_order=order,
+                fact_content_hash=content_hash(fact_details(db, fact)) if fact else "",
+            )
+        )
+    for order, item in enumerate(evidence_rows if evidence_rows is not None else evidence_manifest(db, content)):
+        db.add(
+            ResumeEvidenceUse(
+                workspace_id=workspace_id,
+                resume_id=resume_id,
+                evidence_id=item["evidence_id"],
+                section_code=item["section_id"],
+                block_key=item["block_id"],
+                display_mode=item["display_mode"],
+                label=item.get("label", ""),
+                display_order=order,
+            )
+        )
 
 
 def serialize_fact(db: Session, item: FactRecord) -> dict:
     details = fact_details(db, item)
-    return {"id": item.id, "category": item.category, "title": item.title, "content": json_value(item.content, {}), "details": details, "custom_fields": custom_fields(db, item.id), "display_fields": list(details), "tags": json_value(item.tags, []), "status": item.status, "source_note": item.source_note, "created_at": item.created_at, "updated_at": item.updated_at}
+    tags = fact_tags(db, item.id)
+    skill_group = (
+        db.get(SkillGroup, details.get("skill_group_id"))
+        if item.category_code == "skill"
+        else None
+    )
+    return {
+        "id": item.id,
+        "category_code": item.category_code,
+        "schema_version_id": item.schema_version_id,
+        "business_key": item.business_key,
+        "title": item.title,
+        "fields": details,
+        "tags": tags,
+        "skill_ids": linked_skill_ids(db, item.id),
+        "linked_skills": linked_skills(db, item.id),
+        "skill_group": (
+            {
+                "id": skill_group.id,
+                "code": skill_group.code,
+                "display_name": skill_group.display_name,
+            }
+            if skill_group
+            else None
+        ),
+        "status": item.status,
+        "source_note": item.source_note or "",
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
+
+
+def fact_audit_snapshot(db: Session, item: FactRecord) -> dict:
+    return {
+        "category_code": item.category_code,
+        "schema_version_id": item.schema_version_id,
+        "title": item.title,
+        "business_key": item.business_key,
+        "fields": fact_details(db, item),
+        "tags": fact_tags(db, item.id),
+        "skill_ids": linked_skill_ids(db, item.id),
+        "status": item.status,
+        "source_note": item.source_note or "",
+    }
 
 
 def serialize_profile(item: RequirementProfile) -> dict:
-    return {"id": item.id, "name": item.name, "role_direction": item.role_direction, "core_requirements": json_value(item.core_requirements, []), "general_requirements": item.general_requirements, "responsibilities": item.responsibilities, "resume_strategy": item.resume_strategy, "raw_jd": item.raw_jd, "source_note": item.source_note, "identity_key": item.identity_key, "status": item.status, "updated_at": item.updated_at}
+    return {
+        "id": item.id,
+        "name": item.name,
+        "role_direction": item.role_direction,
+        "core_requirements": json_value(item.core_requirements, []),
+        "general_requirements": item.general_requirements,
+        "responsibilities": item.responsibilities,
+        "resume_strategy": item.resume_strategy,
+        "raw_jd": item.raw_jd,
+        "source_note": item.source_note,
+        "status": item.status,
+        "updated_at": item.updated_at,
+    }
 
 
 def serialize_version(version) -> dict:
-    return {"id": version.id, "version_number": version.version_number, "content": json_value(version.content, {}), "reason": version.reason, "change_summary": version.change_summary, "created_at": version.created_at}
+    return {
+        "id": version.id,
+        "version_number": version.version_number,
+        "content": json_value(version.content_json, {}),
+        "profile_snapshot": json_value(version.profile_snapshot_json, {}),
+        "source_manifest": json_value(version.source_manifest_json, []),
+        "evidence_manifest": json_value(version.evidence_manifest_json, []),
+        "content_hash": version.content_hash,
+        "reason": version.reason,
+        "change_summary": version.change_summary,
+        "created_at": version.created_at,
+    }
 
 
 def evidence_count(db: Session, fact_id: int) -> int:
@@ -339,6 +1011,10 @@ SIDEBAR_NAME_PX = 51
 SIDEBAR_FIELD_PX = 19
 SIDEBAR_BIO_LINE_PX = 18
 SIDEBAR_HEAD_BASE_PX = 20
+# Optional portraits reserve space only on the first page. Keeping the same
+# constants on the SPA side prevents preview/export page breaks from drifting.
+SIDEBAR_PHOTO_PX = 144
+HEADER_PHOTO_EXTRA_PX = 64
 
 
 def section_fragment_limit(in_sidebar: bool) -> int:
@@ -352,7 +1028,15 @@ def sidebar_head_height(basic_block: dict, style: dict) -> int:
     for value in meta_values(basic_block):
         rows += max(1, -(-text_units(value) // style["meta_units"]))
     bio_lines = content_line_count(basic_block.get("content"), style["units_per_line"])
-    return SIDEBAR_HEAD_BASE_PX + SIDEBAR_NAME_PX + rows * SIDEBAR_FIELD_PX + bio_lines * SIDEBAR_BIO_LINE_PX
+    photo_height = SIDEBAR_PHOTO_PX if basic_block.get("photo") else 0
+    return SIDEBAR_HEAD_BASE_PX + photo_height + SIDEBAR_NAME_PX + rows * SIDEBAR_FIELD_PX + bio_lines * SIDEBAR_BIO_LINE_PX
+
+
+def header_photo_height(basic_block: dict, layout_id: str) -> int:
+    """Extra first-page header height for non-sidebar portrait layouts."""
+    if layout_id == "sidebar" or not basic_block.get("photo"):
+        return 0
+    return HEADER_PHOTO_EXTRA_PX
 
 
 def text_units(text: str) -> int:
@@ -595,14 +1279,28 @@ def bold_metrics(text: str) -> str:
 
 
 def curated_experience_plain(details: dict) -> str:
-    context = str(details.get("context") or "").strip()
+    context = str(
+        details.get("context_summary") or details.get("context") or ""
+    ).strip()
     parts: list[str] = []
-    if context and not details.get("work"):
+    if context and not (
+        details.get("work_summary") or details.get("work")
+    ):
         parts.append(context)
-    for key in ("work", "solution", "outcome"):
-        value = str(details.get(key) or "").strip()
+    for target_key, legacy_key in (
+        ("work_summary", "work"),
+        ("solution", "solution"),
+        ("result_summary", "outcome"),
+    ):
+        value = str(
+            details.get(target_key) or details.get(legacy_key) or ""
+        ).strip()
         if value:
-            parts.append(bold_metrics(value) if key == "outcome" else value)
+            parts.append(
+                bold_metrics(value)
+                if target_key == "result_summary"
+                else value
+            )
     return "\n".join(f"- {part}" for part in parts)
 
 
@@ -621,14 +1319,16 @@ def curated_education_plain(details: dict) -> str:
 # 渲染是两行一条，三列表格一行一条。两种紧凑形态都要求该栏目全部块都带必需字段，
 # 否则退回逐条块渲染。
 def skill_groups(blocks: list[dict]) -> list[tuple[str, str]]:
-    """[(分类, "技能（程度，场景）、技能…")]；有块缺 skill_category 时返回 []。"""
+    """[(分类, "技能（程度，场景）、技能…")]。"""
     if not blocks:
         return []
     grouped: dict[str, list[str]] = {}
     order: list[str] = []
     for block in blocks:
         fields = block.get("fields") or {}
-        category = str(fields.get("skill_category") or "").strip()
+        category = str(
+            fields.get("skill_group") or fields.get("skill_category") or ""
+        ).strip()
         if not category:
             return []
         if category not in grouped:
@@ -647,8 +1347,12 @@ def awards_table_rows(blocks: list[dict]) -> list[tuple[str, str, str]]:
     rows: list[tuple[str, str, str]] = []
     for block in blocks:
         fields = block.get("fields") or {}
-        period = str(fields.get("period") or "").strip()
-        result = str(fields.get("result") or "").strip()
+        period = str(
+            fields.get("period_text") or fields.get("period") or ""
+        ).strip()
+        result = str(
+            fields.get("result_text") or fields.get("result") or ""
+        ).strip()
         if not period or not result:
             return []
         issuer = str(fields.get("issuer") or "").strip()
@@ -900,6 +1604,18 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
         """元信息行：值 · 值 · 值，无标签、重复值只出现一次。标签只留在编辑器里。"""
         return "".join(f'<span class="meta">{esc(value)}</span>' for value in meta_values(block, exclude))
 
+    def profile_photo(block: dict, variant: str) -> str:
+        """Optional portrait markup shared by every template skeleton."""
+        photo = block.get("photo") or {}
+        src = str(photo.get("data_url") or photo.get("preview_url") or "")
+        if not src:
+            return ""
+        name = str(block.get("title") or title)
+        return (
+            f'<figure class="resume-photo {variant}"><img src="{esc(src)}" '
+            f'alt="{esc(name)}的档案照片"></figure>'
+        )
+
     def block_period(block: dict) -> str:
         """条目的时间字段值；仅当时间属于展示字段时才返回（用于线式/时间轴布局）。"""
         fields = block.get("fields") or {}
@@ -1066,14 +1782,15 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     )
     budget = PAGE_BUDGET_PX[layout_id]
     main_stats: dict = {}
-    main_pages = paginate(sections, main_ids, layout_id, budget, first_page_head=band_height, stats=main_stats)
+    first_page_head = band_height + header_photo_height(basic_block, layout_id)
+    main_pages = paginate(sections, main_ids, layout_id, budget, first_page_head=first_page_head, stats=main_stats)
     # 紧凑档：全部内容比一页多不出 COMPACT_TRIGGER-1（8%）时，与其让最后一两条挤到近乎
     # 空白的第二页，不如整页换紧凑刻度重排（.page.compact，行距与间距收紧）。重排预算按
     # COMPACT_BUDGET_FACTOR 放大 15%，紧凑 CSS 的真实收缩 ≥ 1/1.15，因此不会越过 A4 底边。
     compact = False
     if len(main_pages) > 1 and main_ids:
         if main_stats.get("total", 0) <= budget * COMPACT_TRIGGER:
-            tighter = paginate(sections, main_ids, layout_id, int(budget * COMPACT_BUDGET_FACTOR), first_page_head=band_height)
+            tighter = paginate(sections, main_ids, layout_id, int(budget * COMPACT_BUDGET_FACTOR), first_page_head=first_page_head)
             if len(tighter) == 1:
                 main_pages, compact = tighter, True
     page_count = max(len(main_pages), 1)
@@ -1081,16 +1798,42 @@ def render_resume_html(content: dict, title: str, version_number: int, template_
     def sidebar_items(page_index: int) -> list[tuple[str, dict, int]]:
         return sidebar_pages[page_index] if page_index < len(sidebar_pages) else []
 
-    sidebar_head = f'<h1>{esc(basic_block.get("title") if basics else title)}</h1><div class="side-meta">{block_fields(basic_block)}</div><p class="side-copy">{block_text(basic_block)}</p>'
+    sidebar_head = (
+        profile_photo(basic_block, "photo-sidebar")
+        + f'<h1>{esc(basic_block.get("title") if basics else title)}</h1>'
+        + f'<div class="side-meta">{block_fields(basic_block)}</div>'
+        + f'<p class="side-copy">{block_text(basic_block)}</p>'
+    )
     head_name = esc(basic_block.get("title") if basics else title)
     head_fields = block_fields(basic_block)
-    banner_head = f'<header class="page-banner"><h1>{head_name}</h1><div class="banner-meta">{head_fields}</div></header>'
+    photo_class = " has-photo" if basic_block.get("photo") else ""
+    banner_head = (
+        f'<header class="page-banner{photo_class}">'
+        + profile_photo(basic_block, "photo-banner")
+        + f'<div class="resume-head-copy"><h1>{head_name}</h1><div class="banner-meta">{head_fields}</div></div>'
+        + "</header>"
+    )
     banner_head_slim = f'<header class="page-banner banner-slim"><h1>{head_name}</h1></header>'
-    grid_head = f'<header class="grid-head"><h1>{head_name}</h1><div class="grid-meta">{head_fields}</div></header>'
+    grid_head = (
+        f'<header class="grid-head{photo_class}">'
+        + profile_photo(basic_block, "photo-grid")
+        + f'<div class="resume-head-copy"><h1>{head_name}</h1><div class="grid-meta">{head_fields}</div></div>'
+        + "</header>"
+    )
     grid_head_slim = f'<header class="grid-head grid-head-slim"><h1>{head_name}</h1></header>'
-    line_head = f'<header class="line-head"><h1>{head_name}</h1><div class="line-meta">{head_fields}</div></header>'
+    line_head = (
+        f'<header class="line-head{photo_class}">'
+        + profile_photo(basic_block, "photo-line")
+        + f'<div class="resume-head-copy"><h1>{head_name}</h1><div class="line-meta">{head_fields}</div></div>'
+        + "</header>"
+    )
     line_head_slim = f'<header class="line-head line-head-slim"><h1>{head_name}</h1></header>'
-    rail_head = f'<header class="rail-head"><h1>{head_name}</h1><div class="rail-meta">{head_fields}</div></header>'
+    rail_head = (
+        f'<header class="rail-head{photo_class}">'
+        + profile_photo(basic_block, "photo-rail")
+        + f'<h1>{head_name}</h1><div class="rail-meta">{head_fields}</div>'
+        + "</header>"
+    )
     rail_head_slim = f'<header class="rail-head rail-head-slim"><h1>{head_name}</h1></header>'
 
     page_class = "page compact" if compact else "page"
@@ -1169,6 +1912,20 @@ body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 .main > .section:first-child {{ margin-top:0; }}
 .main > .pair:first-child {{ margin-top:0; }}
 .main > .intent-band:first-child {{ margin-top:0; }}
+/* Optional archive portrait: one crop and print-safe treatment, placed by each
+   template's own page-head anatomy. */
+.resume-photo {{ margin:0; flex:none; width:23mm; height:29mm; overflow:hidden; border:1.5pt solid {d['rule']}; background:#f4f7f4; }}
+.resume-photo img {{ width:100%; height:100%; display:block; object-fit:cover; object-position:center top; }}
+.photo-sidebar {{ width:27mm; height:33mm; margin:0 auto 4mm; border-color:rgba(255,255,255,.35); background:{d['sidebar_bg']}; }}
+.page-banner.has-photo {{ display:flex; align-items:center; justify-content:space-between; gap:8mm; }}
+.page-banner.has-photo .photo-banner {{ order:2; border-color:rgba(255,255,255,.36); }}
+.resume-head-copy {{ flex:1; min-width:0; }}
+.grid-head.has-photo {{ display:flex; justify-content:space-between; align-items:center; gap:8mm; text-align:left; }}
+.grid-head.has-photo .photo-grid {{ order:2; }}
+.grid-head.has-photo .grid-meta {{ justify-content:flex-start; }}
+.line-head.has-photo {{ display:flex; justify-content:center; align-items:center; gap:7mm; text-align:left; }}
+.rail-head.has-photo {{ align-items:center; }}
+.rail-head.has-photo h1 {{ flex:1; }}
 /* 求职意向横带：一条横带替代"栏目标题条 + 一行字"的独立栏目，页头下第一眼可见。 */
 .intent-band {{ display:flex; flex-wrap:wrap; align-items:baseline; gap:1mm 3mm; margin:0 0 2.2mm; padding:1.5mm 2.6mm; background:{d['tint']}; border-left:2.4pt solid {d['accent']}; }}
 .intent-band b {{ flex:none; color:{d['heading']}; font-size:10.5pt; letter-spacing:.4px; }}

@@ -1,6 +1,12 @@
 # ResumeCraft 实现设计书
 
-> 2026-09 实施基线：事实资料已采用公共主表加分类明细表；简历区块使用结构化 `fields` 与 `display_fields`；正式编辑采用只读 A4 预览加编辑卡片/右键菜单；正式版本支持独立 A4 HTML 导出，ZIP 附件包暂未纳入本阶段。
+> 文档状态：living-design
+>
+> 2026-11 实施基线：事实资料采用公共主表加五类强类型明细表；简历区块使用结构化 `fields` 与 `display_fields`；正式编辑采用只读 A4 预览加编辑卡片/右键菜单；档案照片与证据文件本地存储并进入正式版本快照；正式版本支持独立 A4 HTML 导出，ZIP 附件包暂未纳入本阶段。
+>
+> 资料域规范：[资料库关系规范](resource-library/design.md)。本文不再另行定义资料域实体、字段、状态和约束；发生冲突时以该文档及其 `schema.sql` 为准。
+>
+> 模块规范：[岗位画像](domain/job-profile/design.md)、[简历主链](domain/resume/design.md)、[模板与交付](domain/rendering-delivery/design.md)、[系统关系总图](domain/system-map.md)。实现状态以[能力状态矩阵](capabilities.md)为准。
 
 > 文档性质：目标系统的技术说明
 >
@@ -12,7 +18,7 @@
 
 本文档说明如何实现功能设计书中的ResumeCraft，不重新定义产品功能。功能设计书是产品行为的唯一权威来源；当本文档与功能设计书冲突时，以功能设计书为准并修正本文档。
 
-本文档描述目标架构。`v1.0.0` 当前实现采用 FastAPI、SQLAlchemy、SQLite 和 TypeScript SPA；后续演进项见项目计划。
+本文档描述目标架构。当前实现和目标差距以[能力状态矩阵](capabilities.md)为准；运行实现采用 FastAPI、SQLAlchemy、SQLite 和 TypeScript SPA。
 
 目标系统需要支持：
 
@@ -22,7 +28,7 @@
 - 来源关系和证据追踪；
 - 工作副本与不可变版本；
 - 证据变化自动生成版本；
-- 模板版本和 HTML/ZIP 导出；
+- 全局只读模板目录和 HTML/ZIP 导出；
 - 可插拔 AI 服务；
 - 从数据模型开始预留未来多用户。
 
@@ -95,28 +101,16 @@ implementation
 
 ### 3.1 对象关系
 
-```text
-User
-  +-- Workspace
-        +-- FactRecord
-        |     +-- Evidence
-        |     `-- FactAudit
-        |
-        +-- RequirementProfile
-        |     `-- JobOpportunity
-        |
-        +-- ResumeIdentity
-        |     +-- ResumeWorkingCopy
-        |     `-- ResumeVersion
-        |           +-- SourceReference
-        |           +-- EvidenceManifest
-        |           `-- TemplateVersion
-        |
-        +-- Template
-        |     `-- TemplateVersion
-        |
-        `-- AiChangeRecord
-```
+跨模块基数和依赖见[系统关系总图](domain/system-map.md)。本技术设计只保留集成约束：
+
+- Workspace `1 : 0..N` RequirementProfile；画像 `1 : 0..N` JobOpportunity。
+- 画像 `1 : 0..N` LinkedResume；画像 `1 : 0..1` active Resume。
+- LinkedResume `0..1 : 1` Resume；Resume `1 : 1` WorkingCopy；Resume `1 : 1..N` ResumeVersion。
+- 资料库 Fact/Evidence 通过当前使用表和正式版本快照被 Resume 引用。
+- Template 是全局只读目录；Workspace `1 : 0..1` TemplatePreference。
+- AI、ZIP、多用户和投递跟踪为 deferred，不进入当前目标 ER。
+
+旧实现中的 `ResumeIdentity`、`TemplateVersion` 和固定版本视觉只出现在迁移映射中。
 
 ### 3.2 User 与 Workspace
 
@@ -124,187 +118,59 @@ User
 
 本地模式启动时创建或选择一个默认用户和默认工作区，不需要第一阶段实现完整注册登录，但服务层不能假设所有表只有一条记录。
 
-### 3.3 FactRecord
+### 3.3 FactRecord 与 FactCategory
 
-事实资料采用分类加结构化内容的形式：
+资料域实体、字段、业务身份键、强类型明细、受控扩展字段和物理约束统一见[资料库关系规范](resource-library/design.md)。实现围绕 `FactRecord`、分类 schema、强类型明细和字段级审计建立事务化领域命令，不把新旧字段混写在兼容 `content` JSON 中。
 
-| 字段 | 说明 |
-| --- | --- |
-| `id` | 稳定主键 |
-| `workspace_id` | 所属工作区 |
-| `category` | 个人信息、教育、经历、技能、成果、链接等 |
-| `title` | 条目名称 |
-| `content` | 该分类的结构化 JSON 内容 |
-| `tags` | 标准化标签集合 |
-| `status` | 当前、已归档等 |
-| `source_note` | 来源说明 |
-| `created_at` / `updated_at` | 时间信息 |
-
-具体分类字段应由领域校验器检查，不应把所有业务字段都退化为无约束文本。新增分类可以增加新的内容校验器和模板适配器，不应修改历史事实的含义。
-
-事实资料采用当前值加审计记录。每次修改写入 `fact_audits`，包含操作者、修改时间、变化摘要和必要的旧值/新值。事实资料不采用正式简历同等级的不可变版本模型。
+旧迁移中的 `content` 只作为一次性输入；运行事实的结构化字段来自对应分类明细和受控扩展字段。分类不能在普通编辑中原地修改，转类、合并和拆分都必须记录旧新 ID 映射。
 
 ### 3.4 Evidence
 
-证据是可对外展示的验证材料，与事实条目或正式简历区块建立多对多关系。
+证据是工作区内可复用的独立材料，类型的必填元数据、有效/失效/归档状态、不可变内容和事实引用规则以[资料库关系规范](resource-library/design.md)为准。
+
+同一证据可以被多条事实和多个简历区块复用。证据 URL、文件引用、文件属性或说明内容变化时创建新证据并归档旧记录；标题和状态的修改通过证据审计记录。简历的展示方式保存在简历当前使用或正式版本快照关系中，而不是写回证据本体。
+
+### 3.5 岗位画像与招聘机会
+
+完整字段、复制命令和生命周期见[岗位画像模块规范](domain/job-profile/design.md)。技术边界如下：
+
+- `RequirementProfile` 是可复用岗位基线，按工作区隔离；
+- `JobOpportunity` 只属于一个画像，画像可有 `0..N` 条机会；
+- 画像与机会使用追加式审计，不建立不可变版本；
+- 同画像最多一份 active Resume，历史归档/回收 Resume 可多条；
+- 正式版本保存画像和机会快照，画像后续修改不覆盖正文。
+
+### 3.6 Resume 与临时草稿
+
+正式简历对象统一为 `Resume`，数据库 ID 即业务身份。`ResumeIdentity` 和 `identity_key` 只存在于旧迁移输入，不再出现在 API、URL 或用户文案中。
+
+`LinkedResume` 保存临时选择；转化后保留草稿并记录唯一来源 Resume。简历内修改借来的画像时自动复制画像字段，不复制机会，原画像不变。
+
+### 3.7 ResumeWorkingCopy
+
+每份 Resume 恰有一份工作副本。目标状态拆成三个正交维度：
 
 ```text
-Evidence
-  id
-  workspace_id
-  kind: file | link | note
-  title
-  description
-  url              # link 类型使用
-  storage_key      # file 类型使用
-  mime_type
-  size_bytes
-  checksum
-  status: active | archived
-  created_at
-  updated_at
+content_state:       clean | dirty
+evidence_sync_state: clean | pending | conflict
+baseline_state:      current | stale
 ```
 
-文件内容通过 `FileStorage` 接口保存，数据库只保存元数据和存储键。文件名、MIME 类型、大小和校验和必须在上传时校验。外部链接保存原始 URL，并在渲染时进行安全协议检查。
+工作副本另保存 `base_version_id` 和 `pending_reason`。未保存正文与证据同步待处理可以同时存在，不能压成一个互斥状态。正文仍使用受控 Markdown 子集，模板只决定呈现。
 
-第一版文件白名单为 PDF、PNG、JPEG 和 WEBP。单文件最大 10 MB，单份简历附件包最大 100 MB。超过限制或格式不支持时拒绝上传。证据不允许物理删除，只能标记失效或归档。
+### 3.8 ResumeVersion
 
-证据的展示方式不属于证据本体，而属于简历区块与证据的引用关系：
+版本正文、岗位与机会快照、事实来源和证据清单不可变。版本只允许线性追加，禁止更新或删除历史正文。
 
-```text
-ResumeEvidenceReference
-  resume_identity_id / version_id
-  section_id / block_id
-  evidence_id
-  display_mode: hidden | inline_link | attachment | reference
-  label
-  order
-```
+版本原因只包括 `format_conversion`、`user_save`、`rollback` 和 `evidence_sync`。模板切换、显示名称变化和导出不产生版本。
 
-同一证据可以被多个事实条目和简历区块复用，每个引用关系独立保存展示方式、说明和排序。
-
-证据更新由事务事件触发正式简历同步。只有影响交付内容的变化才触发同步：正文链接、附件文件、附件说明、引用关系和证据失效。内部备注变化不触发版本。
-
-### 3.5 RequirementProfile
-
-需求画像是复用岗位要求和决定简历身份的对象，不直接等于公司岗位。建议字段如下：
-
-| 字段 | 说明 |
-| --- | --- |
-| `id` | 稳定主键 |
-| `workspace_id` | 所属工作区 |
-| `name` | 用户可读名称 |
-| `role_direction` | 岗位方向 |
-| `core_requirements` | 核心技术要求 |
-| `general_requirements` | 一般能力要求 |
-| `responsibilities` | 主要职责 |
-| `resume_strategy` | 简历强调方向 |
-| `fingerprint_candidate` | 系统计算的候选指纹 |
-| `identity_key` | 用户确认的简历身份键 |
-| `created_at` / `updated_at` | 时间信息 |
-
-`identity_key` 是用户确认的稳定业务键，不直接等同于文件名。系统可以根据标准化字段计算候选指纹，但不能未经用户确认就自动拆分正式简历身份。
-
-候选指纹当前只使用岗位方向、核心技术要求和简历策略。标准化处理为去首尾空格、合并连续空白、英文统一小写、技术要求去重并排序，中文保留原文；简历策略使用归一化后的完整文本。未来词库或 AI 判断只能生成辅助候选值，不能直接改变用户确认的身份键。
-
-### 3.6 JobOpportunity
-
-招聘机会保存画像的具体来源：
-
-- 公司；
-- 岗位名称；
-- 原始 JD；
-- 招聘页面链接；
-- 来源备注；
-- 关联的 `requirement_profile_id`。
-
-第一阶段不实现投递状态、联系人和提醒，但数据模型应允许后续增加这些字段。
-
-### 3.7 ResumeIdentity
-
-`ResumeIdentity` 表示一份围绕需求画像维护的正式简历。建议字段如下：
-
-| 字段 | 说明 |
-| --- | --- |
-| `id` | 稳定主键 |
-| `workspace_id` | 所属工作区 |
-| `requirement_profile_id` | 当前需求画像 |
-| `identity_key` | 用户确认的唯一业务键 |
-| `display_name` | 用户可读名称 |
-| `filename_stem` | 导出文件名基础部分 |
-| `current_version_id` | 当前正式版本 |
-| `status` | 活跃、归档等 |
-
-同一工作区内，`identity_key` 唯一。`display_name` 和 `filename_stem` 可以变化，但变化不会创建新的简历身份；如果用户确认创建新身份，则新身份必须拥有新的 `identity_key`。
-
-### 3.8 ResumeWorkingCopy
-
-工作副本保存正在编辑的结构化简历内容，并记录其编辑基线：
-
-```text
-ResumeWorkingCopy
-  resume_identity_id
-  base_version_id
-  content
-  dirty: boolean
-  evidence_sync_pending: boolean
-  merge_status: clean | pending | conflict
-  updated_at
-```
-
-`base_version_id` 用于判断工作副本是否落后于当前正式版本。证据自动版本产生后，带有未保存正文的工作副本保持原基线并进入 `evidence_sync_pending` 状态，不能静默覆盖或伪装成已同步。
-
-工作副本的结构化内容示例：
-
-```json
-{
-  "sections": [
-    {
-      "id": "section-1",
-      "type": "profile",
-      "title": "个人简介",
-      "order": 10,
-      "visibility": "visible",
-      "blocks": [
-        {
-          "id": "block-1",
-          "type": "paragraph",
-          "content": "经用户编辑的文本",
-          "source_refs": ["fact:123"],
-          "evidence_refs": ["evidence:456"],
-          "origin": "fact | user | ai"
-        }
-      ]
-    }
-  ]
-}
-```
-
-核心区块使用固定类型；模板可以声明可选区块，工作副本只能启用或关闭这些已声明区块，不能自由新增结构、改变布局或编辑模板几何样式。正文内容独立保存，来源引用和证据引用作为元数据保存，不在事实库与简历正文之间建立自动覆盖关系。
-
-正文存储为纯文本加受控 Markdown 子集，允许段落、粗体、斜体、无序列表和链接；禁止标题、表格、图片、HTML、脚本和自定义 CSS。渲染前必须清洗并解析 Markdown，不能直接把用户内容当作 HTML 输出。
-
-### 3.9 ResumeVersion
-
-正式版本是不可变记录，必须保存足以复现交付物的信息：
-
-- 完整结构化简历内容；
-- 事实来源引用及其显示状态；
-- 证据清单和附件引用；
-- 使用的模板版本；
-- 需求画像摘要和身份键；
-- 版本号、创建人、创建时间和版本原因；
-- 内容快照哈希和导出清单哈希。
-
-版本原因至少包括：`format_conversion`、`user_save`、`rollback`、`identity_copy`、`evidence_sync` 和 `template_change`。`format_conversion` 对应用户可见的“格式化简历、未润色”版本原因。
-
-版本只允许在线性链上追加。禁止更新历史版本正文、删除历史版本或把历史版本直接覆盖为当前版本。
+内容哈希覆盖正文、岗位与机会快照、来源关系和证据清单，不包含模板、文件名、导出时间或 HTML。详细字段见[简历主链模块规范](domain/resume/design.md)。
 
 ## 4. 生命周期与事务
 
 ### 4.1 临时简历
 
-临时简历不是 `ResumeVersion`，而是由需求画像、事实资料当前值、用户选择状态和模板当前版本计算出的实时视图。用户选择可以保存为临时工作状态，但该状态不进入正式历史。
+临时简历不是 `ResumeVersion`，而是由需求画像、事实资料当前值、用户选择状态和当前模板计算出的实时视图。草稿状态为 `open / converted / abandoned`，转化后保留并记录来源 Resume。
 
 临时简历只支持选择事实条目、调整顺序和预览；不提供文本编辑、人工改写、AI 修改或正式正文保存能力。这些操作只在转化后的正式简历工作副本中可用。
 
@@ -326,6 +192,8 @@ ResumeWorkingCopy
 3. 将版本原因设为 `format_conversion`，用户可见原因显示为“格式化简历、未润色”；
 4. 将该版本设为当前正式版本；
 5. 将工作副本的 `base_version_id` 指向 `v1`，供用户继续人工或 AI 编辑。
+6. 将 LinkedResume 标记为 `converted` 并记录 `converted_resume_id`。
+7. 同一画像已有 active Resume 时拒绝转化。
 
 转化后的工作副本仍然可以有未保存修改，但这些修改不能回写或覆盖 `v1`。用户后续点击正式保存时，从当前工作副本追加 `v2` 或更高版本。
 
@@ -335,7 +203,7 @@ ResumeWorkingCopy
 
 1. 校验工作副本的结构、来源和证据引用。
 2. 读取当前版本号并申请下一个线性版本号。
-3. 保存完整内容快照、模板版本和证据清单。
+3. 保存完整内容快照、岗位/机会快照、来源关系和证据清单。
 4. 写入版本原因和变更摘要。
 5. 更新 `current_version_id`。
 6. 记录操作者和时间。
@@ -348,7 +216,7 @@ ResumeWorkingCopy
 
 回退操作也只把历史版本复制到工作副本。用户确认并保存后生成新的当前版本，版本原因标记为 `rollback`。原历史版本和被回退前的当前版本都保留。
 
-不支持传统 Git 分支和合并。用户如果要针对新的需求画像维护另一份简历，应创建新的 `ResumeIdentity`，而不是在原身份上建立隐藏分支。
+不支持传统 Git 分支和合并。用户如果要从新的岗位基线创建另一份正式简历，应使用另一份画像创建新的 `Resume`，而不是在原 Resume 上建立隐藏分支。
 
 ### 4.5 事实变化
 
@@ -360,7 +228,7 @@ ResumeWorkingCopy
 
 用户可以选择性地把事实变化同步到工作副本；同步后的正式保存由用户触发并使用 `user_save` 原因。
 
-### 4.6 证据变化
+### 4.6 证据变化（target）
 
 证据变化需要自动保持当前交付物的证据清单一致：
 
@@ -373,15 +241,16 @@ ResumeWorkingCopy
 
 自动版本不能包含用户尚未显式保存的人工或 AI 正文修改。用户必须显式保存，正文变化才可以进入正常正式版本。
 
-### 4.7 新简历身份
+### 4.7 简历内修改画像与恢复冲突
 
-需求画像核心字段变化时，系统计算候选指纹差异并提示用户。用户选择创建新身份后：
+在简历内修改借来的岗位要求时：
 
-1. 校验新 `identity_key` 在工作区内唯一。
-2. 创建新的 `ResumeIdentity`。
-3. 将当前正式版本复制到新身份工作副本。
-4. 保留原身份和完整历史。
-5. 新身份第一次正式保存时从 `v1` 开始编号。
+1. 复制当前画像字段创建新的 active 画像。
+2. 不复制原画像的招聘机会。
+3. 当前 Resume 改指新画像，原画像及其机会保持不变。
+4. 下一次正常正式保存把新画像和当前机会写入版本快照。
+
+同一画像已有 active Resume 时恢复旧 Resume，接口返回冲突。界面只允许“归档当前 Resume 后恢复旧记录”或“取消”，不能静默形成两个 active。
 
 ## 5. 模板与渲染
 
@@ -389,13 +258,13 @@ ResumeWorkingCopy
 
 模板只负责把结构化简历内容呈现为 HTML，不负责选择事实、修改正文或决定版本。模板应通过稳定的渲染上下文读取区块，而不是直接依赖某一个数据库表的全部字段。
 
-### 5.2 Template 与 TemplateVersion
+### 5.2 Template
 
-模板实体保存名称、说明、支持的区块类型和状态；模板版本保存具体 HTML/CSS、版本号、校验和和创建信息。正式简历版本必须引用确定的模板版本。
+模板是系统全局内置只读目录。Template 保存稳定 key、渲染器 key、支持区块和 available/retired 状态，不建立用户可见 TemplateVersion。
 
-模板更新创建新模板版本，不修改历史模板版本。模板不支持的区块必须有明确的降级策略：默认显示为通用文本区块或在预览校验中报错，不能静默丢失内容。
+模板代码原地升级，Resume 保存当前 template_id。模板变化不修改内容哈希、不产生版本、不修饰正文。模板不支持的区块必须在预览校验中报错，不能静默丢失内容。
 
-正式简历工作副本可以切换模板。切换模板和可选区块变化属于工作副本变化，用户正式保存后生成新版本；历史版本始终引用原模板版本。模板应声明其支持的核心区块和可选区块，编辑器不得让用户启用模板未声明的区块。
+历史版本只保证正文、岗位、来源和证据可复现；所有版本使用 Resume 当前模板渲染，允许视觉改变。详细规则见[模板与交付模块规范](domain/rendering-delivery/design.md)。
 
 ### 5.3 渲染流程
 
@@ -403,7 +272,7 @@ ResumeWorkingCopy
 ResumeVersion
   +-- structured content
   +-- source/evidence manifest
-  `-- template_version
+  `-- current Resume template
           |
           v
      render context
@@ -429,6 +298,8 @@ exists(storage_key) -> boolean
 
 ### 6.2 ZIP 导出结构
 
+> ZIP、附件目录和 `manifest.json` 属于 deferred 目标；当前已实现独立 HTML 导出。
+
 ```text
 {readable-name}-v{version}.zip
 |-- resume.html
@@ -438,11 +309,11 @@ exists(storage_key) -> boolean
 `-- manifest.json
 ```
 
-`manifest.json` 记录简历身份、版本、导出时间、模板版本、证据名称、附件路径和校验和。HTML 使用包内相对路径引用附件；外部链接保留为可点击 URL。
+目标 `manifest.json` 记录 Resume、版本、导出时间、当前 Template、证据名称、附件路径和校验和。HTML 使用包内相对路径引用附件；外部链接保留为可点击 URL。
 
-导出服务必须防止路径穿越、重复文件名覆盖、非法 MIME 类型和 ZIP 炸弹式输入。文件名使用用户可读名称和稳定版本号，名称需经过文件系统安全化处理；修改显示名称不改变简历身份键和历史版本关系。
+导出服务必须防止路径穿越、重复文件名覆盖、非法 MIME 类型和 ZIP 炸弹式输入。文件名使用用户可读名称和稳定版本号；修改显示名称不改变 Resume ID 和历史版本关系。每次导出追加 ExportEvent。
 
-## 7. AI 服务设计
+## 7. AI 服务设计（deferred）
 
 ### 7.1 适配接口
 
@@ -485,21 +356,25 @@ API 使用资源化 JSON 接口。具体字段以功能设计书和领域模型�
 | 资源 | 主要接口 | 用途 |
 | --- | --- | --- |
 | facts | `GET/POST/PATCH /api/facts` | 事实资料查询和维护 |
-| deletion | `DELETE /api/facts/{id}`、`DELETE /api/requirement-profiles/{id}`、`DELETE /api/resumes/{id}` | 无历史引用时永久删除，否则移入回收站 |
+| deletion | `DELETE /api/facts/{id}`、`DELETE /api/requirement-profiles/{id}`、`DELETE /api/resumes/{id}` | 先移入回收站；事实仅在没有当前或正式历史引用且二次确认后清理为匿名墓碑 |
 | recovery | `POST /api/{resource}/{id}/restore` | 恢复进入回收站的资料、画像或正式简历 |
 | fact audits | `GET /api/facts/{id}/audits` | 查看事实修改记录 |
-| evidence | `GET/POST/PATCH /api/evidence` | 证据上传、链接、说明和归档；不提供物理删除 |
+| evidence | `GET/POST/PATCH /api/evidence`、`GET /api/evidence/{id}/file` | 证据上传、链接、说明、归档和文件内联预览；不提供物理删除 |
 | fact evidence | `GET /api/facts/{id}/evidence`、`POST /api/evidence`、`POST /api/evidence/upload` | 查询、添加链接和上传事实证据 |
+| profile photo | `GET/POST /api/facts/{id}/profile-photo`、`DELETE /api/profile-photos/{id}`、`POST /api/profile-photos/{id}/restore` | 档案照片上传、当前照片、历史照片、移除与恢复；当前照片元数据进入基本信息块，上传变化同步到现有工作副本，HTML 导出将原图内嵌为 data URL |
 | profiles | `GET/POST/PATCH /api/requirement-profiles` | 需求画像管理 |
 | opportunities | `GET/POST/PATCH /api/opportunities` | 招聘机会来源管理 |
 | linked resumes | `GET/POST/PATCH /api/linked-resumes` | 临时联动简历和选择状态 |
-| resume identities | `GET/POST/PATCH /api/resumes` | 正式简历身份管理 |
+| resumes | `GET/POST/PATCH /api/resumes` | 正式 Resume；ID 即身份，不返回 identity_key |
+| resume profile copy | `PATCH /api/resumes/{id}/profile` | 简历内修改画像时复制画像，不复制机会 |
 | working copies | `GET/PATCH /api/resumes/{id}/working-copy` | 正式简历工作副本编辑 |
 | versions | `GET /api/resumes/{id}/versions` | 版本历史和差异 |
 | version actions | `POST /api/resumes/{id}/versions/{version}/restore` | 从历史版本恢复工作副本 |
-| templates | `GET/POST/PATCH /api/templates` | 模板和模板版本管理 |
-| AI | `POST /api/ai/edit` | 生成并应用 AI 工作副本修改 |
-| exports | `POST /api/resumes/{id}/versions/{version}/export` | 首版生成独立 HTML；后续扩展 ZIP 交付物 |
+| templates | `GET /api/templates` | 全局 only-read 模板目录 |
+| template preferences | `GET/PATCH /api/template-preferences` | 工作区默认和最近使用模板 |
+| AI | `POST /api/ai/edit` | deferred；未来生成待确认的工作副本修改 |
+| exports | `POST /api/resumes/{id}/versions/{version}/export` | 生成当前模板下的 HTML 并追加 ExportEvent；ZIP 为 deferred |
+| export events | `GET /api/export-events` | 查询版本、模板、警告和输出哈希 |
 
 ### 8.1 通用 API 规则
 
@@ -535,6 +410,30 @@ API 使用资源化 JSON 接口。具体字段以功能设计书和领域模型�
 
 比较服务不能只比较最终 HTML，因为 HTML 中的排版变化不应掩盖正文、来源和证据的业务变化。
 
+### 8.3 事实写入与响应
+
+`v2.0.0` 运行契约只接受受控分类代码与字段对象，不再接受旧 `category`、`details` 或 `content`：
+
+```json
+{
+  "category_code": "experience",
+  "schema_version_id": 3,
+  "title": "机器人数据采集项目",
+  "fields": {
+    "experience_kind": "project",
+    "period_text": "2026.05 - 至今",
+    "organization": "实验室",
+    "work_summary": "完成数据采集与模型训练。"
+  },
+  "tags": ["具身智能", "数据采集"],
+  "skill_ids": [12, 15]
+}
+```
+
+响应额外返回 `business_key`、`skill_group`、`linked_skills` 和 `evidence_count`。业务键由分类规范化字段生成，只在同一工作区和分类的非墓碑事实中唯一。技能必须引用工作区 `skill_groups`，成果主经历必须引用 `experience` 分类事实。
+
+待处理事项使用 `GET/PATCH /api/pending-issues`，每条返回 `section_code`、`block_key` 和显式 `source`；招聘机会统一使用 `GET/POST /api/opportunities` 与 `PATCH/DELETE /api/opportunities/{id}`。
+
 ## 9. 前端实现设计
 
 ### 9.1 应用区域
@@ -545,7 +444,7 @@ SPA 至少包含以下区域：
 - 证据管理；
 - 需求画像和招聘机会；
 - 临时简历；
-- 正式简历列表和身份详情；
+- 正式简历列表和 Resume 详情；
 - 结构化编辑器；
 - 版本历史与差异比较；
 - 模板管理；
@@ -579,7 +478,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 
 ### 10.1 数据库策略
 
-开发期和本地模式使用 SQLite；生产或多用户模式使用 PostgreSQL。业务服务依赖仓储和事务接口，不直接依赖 SQLite 特有语法。
+当前正式目标使用 SQLite，资料域可执行结构以[目标 SQL](resource-library/schema.sql)为准。业务服务仍依赖仓储和事务接口，未来若进入多用户服务端阶段，再另立存储迁移决策。
 
 必须使用正式迁移工具管理表结构、索引和数据转换。应用启动不能把 `create_all` 作为迁移方案。
 
@@ -588,18 +487,20 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 至少建立以下索引：
 
 - 所有业务表的 `workspace_id`；
-- `ResumeIdentity(workspace_id, identity_key)` 唯一索引；
-- `ResumeVersion(resume_identity_id, version_number)` 唯一索引；
-- `Evidence(workspace_id, checksum)`；
+- `Resume(workspace_id, requirement_profile_id)` 在 active 状态下的部分唯一索引；
+- `ResumeVersion(resume_id, version_number)` 唯一索引；
+- 文件证据 `Evidence(workspace_id, checksum)` 唯一索引；
 - 来源引用查询所需的关联表索引；
 - 需求画像与招聘机会的外键索引；
 - 审计记录的对象 ID 与时间索引。
 
 ### 10.3 旧数据迁移
 
-迁移工具应能把当前数据库中的个人资料、教育、经历、技能、成果、岗位和模板转换为新领域对象。无法确定的字段保留在来源说明或自定义字段中，不应静默丢弃。
+迁移工具应能把当前数据库中的个人资料、教育、经历、技能、成果、岗位和模板转换为新领域对象。资料事实只写入系统登记的结构化字段；无法自动判断的原文保留在脱敏执行记录或来源说明中，不通过自定义字段重新引入。项目链接改为挂接经历或成果的证据。
 
 当前旧的简历记录如只有条目 ID，迁移后只能作为“来源不完整的旧记录”处理；新系统正式版本必须保存完整结构化快照。
+
+`0016_target_resource_model` 已把现有数据库从 revision 15 升级到目标资源模型：复制旧事实、明细、标签、证据、审计和简历引用，规范化业务键与技能分组，随后删除旧表和兼容列；`0017_target_guard_completion` 补齐字段目录、标签命名空间和扩展值的目标触发器；`0018_profile_photos` 增加个人档案照片及历史关系。该迁移链不可逆，正式执行前必须保留数据库备份。
 
 迁移过程要求：
 
@@ -625,7 +526,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 
 ### 12.1 领域与服务测试
 
-- 同一工作区内重复 `identity_key` 被拒绝，不同工作区可以重复。
+- 同一画像最多一份 active Resume；归档和回收历史可保留多条。
 - 临时简历读取事实当前值，事实变化后重新打开能反映变化。
 - 临时简历自身不会产生正式版本；转化动作会立即创建原因标记为 `format_conversion` 的正式 `v1`。
 - 转化后的后续正式保存从 `v2` 开始生成连续版本号和完整快照。
@@ -635,7 +536,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 - 证据变化自动生成 `evidence_sync` 版本。
 - 证据自动版本以最近已保存版本为基线，不包含未保存的人工或 AI 正文。
 - 证据变化可以合并到未保存工作副本的证据状态，但不能覆盖正文；无法合并时创建待处理状态。
-- 新身份继承当前版本但从 `v1` 开始独立编号。
+- 简历内修改画像会复制新画像且不复制机会，原画像保持不变。
 - 并发保存返回冲突，不覆盖他人的工作副本。
 - 不支持的证据格式或超过 10 MB 单文件/100 MB 单包限制时上传失败。
 
@@ -650,7 +551,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 
 ### 12.3 渲染与导出测试
 
-- 历史版本在事实库、模板和证据发生变化后仍能复现。
+- 历史版本的正文、岗位、来源和证据在资料变化后仍能复现；模板视觉允许更新。
 - 外部链接可点击，附件使用有效相对路径。
 - 未选择的证据不进入 HTML 或 ZIP。
 - 文件名、MIME 类型和附件校验和写入清单。
@@ -669,7 +570,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 
 - 列表查询分页，避免一次加载整个事实库或附件目录。
 - 大文件上传使用流式写入，避免完整载入内存。
-- HTML 预览可以缓存版本级渲染结果，但缓存键必须包含版本和模板版本。
+- HTML 预览可以缓存版本级渲染结果，但缓存键必须包含 ResumeVersion 和当前 Template；模板升级需使缓存失效。
 - ZIP 导出使用版本快照，不读取会变化的临时内容。
 - 关键操作记录结构化日志：保存版本、证据同步、AI 调用、导出和迁移。
 - 失败的 AI 调用和导出任务可重试，但重试不能重复创建相同版本。
@@ -681,7 +582,7 @@ v1 前端实现将正式编辑区拆分为只读 `Canvas` 和独立 `BlockEditor
 
 1. 用户可以按功能设计书完成事实维护、画像管理、临时简历、正式编辑、版本管理和导出。
 2. 正式简历正文与事实库独立，但来源和证据关系可追溯。
-3. 历史版本能够复现当时的内容、模板和证据清单。
+3. 历史版本能够复现当时的业务内容、岗位、来源和证据清单；视觉可按当前模板演进。
 4. 证据变化自动产生有明确原因的正式版本。
 5. AI 不会绕过用户确认创建正式版本。
 6. 技术接口无法绕过工作区隔离、版本不可变和权限校验。
