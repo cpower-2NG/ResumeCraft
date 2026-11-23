@@ -14,6 +14,12 @@ assert SPEC and SPEC.loader
 checker = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(checker)
 
+AUDIT_NOTE_PATH = ROOT / "docs" / "resource-library" / "data-reorganization-2026-11-02.md"
+requires_audit_note = pytest.mark.skipif(
+    not AUDIT_NOTE_PATH.exists(),
+    reason="resource-library audit notes (docs/resource-library/data-*.md) stay local and are gitignored",
+)
+
 SCHEMA_BY_CATEGORY = {
     "basics": 1,
     "education": 2,
@@ -89,6 +95,7 @@ def add_experience(db: sqlite3.Connection, fact_id: int) -> None:
     )
 
 
+@requires_audit_note
 def test_schema_and_stable_id_contract():
     assert checker.validate() == []
     connection = checker.load_schema()
@@ -407,6 +414,7 @@ def test_tag_name_and_alias_share_namespace(db):
         )
 
 
+@requires_audit_note
 def test_audit_document_covers_snapshot_without_contact_data():
     text = checker.AUDIT_PATH.read_text(encoding="utf-8")
     data_ids = {value for value in checker.ids_in(text) if value.startswith("RL-DAT-")}
